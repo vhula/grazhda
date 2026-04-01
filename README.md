@@ -2,25 +2,18 @@
 
 # 🏔️ Grazhda (Ґражда)
 
-**Grazhda** is a unified automation ecosystem designed to streamline the daily workflows. It creates a "local homestead" that bridges the gap between high-level tools and low-level local filesystem management.
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+
+**Grazhda** is a unified automation ecosystem designed to streamline daily workflows. It creates a "local homestead" that bridges the gap between high-level tools and low-level local filesystem management, reducing context-switching and saving developers hours per week.
 
 Instead of jumping between browser tabs and terminal windows, Grazhda allows you to orchestrate your entire environment through a set of specialized, lightweight tools.
 
------
+## Table of Contents
 
-## ✨ Core Features
-
-### 🏢 Enterprise Orchestration
-
-* Baking...
-
-### 📂 Local Workspace Mastery
-
-* Baking...
-
-### ⚙️ Automated Rituals
-
-* Baking...
+- [The Toolkit](#-the-toolkit)
+- [Quick Start](#-quick-start)
+- [Example Usage](#-example-usage)
+- [License](#-license)
 
 -----
 
@@ -28,28 +21,38 @@ Instead of jumping between browser tabs and terminal windows, Grazhda allows you
 
 The ecosystem consists of five specialized components that work together:
 
-| Tool | Role | Description                                                                                |
-| :--- | :--- |:-------------------------------------------------------------------------------------------|
-| **Grazhda** | **The Installer** | A bash-based tool to install, configure, and manage the entire ecosystem.                  |
-| **Molfar** | **The Brain** | The central server that handles integrations, schedules tasks, and runs complex workflows. |
-| **Molf** | **The Interface** | The CLI tool you use to talk to **Molfar**.                                                |
-| **Dukh** | **The Worker** | A background server that performs native tasks directly on your filesystem.                |
-| **Zgard** | **The Command** | The CLI tool you use to talk to **Dukh** (local file tasks and system commands).           |
+| Tool | Language | Role | Status | Description |
+| :--- | :------- | :--- | :----- | :---------- |
+| **Grazhda** | Bash | **The Installer** | 🚧 In Development | A bash-based tool to install, configure, and manage the entire ecosystem. |
+| **Molfar** | Java | **The Brain** | 📅 Planned | The central server that handles integrations, schedules tasks, and runs complex workflows. |
+| **Molf** | Java | **The Interface** | 📅 Planned | The CLI tool you use to talk to **Molfar**. |
+| **Dukh** | Go | **The Worker** | 📅 Planned | A background server that performs native tasks directly on your filesystem. |
+| **Zgard** | Go | **The Command** | 📅 Planned | The CLI tool you use to talk to **Dukh** (local file tasks and system commands). |
 
 -----
 
 ## 🚀 Quick Start
 
+### Prerequisites
+
+- Bash (for Grazhda)
+- Java 25+ (for Molfar and Molf)
+- Go 1.21+ (for Dukh and Zgard)
+- Administrative privileges for system access
+
 ### 1\. Installation
 
-Use the main `grazhda` script to build and install all components to your local system:
+Download and install Grazhda using the following command:
 
 ```bash
-# Install binaries and set up the environment
-./grazhda install
+curl -fsSL https://get.grazhda.dev | bash
 ```
 
+This will download the installer script and set up the environment automatically.
+
 ### 2\. Configuration
+
+Create a YAML config file defining server ports and API keys (e.g., for integrations).
 
 ```bash
 ./grazhda config --path /path/to/config.yaml
@@ -69,6 +72,13 @@ Use the main `grazhda` script to build and install all components to your local 
 ./grazhda start all
 ```
 
+To verify, check status:
+
+```bash
+./grazhda status
+# Or: curl http://localhost:8080/health (for Molfar)
+```
+
 ### 4\. Using the CLI Tools
 
 -----
@@ -80,6 +90,9 @@ Use the main `grazhda` script to build and install all components to your local 
 ```bash
 # List all active workflows in Molfar
 $ molf wf list
+
+# Create a new workflow for daily backups
+$ molf wf create backup --schedule 'daily' --action 'zgard fs backup /home/user'
 ```
 
 ### Managing the Local System (via `zgard`)
@@ -92,14 +105,13 @@ zgard ws init
 ```bash
 # Purge the local workspace
 zgard ws purge
+
+# Run a custom script
+zgard run --script my-script.sh
 ```
 
 -----
 
-## 💡 Technical Overview
+## 📄 License
 
-* **Reliability:** The system separates local tasks (Dukh) from remote integrations (Molfar). If your internet goes down, your local filesystem tools still work perfectly.
-* **Performance:** Built using **Java 25** and **Go**, leveraging modern features like Virtual Threads and gRPC to ensure the tools feel instant and never block your terminal.
-* **Extensibility:** The system is designed to be "script-first"—you can drop new functionality into the server and call it immediately via the CLI.
-
------
+This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
