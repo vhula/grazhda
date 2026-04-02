@@ -37,7 +37,7 @@ The ecosystem consists of five specialized components that work together:
 
 - Bash (for Grazhda)
 - Java 25+ (for Molfar and Molf)
-- Go 1.21+ (for Dukh and Zgard)
+- Go 1.26+ (for Dukh and Zgard)
 - Administrative privileges for system access
 
 ### 1\. Installation
