@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package workspace;
+
+option go_package = "github.com/vhula/grazhda/dukh/proto";
+
+service WorkspaceService {
+  rpc CreateWorkspace (CreateWorkspaceRequest) returns (CreateWorkspaceResponse);
+  rpc ListWorkspaces (ListWorkspacesRequest) returns (ListWorkspacesResponse);
+  rpc DeleteWorkspace (DeleteWorkspaceRequest) returns (DeleteWorkspaceResponse);
+}
+
+message CreateWorkspaceRequest {
+  string name = 1;
+}
+
+message CreateWorkspaceResponse {
+  string id = 1;
+  string status = 2;
+}
+
+message ListWorkspacesRequest {
+}
+
+message ListWorkspacesResponse {
+  repeated Workspace workspaces = 1;
+}
+
+message DeleteWorkspaceRequest {
+  string id = 1;
+}
+
+message DeleteWorkspaceResponse {
+  string status = 1;
+}
+
+message Workspace {
+  string id = 1;
+  string name = 2;
+  string created_at = 3;
+}

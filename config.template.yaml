@@ -1,0 +1,42 @@
+# Grazhda Configuration
+# This file is auto-generated during installation
+# Modify as needed for your environment
+
+# Dukh Web Server Configuration
+dukh:
+  # Server host to bind to
+  host: localhost
+  
+  # Server port
+  port: 8080
+  
+  # API paths
+  api:
+    # Workspace management API endpoint
+    workspace: /api/workspace
+    
+    # Health check endpoint
+    health: /health
+
+# Zgard Configuration
+zgard:
+  # Enable or disable zgard
+  enabled: true
+  
+  # Zgard specific settings
+  config: {}
+
+# General Settings
+general:
+  # Installation directory
+  install_dir: ${GRAZHDA_DIR}
+  
+  # Sources directory
+  sources_dir: ${GRAZHDA_DIR}/sources
+  
+  # Binaries directory
+  bin_dir: ${GRAZHDA_DIR}/bin
+  
+  # Environment
+  environment: development
+

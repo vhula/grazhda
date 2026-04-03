@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -e
+
+echo "Grazhda called with args: $*"
+
+if [ "$1" == "start" ]; then
+    echo "Starting Grazhda..."
+elif [ "$1" == "stop" ]; then
+    echo "Stopping Grazhda..."
+else
+    echo "Usage: $0 {start|stop}"
+    exit 1
+fi
