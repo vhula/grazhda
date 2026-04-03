@@ -45,7 +45,7 @@ The ecosystem consists of five specialized components that work together:
 Download and install Grazhda using the following command:
 
 ```bash
-curl -fsSL https://get.grazhda.dev | bash
+curl -s https://raw.githubusercontent.com/vhula/grazhda/refs/heads/main/grazhda.sh | bash
 ```
 
 This will download the installer script and set up the environment automatically.

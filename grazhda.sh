@@ -70,7 +70,7 @@ install_from_sources() {
 }
 
 install_from_github() {
-    local repo_url="${1:-https://github.com/vhula/grazhda.git}"
+    local repo_url="https://github.com/vhula/grazhda.git"
     local source_dir="$GRAZHDA_DIR/sources"
 
     mkdir -p "$GRAZHDA_DIR"
@@ -135,10 +135,10 @@ main() {
         rm -rf "$GRAZHDA_DIR/sources" "${GRAZHDA_DIR:?}/bin"
     fi
 
-    if [ -n "$GRAZHDA_REPO_URL" ]; then
-        install_from_github "$GRAZHDA_REPO_URL"
+    if [ -n "$LOCAL_REPO_PATH" ]; then
+        install_from_local "$LOCAL_REPO_PATH"
     else
-        install_from_local /mnt/e/proj/grazhda
+        install_from_github
     fi
 
     create_config
