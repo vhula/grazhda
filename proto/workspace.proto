@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package workspace;
 
-option go_package = "github.com/vhula/grazhda/dukh/proto";
+option go_package = "github.com/vhula/grazhda/internal/proto";
 
 service WorkspaceService {
   rpc InitWorkspaces (InitWorkspacesRequest) returns (InitWorkspacesResponse);

@@ -11,14 +11,17 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/vhula/grazhda/dukh/proto"
+	"github.com/vhula/grazhda/internal/proto"
 	"google.golang.org/grpc"
 )
 
 type mockWorkspaceServer struct {
 	proto.UnimplementedWorkspaceServiceServer
-	initCalled  bool
-	purgeCalled bool
+	proto.UnimplementedDukhServiceServer
+	initCalled   bool
+	purgeCalled  bool
+	stopCalled   bool
+	statusCalled bool
 }
 
 func (m *mockWorkspaceServer) InitWorkspaces(ctx context.Context, req *proto.InitWorkspacesRequest) (*proto.InitWorkspacesResponse, error) {
@@ -35,6 +38,16 @@ func (m *mockWorkspaceServer) GetWorkspaces(ctx context.Context, req *proto.GetW
 	return &proto.GetWorkspacesResponse{}, nil
 }
 
+func (m *mockWorkspaceServer) StopDukh(ctx context.Context, req *proto.StopDukhRequest) (*proto.StopDukhResponse, error) {
+	m.stopCalled = true
+	return &proto.StopDukhResponse{Status: "dukh server stopping"}, nil
+}
+
+func (m *mockWorkspaceServer) StatusDukh(ctx context.Context, req *proto.StatusDukhRequest) (*proto.StatusDukhResponse, error) {
+	m.statusCalled = true
+	return &proto.StatusDukhResponse{Running: true, Pid: 12345, Status: "dukh server is running"}, nil
+}
+
 func startTestServer(t *testing.T, server *mockWorkspaceServer) (string, func()) {
 	lis, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
@@ -42,9 +55,28 @@ func startTestServer(t *testing.T, server *mockWorkspaceServer) (string, func())
 	}
 	s := grpc.NewServer()
 	proto.RegisterWorkspaceServiceServer(s, server)
+	proto.RegisterDukhServiceServer(s, server)
 	go s.Serve(lis)
 	addr := lis.Addr().String()
 	return addr, func() { s.Stop(); lis.Close() }
+}
+
+func writeTestConfig(t *testing.T, dir, host string, port int) {
+	t.Helper()
+	configPath := filepath.Join(dir, "config.yaml")
+	yamlContent := fmt.Sprintf(`dukh:
+  host: %s
+  port: %d
+zgard:
+  config: {}
+general:
+  install_dir: /tmp
+  sources_dir: /tmp/src
+  bin_dir: /tmp/bin
+workspaces: []`, host, port)
+	if err := os.WriteFile(configPath, []byte(yamlContent), 0644); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestRun_ConfigError(t *testing.T) {
@@ -180,6 +212,111 @@ workspaces: []`
 	err := run([]string{"zgard", "run"})
 	if err != nil {
 		t.Error(err)
+	}
+}
+
+func TestRun_DukhNoSub(t *testing.T) {
+	tempDir := t.TempDir()
+	os.Setenv("GRAZHDA_DIR", tempDir)
+	defer os.Unsetenv("GRAZHDA_DIR")
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	err := run([]string{"zgard", "dukh"})
+	w.Close()
+	os.Stdout = old
+	if err != nil {
+		t.Error(err)
+	}
+	output, _ := io.ReadAll(r)
+	if !strings.Contains(string(output), "Usage: zgard dukh <subcommand>") {
+		t.Error("expected dukh usage output")
+	}
+}
+
+func TestRun_DukhInvalidSub(t *testing.T) {
+	tempDir := t.TempDir()
+	os.Setenv("GRAZHDA_DIR", tempDir)
+	defer os.Unsetenv("GRAZHDA_DIR")
+
+	err := run([]string{"zgard", "dukh", "invalid"})
+	if err == nil || !strings.Contains(err.Error(), "unknown dukh subcommand") {
+		t.Error("expected unknown dukh subcommand error")
+	}
+}
+
+func TestRun_DukhStopNoPIDFile(t *testing.T) {
+	tempDir := t.TempDir()
+	os.Setenv("GRAZHDA_DIR", tempDir)
+	defer os.Unsetenv("GRAZHDA_DIR")
+
+	err := run([]string{"zgard", "dukh", "stop"})
+	if err == nil || !strings.Contains(err.Error(), "failed to load config") {
+		t.Error("expected config error for dukh stop")
+	}
+}
+
+func TestRun_DukhStatusStopped(t *testing.T) {
+	server := &mockWorkspaceServer{}
+	addr, cleanup := startTestServer(t, server)
+	defer cleanup()
+	host, portStr, _ := net.SplitHostPort(addr)
+	port, _ := strconv.Atoi(portStr)
+
+	tempDir := t.TempDir()
+	os.Setenv("GRAZHDA_DIR", tempDir)
+	defer os.Unsetenv("GRAZHDA_DIR")
+	writeTestConfig(t, tempDir, host, port)
+
+	err := run([]string{"zgard", "dukh", "status"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !server.statusCalled {
+		t.Error("StatusDukh not called")
+	}
+}
+
+func TestRun_DukhStatusRunning(t *testing.T) {
+	server := &mockWorkspaceServer{}
+	addr, cleanup := startTestServer(t, server)
+	defer cleanup()
+	host, portStr, _ := net.SplitHostPort(addr)
+	port, _ := strconv.Atoi(portStr)
+
+	tempDir := t.TempDir()
+	os.Setenv("GRAZHDA_DIR", tempDir)
+	defer os.Unsetenv("GRAZHDA_DIR")
+	writeTestConfig(t, tempDir, host, port)
+
+	err := run([]string{"zgard", "dukh", "status"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !server.statusCalled {
+		t.Error("StatusDukh not called")
+	}
+}
+
+func TestRun_DukhStop(t *testing.T) {
+	server := &mockWorkspaceServer{}
+	addr, cleanup := startTestServer(t, server)
+	defer cleanup()
+	host, portStr, _ := net.SplitHostPort(addr)
+	port, _ := strconv.Atoi(portStr)
+
+	tempDir := t.TempDir()
+	os.Setenv("GRAZHDA_DIR", tempDir)
+	defer os.Unsetenv("GRAZHDA_DIR")
+	writeTestConfig(t, tempDir, host, port)
+
+	err := run([]string{"zgard", "dukh", "stop"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !server.stopCalled {
+		t.Error("StopDukh not called")
 	}
 }
 

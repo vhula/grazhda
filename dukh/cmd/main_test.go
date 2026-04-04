@@ -4,12 +4,15 @@ import (
 	"context"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
-	pb "github.com/vhula/grazhda/dukh/proto"
 	"github.com/vhula/grazhda/internal/config"
+	pb "github.com/vhula/grazhda/internal/proto"
 )
 
 func TestRun_NoArgs(t *testing.T) {
@@ -40,12 +43,50 @@ func TestRun_Start_ConfigError(t *testing.T) {
 }
 
 func TestRun_Stop(t *testing.T) {
+	tempDir := t.TempDir()
+	os.Setenv("GRAZHDA_DIR", tempDir)
+	defer os.Unsetenv("GRAZHDA_DIR")
+
+	cmd := exec.Command("sh", "-c", "sleep 30")
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+
+	pidFilePath := filepath.Join(tempDir, "dukh.pid")
+	if err := os.WriteFile(pidFilePath, []byte(strconv.Itoa(cmd.Process.Pid)+"\n"), 0644); err != nil {
+		_ = cmd.Process.Kill()
+		t.Fatal(err)
+	}
+
 	err, cfg := run([]string{"dukh", "stop"})
 	if err != nil {
 		t.Error(err)
 	}
 	if cfg != nil {
 		t.Error("expected cfg to be nil")
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		done <- cmd.Wait()
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		_ = cmd.Process.Kill()
+		t.Fatal("expected process to be stopped")
+	}
+}
+
+func TestRun_Stop_NoPID(t *testing.T) {
+	tempDir := t.TempDir()
+	os.Setenv("GRAZHDA_DIR", tempDir)
+	defer os.Unsetenv("GRAZHDA_DIR")
+
+	err, _ := run([]string{"dukh", "stop"})
+	if err == nil || !strings.Contains(err.Error(), "failed to stop dukh server") {
+		t.Error("expected stop error when pid file is missing")
 	}
 }
 

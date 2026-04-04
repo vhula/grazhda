@@ -7,22 +7,26 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"text/template"
 	"time"
 
 	"github.com/charmbracelet/log"
-	pb "github.com/vhula/grazhda/dukh/proto"
 	"github.com/vhula/grazhda/internal/config"
+	pb "github.com/vhula/grazhda/internal/proto"
 
 	"google.golang.org/grpc"
 )
 
 type workspaceServer struct {
 	pb.UnimplementedWorkspaceServiceServer
+	pb.UnimplementedDukhServiceServer
 	workspaces map[string]*pb.Workspace
 	config     *config.Config
+	grpcServer *grpc.Server
+	pidFile    string
 	mu         sync.RWMutex
 }
 
@@ -169,7 +173,46 @@ func (s *workspaceServer) GetWorkspaces(ctx context.Context, req *pb.GetWorkspac
 	return &pb.GetWorkspacesResponse{Workspaces: workspaces}, nil
 }
 
+func (s *workspaceServer) StopDukh(ctx context.Context, req *pb.StopDukhRequest) (*pb.StopDukhResponse, error) {
+	_ = ctx
+	_ = req
+
+	log.Info("Received gRPC stop request for Dukh server")
+
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		if s.pidFile != "" {
+			_ = os.Remove(s.pidFile)
+		}
+		s.grpcServer.GracefulStop()
+	}()
+
+	return &pb.StopDukhResponse{Status: "dukh server stopping"}, nil
+}
+
+func (s *workspaceServer) StatusDukh(ctx context.Context, req *pb.StatusDukhRequest) (*pb.StatusDukhResponse, error) {
+	_ = ctx
+	_ = req
+
+	return &pb.StatusDukhResponse{
+		Running: true,
+		Pid:     int32(os.Getpid()),
+		Status:  "dukh server is running",
+	}, nil
+}
+
 func startServer(cfg *config.Config) {
+	pidFilePath, err := getDukhPIDFilePath()
+	if err != nil {
+		log.Fatalf("Failed to resolve pid file path: %v", err)
+	}
+
+	err = os.WriteFile(pidFilePath, []byte(fmt.Sprintf("%d\n", os.Getpid())), 0644)
+	if err != nil {
+		log.Fatalf("Failed to write pid file: %v", err)
+	}
+	defer os.Remove(pidFilePath)
+
 	lis, err := net.Listen("tcp", fmt.Sprintf("%s:%d", cfg.Dukh.Host, cfg.Dukh.Port))
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
@@ -178,10 +221,13 @@ func startServer(cfg *config.Config) {
 	server := &workspaceServer{
 		workspaces: make(map[string]*pb.Workspace),
 		config:     cfg,
+		pidFile:    pidFilePath,
 	}
 
 	s := grpc.NewServer()
+	server.grpcServer = s
 	pb.RegisterWorkspaceServiceServer(s, server)
+	pb.RegisterDukhServiceServer(s, server)
 
 	log.Printf("Dukh gRPC server starting on %s:%d", cfg.Dukh.Host, cfg.Dukh.Port)
 	if err := s.Serve(lis); err != nil {
@@ -219,7 +265,9 @@ func run(args []string) (error, *config.Config) {
 		return nil, nil
 	case "stop":
 		fmt.Println("Stopping Dukh server...")
-		// TODO: Implement server stop logic
+		if err := stopDukhServer(); err != nil {
+			return fmt.Errorf("failed to stop dukh server: %w", err), nil
+		}
 		return nil, nil
 	case "status":
 		fmt.Println("Dukh server status: Not implemented yet")
@@ -227,6 +275,47 @@ func run(args []string) (error, *config.Config) {
 	default:
 		return fmt.Errorf("unknown command: %s", command), nil
 	}
+}
+
+func getDukhPIDFilePath() (string, error) {
+	grazhdaDir := os.Getenv("GRAZHDA_DIR")
+	if grazhdaDir == "" {
+		return "", fmt.Errorf("GRAZHDA_DIR is not set")
+	}
+	return filepath.Join(grazhdaDir, "dukh.pid"), nil
+}
+
+func stopDukhServer() error {
+	pidFilePath, err := getDukhPIDFilePath()
+	if err != nil {
+		return err
+	}
+
+	pidBytes, err := os.ReadFile(pidFilePath)
+	if err != nil {
+		return fmt.Errorf("unable to read pid file %s: %w", pidFilePath, err)
+	}
+
+	pid, err := strconv.Atoi(strings.TrimSpace(string(pidBytes)))
+	if err != nil {
+		return fmt.Errorf("invalid pid in %s: %w", pidFilePath, err)
+	}
+
+	process, err := os.FindProcess(pid)
+	if err != nil {
+		return fmt.Errorf("unable to find process %d: %w", pid, err)
+	}
+
+	if err := process.Kill(); err != nil {
+		return fmt.Errorf("unable to stop process %d: %w", pid, err)
+	}
+
+	if err := os.Remove(pidFilePath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("unable to remove pid file %s: %w", pidFilePath, err)
+	}
+
+	log.Info("Dukh server stopped", "pid", pid)
+	return nil
 }
 
 func constructGitCommand(tmplStr, repoName, projectDir, branch, localDirName string) string {

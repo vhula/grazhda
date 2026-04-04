@@ -13,7 +13,7 @@ help:
     echo "  build-dukh     - Build only Dukh CLI"
     echo "  build-zgard    - Build only Zgard CLI"
     echo "  copy-scripts   - Copy bash scripts to bin directory"
-    echo "  generate       - Generate protobuf code for Dukh"
+    echo "  generate       - Generate protobuf code for Dukh services"
     echo "  clean          - Remove all built binaries"
     echo "  test           - Run tests for all modules"
     echo "  zip            - Create a zip file with the built project"
@@ -40,9 +40,10 @@ copy-scripts:
 
 generate:
     echo "Generating protobuf code..."
-    cd dukh && go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-    cd dukh && go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-    cd dukh && protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative proto/workspace.proto
+    cd proto && go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+    cd proto && go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+    cd proto && protoc --go_out=../internal/proto --go_opt=paths=source_relative --go-grpc_out=../internal/proto --go-grpc_opt=paths=source_relative workspace.proto
+    cd proto && protoc --go_out=../internal/proto --go_opt=paths=source_relative --go-grpc_out=../internal/proto --go-grpc_opt=paths=source_relative dukh.proto
     echo "✓ Protobuf code generated"
 
 clean:
