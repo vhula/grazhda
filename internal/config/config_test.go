@@ -13,7 +13,7 @@ func TestLoadConfig(t *testing.T) {
 	defer os.Unsetenv("GRAZHDA_DIR")
 
 	configPath := filepath.Join(tempDir, "config.yaml")
-	yamlContent, err := os.ReadFile("../config.template.yaml")
+	yamlContent, err := os.ReadFile("../../config.template.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}

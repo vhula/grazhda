@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/charmbracelet/log"
-	"github.com/vhula/grazhda/config"
 	pb "github.com/vhula/grazhda/dukh/proto"
+	"github.com/vhula/grazhda/internal/config"
 
 	"google.golang.org/grpc"
 )

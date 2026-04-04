@@ -52,14 +52,21 @@ clean:
 
 test:
     echo "Running tests..."
-    cd config && go test ./...
+    cd internal && go test ./...
     cd dukh && go test ./...
     cd zgard && go test ./...
     echo "✓ Tests passed"
 
 tidy:
     echo "Tidying Go modules..."
-    cd config && go mod tidy
+    cd internal && go mod tidy
     cd dukh && go mod tidy
     cd zgard && go mod tidy
     echo "✓ Go modules tidied"
+
+fmt:
+    echo "Formatting Go modules..."
+    cd internal && go fmt ./...
+    cd dukh && go fmt ./...
+    cd zgard && go fmt ./...
+    echo "✓ Go modules formatted"

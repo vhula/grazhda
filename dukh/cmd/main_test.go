@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/vhula/grazhda/config"
 	pb "github.com/vhula/grazhda/dukh/proto"
+	"github.com/vhula/grazhda/internal/config"
 )
 
 func TestRun_NoArgs(t *testing.T) {

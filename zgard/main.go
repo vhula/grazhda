@@ -9,8 +9,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"github.com/vhula/grazhda/config"
 	"github.com/vhula/grazhda/dukh/proto"
+	"github.com/vhula/grazhda/internal/config"
 )
 
 func main() {
