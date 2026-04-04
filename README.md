@@ -1,117 +1,88 @@
-# Work in Progress: The README for the Grazhda ecosystem is currently being developed. Stay tuned for updates!
-
-# 🏔️ Grazhda (Ґражда)
+# 🏔️ Grazhda (Grazhda)
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
-**Grazhda** is a unified automation ecosystem designed to streamline daily workflows. It creates a "local homestead" that bridges the gap between high-level tools and low-level local filesystem management, reducing context-switching and saving developers hours per week.
-
-Instead of jumping between browser tabs and terminal windows, Grazhda allows you to orchestrate your entire environment through a set of specialized, lightweight tools.
+Grazhda is a local automation ecosystem focused on workspace lifecycle, filesystem operations, and repeatable developer setup.
 
 ## Table of Contents
 
-- [The Toolkit](#-the-toolkit)
-- [Quick Start](#-quick-start)
-- [Example Usage](#-example-usage)
-- [License](#-license)
+- [Zgard + Dukh Design](#zgard--dukh-design)
+  - [Responsibilities](#responsibilities)
+  - [Flow](#flow)
+- [Toolkit Status](#toolkit-status)
+- [Quick Start](#quick-start)
+  - [Prerequisites](#prerequisites)
+  - [Install](#install)
+  - [Start Dukh](#start-dukh)
+  - [Run Zgard Commands](#run-zgard-commands)
+- [License](#license)
 
------
+## Zgard + Dukh Design
 
-## 🛠️ The Toolkit
+The current foundation of Grazhda is built around two Go services:
 
-The ecosystem consists of five specialized components that work together:
+- **`dukh` (server):** a gRPC worker that manages workspaces from `config.yaml`.
+- **`zgard` (client):** a CLI that reads config and sends commands to `dukh`.
 
-| Tool | Language | Role | Status | Description |
-| :--- | :------- | :--- | :----- | :---------- |
-| **Grazhda** | Bash | **The Installer** | 🚧 In Development | A bash-based tool to install, configure, and manage the entire ecosystem. |
-| **Molfar** | Java | **The Brain** | 📅 Planned | The central server that handles integrations, schedules tasks, and runs complex workflows. |
-| **Molf** | Java | **The Interface** | 📅 Planned | The CLI tool you use to talk to **Molfar**. |
-| **Dukh** | Go | **The Worker** | 📅 Planned | A background server that performs native tasks directly on your filesystem. |
-| **Zgard** | Go | **The Command** | 📅 Planned | The CLI tool you use to talk to **Dukh** (local file tasks and system commands). |
+### Responsibilities
 
------
+- **`dukh`**
+  - Initializes all configured workspaces.
+  - Creates workspace directories and project subdirectories.
+  - Builds and executes clone commands from each workspace `clone_command_template`.
+  - Purges all configured workspaces.
+  - Exposes gRPC operations for init, purge, and get.
 
-## 🚀 Quick Start
+- **`zgard`**
+  - Reads `dukh.host` and `dukh.port` from config.
+  - Calls `dukh` over gRPC.
+  - Provides user-facing commands such as:
+	- `zgard ws init`
+	- `zgard ws purge`
+
+### Flow
+
+1. `zgard` loads `${GRAZHDA_DIR}/config.yaml`.
+2. `zgard` connects to `dukh` via gRPC.
+3. `dukh` executes filesystem operations using the configured workspace layout.
+
+## Toolkit Status
+
+| Tool | Language | Role | Status |
+| :--- | :------- | :--- | :----- |
+| **Grazhda** | Bash | Installer | 🚧 In Development |
+| **Dukh** | Go | Worker (gRPC server) | 🚧 In Development |
+| **Zgard** | Go | Command CLI | 🚧 In Development |
+| **Molfar** | Java | Brain | 📅 Planned |
+| **Molf** | Java | Interface CLI | 📅 Planned |
+
+## Quick Start
 
 ### Prerequisites
 
-- Bash (for Grazhda)
-- Java 25+ (for Molfar and Molf)
-- Go 1.26+ (for Dukh and Zgard)
-- Administrative privileges for system access
+- Bash
+- Go 1.26+
+- Administrative privileges (if required by your environment)
 
-### 1\. Installation
-
-Download and install Grazhda using the following command:
+### Install
 
 ```bash
 curl -s https://raw.githubusercontent.com/vhula/grazhda/refs/heads/main/grazhda.sh | bash
 ```
 
-This will download the installer script and set up the environment automatically.
-
-### 2\. Configuration
-
-Create a YAML config file defining server ports and API keys (e.g., for integrations).
+### Start Dukh
 
 ```bash
-grazhda config --path /path/to/config.yaml
+dukh start
 ```
 
-### 3\. Running the Servers
+### Run Zgard Commands
 
 ```bash
-# Start the Molfar server (handles enterprise integrations)
-./grazhda start molfar
-# Start the Dukh server (handles local filesystem tasks)
-./grazhda start dukh
-```
-
-```bash
-# Start both servers in one command
-./grazhda start all
-```
-
-To verify, check status:
-
-```bash
-./grazhda status
-# Or: curl http://localhost:8080/health (for Molfar)
-```
-
-### 4\. Using the CLI Tools
-
------
-
-## 🧿 Example Usage
-
-### Managing the Enterprise (via `molf`)
-
-```bash
-# List all active workflows in Molfar
-$ molf wf list
-
-# Create a new workflow for daily backups
-$ molf wf create backup --schedule 'daily' --action 'zgard fs backup /home/user'
-```
-
-### Managing the Local System (via `zgard`)
-
-```bash
-# Bootstrap the local workspace
 zgard ws init
-```
-
-```bash
-# Purge the local workspace
 zgard ws purge
-
-# Run a custom script
-zgard run --script my-script.sh
 ```
 
------
+## License
 
-## 📄 License
-
-This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the GNU General Public License v3.0. See `LICENSE`.
