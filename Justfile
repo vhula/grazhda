@@ -40,6 +40,7 @@ copy-scripts:
 
 generate:
     echo "Generating protobuf code..."
+    mkdir -p internal/proto
     cd proto && go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
     cd proto && go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
     cd proto && protoc --go_out=../internal/proto --go_opt=paths=source_relative --go-grpc_out=../internal/proto --go-grpc_opt=paths=source_relative workspace.proto
@@ -49,6 +50,7 @@ generate:
 clean:
     echo "Cleaning up..."
     rm -rf bin
+    rm -rf internal/proto
     echo "✓ Clean complete"
 
 test:
