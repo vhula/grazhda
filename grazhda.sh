@@ -101,6 +101,11 @@ install_from_local() {
 create_config() {
     local config_file="$GRAZHDA_DIR/config.yaml"
 
+    if [ -f "$config_file" ]; then
+        echo -e "${YELLOW}Configuration file already exists: $config_file${NC}"
+        return
+    fi
+
     echo -e "${BLUE}Creating configuration file...${NC}"
 
     cp "$GRAZHDA_DIR"/sources/config.template.yaml "$config_file"
@@ -135,8 +140,8 @@ main() {
         rm -rf "$GRAZHDA_DIR/sources" "${GRAZHDA_DIR:?}/bin"
     fi
 
-    if [ -n "$LOCAL_REPO_PATH" ]; then
-        install_from_local "$LOCAL_REPO_PATH"
+    if [ -n "$LOCAL_GRAZHDA_REPO_DIR" ]; then
+        install_from_local "$LOCAL_GRAZHDA_REPO_DIR"
     else
         install_from_github
     fi

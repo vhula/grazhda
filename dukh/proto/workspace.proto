@@ -5,37 +5,36 @@ package workspace;
 option go_package = "github.com/vhula/grazhda/dukh/proto";
 
 service WorkspaceService {
-  rpc CreateWorkspace (CreateWorkspaceRequest) returns (CreateWorkspaceResponse);
-  rpc ListWorkspaces (ListWorkspacesRequest) returns (ListWorkspacesResponse);
-  rpc DeleteWorkspace (DeleteWorkspaceRequest) returns (DeleteWorkspaceResponse);
+  rpc InitWorkspaces (InitWorkspacesRequest) returns (InitWorkspacesResponse);
+  rpc PurgeWorkspaces (PurgeWorkspacesRequest) returns (PurgeWorkspacesResponse);
+  rpc GetWorkspaces (GetWorkspacesRequest) returns (GetWorkspacesResponse);
 }
 
-message CreateWorkspaceRequest {
-  string name = 1;
+message InitWorkspacesRequest {
 }
 
-message CreateWorkspaceResponse {
-  string id = 1;
-  string status = 2;
+message InitWorkspacesResponse {
+  repeated string statuses = 1;
 }
 
-message ListWorkspacesRequest {
+message PurgeWorkspacesRequest {
 }
 
-message ListWorkspacesResponse {
+message PurgeWorkspacesResponse {
+  repeated string statuses = 1;
+}
+
+message GetWorkspacesRequest {
+  repeated string ids = 1;
+}
+
+message GetWorkspacesResponse {
   repeated Workspace workspaces = 1;
-}
-
-message DeleteWorkspaceRequest {
-  string id = 1;
-}
-
-message DeleteWorkspaceResponse {
-  string status = 1;
 }
 
 message Workspace {
   string id = 1;
   string name = 2;
   string created_at = 3;
+  string absolute_path = 4;
 }

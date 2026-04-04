@@ -55,7 +55,7 @@ This will download the installer script and set up the environment automatically
 Create a YAML config file defining server ports and API keys (e.g., for integrations).
 
 ```bash
-./grazhda config --path /path/to/config.yaml
+grazhda config --path /path/to/config.yaml
 ```
 
 ### 3\. Running the Servers

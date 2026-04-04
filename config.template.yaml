@@ -4,39 +4,47 @@
 
 # Dukh Web Server Configuration
 dukh:
-  # Server host to bind to
   host: localhost
-  
-  # Server port
-  port: 8080
-  
-  # API paths
-  api:
-    # Workspace management API endpoint
-    workspace: /api/workspace
-    
-    # Health check endpoint
-    health: /health
+  port: 50501
 
 # Zgard Configuration
 zgard:
-  # Enable or disable zgard
-  enabled: true
-  
-  # Zgard specific settings
   config: {}
 
-# General Settings
 general:
-  # Installation directory
   install_dir: ${GRAZHDA_DIR}
-  
-  # Sources directory
   sources_dir: ${GRAZHDA_DIR}/sources
-  
-  # Binaries directory
   bin_dir: ${GRAZHDA_DIR}/bin
-  
-  # Environment
-  environment: development
 
+workspaces:
+  - name: default
+    default: true
+    path: /home/jake/ws
+    clone_command_template: git clone --branch {{.Branch}} https://github.com/grazhda/{{.RepoName}} {{.DestDir}}
+    projects:
+      - name: ws-project1
+        subprojects:
+          - branch: main
+            repositories:
+              - name: test-repo-1
+              - name: test-repo-2
+              - name: test-repo-1
+                local_dir_name: test-repo-1-copy
+          - branch: dev
+            repositories:
+              - name: test-repo-3
+      - name: ws-project2
+        branch: main
+        repositories:
+          - name: test-repo-1
+          - name: test-repo-2
+          - name: test-repo-3
+  - name: secondary
+    path: /home/jake/secondary_ws
+    clone_command_template: git clone --branch {{.Branch}} https://github.com/grazhda/{{.RepoName}} {{.DestDir}}
+    projects:
+      - name: secondary-project1
+        branch: main
+        repositories:
+          - name: test-repo-1
+          - name: test-repo-2
