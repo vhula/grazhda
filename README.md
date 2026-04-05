@@ -72,7 +72,7 @@ zgard ws pull            # pull latest on all repos
 zgard ws purge --name old-ws  # remove a workspace
 ```
 
-> **Prerequisites:** `bash`, `curl`, `git`, Go `1.26+`
+> **Prerequisites:** `bash`, `curl`, `git`, `just`, `protoc`, Go `1.26+`
 
 ---
 
@@ -104,6 +104,35 @@ Remove a workspace directory tree. Always asks for confirmation. Always requires
 zgard ws purge --name myws            # remove one workspace (prompts)
 zgard ws purge --all --no-confirm     # remove all, no prompt (for CI)
 zgard ws purge --name myws --dry-run  # preview what would be removed
+```
+
+### `zgard dukh stop`
+Stop the running dukh monitor server gracefully.
+
+```bash
+zgard dukh stop
+```
+
+### `zgard dukh status`
+Show current workspace health — branch alignment and missing repos — as tracked by dukh.
+
+```bash
+zgard dukh status             # all workspaces
+zgard dukh status --name myws # one workspace
+```
+
+```
+Dukh  running  •  uptime: 2h 34m
+
+Workspace: default
+  Project: backend
+    ✓ api             main → main
+    ✗ auth            main → feat/login  (branch mismatch)
+    ✗ gateway         (missing)
+  Project: infra
+    ✓ terraform       main → main
+
+✓ 2 aligned  ⚠ 1 drifted  ✗ 1 missing
 ```
 
 ### Common Flags
@@ -205,9 +234,9 @@ workspaces:
 
 | Tool | Role | Status |
 | :--- | :--- | :---: |
-| **zgard** | Workspace lifecycle CLI | ✅ |
-| **Grazhda installer** | Source-build installer script | 🚧 |
-| **dukh** | Background gRPC worker | 📅 Phase 2 |
+| **zgard** | Workspace lifecycle CLI | ✅ Phase 1 |
+| **dukh** | Background gRPC workspace monitor | ✅ Phase 2 |
+| **Grazhda installer** | Source-build installer script | ✅ |
 | **Molfar** | Orchestration server | 📅 Phase 3 |
 | **Molf** | Orchestrator CLI | 📅 Phase 3 |
 
@@ -216,7 +245,9 @@ workspaces:
 ## 🛠️ Development
 
 ```bash
+just generate      # regenerate protobuf Go code from proto/dukh.proto
 just build-zgard   # build → bin/zgard
+just build-dukh    # build → bin/dukh
 just test          # run all tests
 just fmt           # format all Go source
 just tidy          # tidy all modules
@@ -228,6 +259,8 @@ just tidy          # tidy all modules
 grazhda/
 ├── go.work
 ├── Justfile
+├── proto/                  # protobuf sources
+│   └── dukh.proto
 ├── config.template.yaml
 ├── internal/               # shared module
 │   ├── color/              # terminal colour helpers
@@ -235,10 +268,15 @@ grazhda/
 │   ├── executor/           # shell command interface + mock
 │   ├── reporter/           # per-repo progress + run summary
 │   └── workspace/          # init · purge · pull · targeting
-└── zgard/                  # CLI module
-    ├── main.go
-    ├── root.go
-    └── ws/                 # ws init · ws purge · ws pull
+├── zgard/                  # CLI module
+│   ├── main.go
+│   ├── root.go
+│   ├── dukh/               # zgard dukh stop · status
+│   └── ws/                 # ws init · ws purge · ws pull
+└── dukh/                   # gRPC server module
+    ├── cmd/                # dukh start
+    ├── proto/              # generated protobuf (do not edit)
+    └── server/             # gRPC server · monitor · logging
 ```
 
 ---

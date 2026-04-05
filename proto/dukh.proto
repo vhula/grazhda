@@ -1,0 +1,55 @@
+syntax = "proto3";
+
+package dukh.v1;
+
+option go_package = "github.com/vhula/grazhda/dukh/proto;dukhpb";
+
+// DukhService exposes workspace health monitoring and server lifecycle control.
+service DukhService {
+  // Stop requests a graceful shutdown of the dukh server.
+  rpc Stop(StopRequest) returns (StopResponse);
+
+  // Status returns the current health snapshot of all monitored workspaces.
+  rpc Status(StatusRequest) returns (StatusResponse);
+}
+
+message StopRequest {}
+
+message StopResponse {
+  string message = 1;
+}
+
+// StatusRequest optionally scopes the response to a single workspace.
+// An empty workspace_name returns all workspaces.
+message StatusRequest {
+  string workspace_name = 1;
+}
+
+message StatusResponse {
+  repeated WorkspaceStatus workspaces = 1;
+  string server_version                = 2;
+  int64  uptime_seconds                = 3;
+}
+
+// WorkspaceStatus aggregates project health for one workspace.
+message WorkspaceStatus {
+  string                 name     = 1;
+  string                 path     = 2;
+  repeated ProjectStatus projects = 3;
+}
+
+// ProjectStatus aggregates repository health for one project.
+message ProjectStatus {
+  string              name         = 1;
+  repeated RepoStatus repositories = 2;
+}
+
+// RepoStatus describes the health of a single repository.
+message RepoStatus {
+  string name              = 1;
+  string path              = 2;
+  string configured_branch = 3;
+  string actual_branch     = 4;
+  bool   exists            = 5;
+  bool   branch_aligned    = 6;
+}

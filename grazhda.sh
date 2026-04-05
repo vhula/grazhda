@@ -47,6 +47,8 @@ verify_requirements() {
 
     check_binary "git" "Install from: https://git-scm.com/" || failed=1
     check_binary "go" "Install from: https://golang.org/dl/" || failed=1
+    check_binary "just" "Install from: https://github.com/casey/just/releases" || failed=1
+    check_binary "protoc" "Install from: https://github.com/protocolbuffers/protobuf/releases" || failed=1
 
     if [ $failed -eq 1 ]; then
         echo -e "${RED}Please install all missing dependencies and try again.${NC}"
@@ -58,8 +60,13 @@ verify_requirements() {
 }
 
 install_from_sources() {
+    echo -e "${BLUE}Generating protobuf code...${NC}"
+    just generate
+
+    echo -e "${BLUE}Building binaries...${NC}"
     mkdir -p bin
     cd zgard && go build -o ../bin/zgard . && cd ..
+    cd dukh && go build -o ../bin/dukh ./cmd && cd ..
     cp grazhda ./bin/
     cp grazhda-init.sh ./bin/
 

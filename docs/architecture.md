@@ -731,3 +731,162 @@ The following Phase 1 decisions are made with `dukh` compatibility in mind:
 - Refer to this document for all architectural questions
 
 **First Implementation Story:** Initialize three Go modules (`cmd/`, `internal/`, `zgard/`) with `go mod init`, register them in `go.work`, add dependencies (`go get`) to each, create the package skeleton (empty files with correct package declarations), and verify `just build-zgard` succeeds.
+
+---
+
+## Phase 2 — dukh Architecture
+
+### Overview
+
+`dukh` is a standalone Go module (`github.com/vhula/grazhda/dukh`) registered in the `go.work` workspace. It runs as a long-running background gRPC server, polling workspace health and exposing it via a well-defined protobuf API.
+
+### Directory Structure
+
+```
+proto/
+  dukh.proto              # source of truth — do not edit generated output here
+
+dukh/
+  cmd/
+    main.go               # cobra CLI: dukh start (only subcommand)
+  server/
+    server.go             # gRPC server struct, Start/Stop lifecycle, DukhService impl
+    monitor.go            # workspace polling goroutine, branch detection, health snapshot
+    log.go                # charmbracelet/log + lumberjack writer setup
+  proto/                  # generated protobuf Go code — do not edit manually
+    dukh.pb.go
+    dukh_grpc.pb.go
+  go.mod                  # module: github.com/vhula/grazhda/dukh
+  go.sum
+```
+
+### gRPC Contract
+
+Proto source: `proto/dukh.proto`
+
+```protobuf
+syntax = "proto3";
+package dukh;
+option go_package = "github.com/vhula/grazhda/dukh/proto";
+
+service DukhService {
+  rpc Stop   (StopRequest)   returns (StopResponse);
+  rpc Status (StatusRequest) returns (StatusResponse);
+}
+
+message StopRequest   {}
+message StopResponse  { string message = 1; }
+
+message StatusRequest { string workspace_name = 1; }
+message StatusResponse {
+  repeated WorkspaceStatus workspaces    = 1;
+  string                   server_version = 2;
+  int64                    uptime_seconds = 3;
+}
+
+message WorkspaceStatus {
+  string                 name     = 1;
+  string                 path     = 2;
+  repeated ProjectStatus projects = 3;
+}
+
+message ProjectStatus {
+  string              name         = 1;
+  repeated RepoStatus repositories = 2;
+}
+
+message RepoStatus {
+  string name              = 1;
+  string path              = 2;
+  string configured_branch = 3;
+  string actual_branch     = 4;
+  bool   exists            = 5;
+  bool   branch_aligned    = 6;
+}
+```
+
+### Monitoring Logic
+
+`monitor.go` runs a goroutine that sleeps 30 seconds between polls. On each cycle:
+
+1. Load the current config from `internal/config` (re-read to pick up changes).
+2. For each workspace → project → repository:
+   - Compute `path = workspace.Path + "/" + project.Name + "/" + repo.LocalDirName()`.
+   - Set `exists = os.Stat(path) == nil`.
+   - If `exists`, run `git -C <path> symbolic-ref --short HEAD` to get `actual_branch`; on non-zero exit, set `actual_branch = ""`.
+   - Set `branch_aligned = exists && actual_branch == configuredBranch`.
+3. Build a new `[]WorkspaceStatus` snapshot.
+4. Acquire write lock on `sync.RWMutex`, replace stored snapshot, release lock.
+
+The `Status` RPC acquires the read lock, copies the snapshot, and returns it. Filtering by `workspace_name` happens in the handler before returning.
+
+### Logging Setup (`server/log.go`)
+
+```go
+lj := &lumberjack.Logger{
+    Filename:   filepath.Join(grazhda dir, "logs", "dukh.log"),
+    MaxSize:    5,   // MiB
+    MaxBackups: 3,
+    Compress:   true,
+}
+logger := log.New(lj)  // charmbracelet/log
+```
+
+All structured log calls use `logger.Info(...)`, `logger.Error(...)` with key-value pairs. The logger instance is passed through the server struct; no global logger is used.
+
+### PID File Management
+
+- On `dukh start`: `os.MkdirAll($GRAZHDA_DIR/run, 0755)`, write PID to `$GRAZHDA_DIR/run/dukh.pid`.
+- On graceful shutdown (Stop RPC or OS signal): `os.Remove($GRAZHDA_DIR/run/dukh.pid)`.
+- On startup: if PID file exists and `os.FindProcess(pid)` succeeds with signal 0, exit with error "dukh already running (pid N)".
+
+### Graceful Shutdown
+
+`server.go` registers `signal.NotifyContext` for `SIGTERM` and `SIGINT`. The Stop RPC calls the same internal shutdown function:
+
+1. Call `grpcServer.GracefulStop()`.
+2. Remove PID file.
+3. Flush and close log writer.
+4. Cancel context to unblock the main goroutine.
+
+### Build: Code Generation
+
+`Justfile` recipe:
+
+```
+generate:
+    protoc --go_out=dukh/proto --go-grpc_out=dukh/proto \
+           --go_opt=paths=source_relative \
+           --go-grpc_opt=paths=source_relative \
+           proto/dukh.proto
+```
+
+Run with `just generate` before building `dukh`.
+
+### Dependencies
+
+| Package | Purpose |
+|---|---|
+| `google.golang.org/grpc` | gRPC runtime |
+| `google.golang.org/protobuf` | protobuf serialization |
+| `github.com/charmbracelet/log` | structured, levelled logging |
+| `gopkg.in/natefinish/lumberjack.v2` | log file rotation |
+| `github.com/spf13/cobra` | CLI framework for `dukh start` |
+| `github.com/vhula/grazhda/internal` | shared config + workspace model |
+
+### Config Integration
+
+`dukh` reads from the same `$GRAZHDA_DIR/config.yaml` using `internal/config.Load()`. It additionally reads:
+
+```yaml
+dukh:
+  host: localhost   # default: localhost
+  port: 50501       # default: 50501
+```
+
+### Architectural Invariants
+
+- `dukh/proto/` is generated code — never edited by hand.
+- No business logic in `cmd/main.go`; it only wires cobra → `server.Start()`.
+- `monitor.go` does not import `server.go`; the server struct owns the monitor goroutine via a channel or `context.Context` for cancellation.
+- `internal/config` is the single source of truth for workspace structure; `dukh` does not duplicate config parsing logic.

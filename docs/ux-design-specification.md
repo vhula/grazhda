@@ -544,3 +544,123 @@ When `--verbose` is active:
 - `io.Reader` injection in `confirm()` allows test scripts to simulate user input without a TTY
 - `MockExecutor` allows testing all output patterns without spawning real git processes
 - Fixture YAML in `internal/testdata/` tests config validation without real filesystem
+
+
+---
+
+## Phase 2 — zgard dukh Commands
+
+### Overview
+
+`zgard dukh` is a subcommand group with two sub-subcommands: `stop` and `status`. Both connect to the running `dukh` gRPC server on `localhost:50501` (or the configured address). All dukh command output follows the same terminal conventions as `zgard ws` — symbols over colour alone, stderr for errors.
+
+---
+
+### `zgard dukh stop`
+
+**Purpose:** Send a Stop RPC to `dukh`, triggering graceful shutdown.
+
+#### Success Output (server was running and shut down)
+
+```
+✓ dukh stopped — server acknowledged shutdown
+```
+
+#### Error Output (server not reachable)
+
+```
+✗ dukh not reachable — connection refused (localhost:50501)
+```
+
+Exit code `1`; message written to stderr.
+
+#### Colour Scheme
+
+| Element | Colour |
+|---|---|
+| `✓` prefix | Green |
+| `✗` prefix | Red |
+| `dukh stopped` | Default (white/grey) |
+| `not reachable` message | Red |
+
+---
+
+### `zgard dukh status`
+
+**Purpose:** Query `dukh` for the current health snapshot and render a coloured report.
+
+#### Full Terminal Output Specification
+
+```
+Dukh  running  •  uptime: 2h 34m
+
+Workspace: default
+  Project: backend
+    ✓ api          main → main
+    ✗ auth         main → feat/login  (branch mismatch)
+    ✗ gateway      (missing)
+  Project: infra
+    ✓ terraform    main → main
+
+Workspace: secondary
+  Project: secondary-project1
+    ✓ test-repo-1  main → main
+
+✓ 3 aligned  ✗ 1 drifted  ✗ 1 missing
+```
+
+#### Layout Rules
+
+- **Header line:** `Dukh  <status>  •  uptime: <Xh Ym>` — two spaces around status, bullet separator.
+- **Workspace header:** `Workspace: <name>` — no indent, blue.
+- **Project header:** `  Project: <name>` — 2-space indent, default colour.
+- **Repo line:** `    <symbol> <name><padding>  <configured_branch> → <actual_branch>` — 4-space indent, name left-aligned in a fixed column (longest repo name + 2 spaces), arrow shows configured vs actual.
+- **Missing repo:** `    ✗ <name><padding>  (missing)` — no branch arrows.
+- **Summary line:** `✓ N aligned  ✗ N drifted  ✗ N missing` — rendered after a blank line.
+
+#### Colour Scheme
+
+| Element | Colour |
+|---|---|
+| `Dukh` label | Bold |
+| `running` status | Green bold |
+| `stopped` / `unknown` status | Yellow bold |
+| `Workspace:` header | Blue bold |
+| `Project:` header | Default |
+| `✓` aligned symbol | Green |
+| Aligned repo name | Default |
+| `→ <branch>` when aligned | Green |
+| `✗` mismatch symbol | Red |
+| Mismatch repo name | Default |
+| `→ <actual_branch>` when mismatched | Red |
+| `(branch mismatch)` annotation | Red italic |
+| `(missing)` annotation | Red italic |
+| Summary `✓ N aligned` | Green |
+| Summary `✗ N drifted` | Red |
+| Summary `✗ N missing` | Red |
+
+#### Uptime Formatting
+
+| Duration | Display |
+|---|---|
+| < 60 seconds | `Xs` |
+| < 1 hour | `Xm Ys` |
+| ≥ 1 hour | `Xh Ym` |
+
+#### Error States
+
+| Condition | Output | Exit Code |
+|---|---|---|
+| dukh not running / not reachable | `✗ dukh not running — start with: dukh start` (stderr) | 1 |
+| Named workspace not found | `✗ workspace "foo" not found` (stderr) | 1 |
+| dukh returns empty snapshot (no workspaces configured) | `(no workspaces configured)` (stdout) | 0 |
+
+#### Non-TTY / CI Behaviour
+
+- When stdout is not a TTY, colour is suppressed (via `fatih/color` auto-detection).
+- Symbols (`✓`, `✗`) are always present regardless of TTY state.
+- `→` arrow is always ASCII-safe (U+2192) and universally supported in UTF-8 terminals.
+
+#### Column Alignment
+
+Repo name column width is computed as `max(len(repoName)) + 2` within each project block, not globally. This keeps short project lists compact while avoiding misaligned output across large workspaces.

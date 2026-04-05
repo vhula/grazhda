@@ -393,3 +393,65 @@ workspaces:
 - **NFR12:** Workspace domain logic (`ws init`, `ws purge`, `ws pull`) must be implemented in a package separate from the CLI entry point to enable unit testing without invoking Cobra.
 - **NFR13:** Clone and pull command execution must be injectable (via an interface or function parameter) to allow tests to substitute a mock executor without spawning real git processes.
 - **NFR14:** Config loading and validation must be independently testable with fixture YAML files, without requiring a real filesystem or git remote.
+
+---
+
+## Phase 2 — dukh gRPC Monitor
+
+### Executive Summary
+
+`dukh` is a long-running background server that continuously monitors all workspaces defined in `config.yaml`. It polls every 30 seconds, checking whether each repository directory exists and whether its current git HEAD branch matches the configured branch. Health data is exposed via a gRPC API that `zgard` queries to render a live workspace health report. `dukh` is the observability backbone of Grazhda: it makes drift and missing repos visible without requiring the developer to run manual checks.
+
+### Functional Requirements
+
+#### Start & Lifecycle
+
+- **FR-D1:** `dukh start` launches the monitor server as a foreground process (the caller is responsible for backgrounding via `&` or a process supervisor).
+- **FR-D2:** On startup, `dukh` writes its PID to `$GRAZHDA_DIR/run/dukh.pid`, creating the directory if absent.
+- **FR-D3:** `dukh start` exits with a non-zero code and a clear message if another `dukh` instance is already running (PID file present and process alive).
+- **FR-D4:** `dukh` removes its PID file on graceful shutdown (Stop RPC or SIGTERM/SIGINT).
+- **FR-D5:** `dukh` loads its listen address from `config.yaml` under `dukh.host` and `dukh.port`, defaulting to `localhost:50501`.
+
+#### gRPC Contract
+
+- **FR-D6:** `dukh` implements a `DukhService` gRPC service with `Stop` and `Status` RPCs as defined in `proto/dukh.proto`.
+- **FR-D7:** `Stop(StopRequest) → StopResponse` initiates a graceful shutdown and returns a confirmation message before exiting.
+- **FR-D8:** `Status(StatusRequest) → StatusResponse` returns the current health snapshot for all workspaces (or a single named workspace when `workspace_name` is non-empty), plus `server_version` and `uptime_seconds`.
+- **FR-D9:** The proto source of truth lives at `proto/dukh.proto` in the repo root; generated Go code is placed in `dukh/proto/` and must not be edited by hand.
+
+#### Workspace Monitoring
+
+- **FR-D10:** `dukh` polls all workspaces from `config.yaml` every 30 seconds in a background goroutine.
+- **FR-D11:** For each repository, `dukh` checks: (a) does the local directory exist? (b) what is the current git HEAD branch? (c) does the HEAD branch match the configured branch?
+- **FR-D12:** Branch detection uses `git -C <path> symbolic-ref --short HEAD`; a non-zero exit code means the repo is in detached HEAD state, which is treated as a mismatch.
+- **FR-D13:** The health snapshot is stored in memory protected by a `sync.RWMutex`; `Status` reads under the read lock; the polling goroutine updates under the write lock.
+- **FR-D14:** Each `RepoStatus` carries: `name`, `path`, `configured_branch`, `actual_branch`, `exists` (bool), `branch_aligned` (bool).
+- **FR-D15:** A repo is considered `exists=false` when the directory does not exist; `actual_branch` is empty in this case.
+- **FR-D16:** A repo is considered `branch_aligned=true` only when `exists=true` and `actual_branch == configured_branch`.
+
+#### Logging
+
+- **FR-D17:** `dukh` logs to `$GRAZHDA_DIR/logs/dukh.log` using `charmbracelet/log` with structured key-value pairs.
+- **FR-D18:** Log rotation is handled by `lumberjack` with `MaxSize: 5` MiB, `MaxBackups: 3`, `Compress: true`.
+- **FR-D19:** Log entries are written for: startup, each poll cycle completion, each Stop RPC, and any error encountered during polling.
+
+#### Stop Command
+
+- **FR-D20:** `zgard dukh stop` connects to the dukh gRPC endpoint, calls `Stop`, and prints the response message; exits with code `1` if dukh is not reachable.
+
+### Non-Functional Requirements
+
+- **NFR-D1:** `dukh start` must be ready to accept gRPC connections within 2 seconds of process start.
+- **NFR-D2:** Background polling must consume less than 1% of a single CPU core on average across a 30-second cycle for configs with up to 50 repositories.
+- **NFR-D3:** Log files must never exceed 5 MiB before rotation; up to 3 compressed backups are retained.
+- **NFR-D4:** `dukh` must release all file handles (log, PID) and close the gRPC listener before its process exits on graceful shutdown.
+- **NFR-D5:** The gRPC API must be backward-compatible: adding new fields to response messages must not break existing `zgard` clients.
+
+### Success Criteria
+
+- `dukh start` launches, writes PID, and begins polling without error.
+- `zgard dukh status` renders a correctly coloured health report reflecting the actual state of all repos.
+- `zgard dukh stop` gracefully shuts down `dukh` and the PID file is removed.
+- Log file at `$GRAZHDA_DIR/logs/dukh.log` contains structured entries and rotates at 5 MiB.
+- A repo with the wrong branch checked out shows `✗` in `zgard dukh status` output.
+- A missing repo directory shows `✗ (missing)` in `zgard dukh status` output.
