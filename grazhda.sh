@@ -62,6 +62,8 @@ verify_requirements() {
 install_from_sources() {
     just build
 
+    mkdir -p "$GRAZHDA_DIR/bin"
+
     cp bin/* "$GRAZHDA_DIR/bin/"
 
     echo -e "${GREEN}✓ Grazhda built successfully${NC}"

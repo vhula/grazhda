@@ -18,7 +18,6 @@ general:
 
 workspaces:
   - name: default
-    default: true
     path: /home/jake/ws
     clone_command_template: git clone --branch {{.Branch}} https://github.com/grazhda/{{.RepoName}} {{.DestDir}}
     projects:
