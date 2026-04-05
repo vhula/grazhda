@@ -114,6 +114,36 @@ classification:
 - `molfar` orchestration consuming `zgard` as a workspace primitive.
 - Windows platform support.
 
+### Dukh Server Vision
+
+`dukh` is the second major component of the Grazhda system. Where `zgard` handles **workspace setup** (one-time, filesystem-level operations), `dukh` handles **process lifecycle** — starting, stopping, and monitoring long-running processes that operate within those workspaces.
+
+**Role in the system:**
+
+The full Grazhda system is a three-tier model:
+
+| Tier | Component | Role |
+|---|---|---|
+| Brain | `molfar` (Java) | Orchestrates workflows; sends commands to workers |
+| Workers | `zgard` + `dukh` (Go) | Execute workspace ops and process control |
+| Interface | `molf` (Java) | CLI interface to molfar for human operators |
+
+`zgard` and `dukh` are independent primitives that can be used standalone or as workers driven by `molfar`.
+
+**Dukh capabilities (planned):**
+
+- `dukh start` — start a managed process defined in `config.yaml` inside a workspace.
+- `dukh stop` — stop a running managed process.
+- `dukh status` — report the state of managed processes.
+- gRPC API surface — all operations are exposed as gRPC service methods (`proto/dukh.proto`), enabling `molfar` to drive process control programmatically.
+- Config-driven — `dukh` reads host/port and process definitions from the same `$GRAZHDA_DIR/config.yaml` used by `zgard`, ensuring a single source of truth for workspace topology.
+
+**Design principles carried forward from zgard:**
+
+- Shared config model — `dukh` imports `internal/config` for workspace and process config parsing.
+- Dry-run and verbose modes for safe process control.
+- Non-zero exit codes for scripting integration.
+
 ### Risk Mitigation
 
 - *Go template rendering edge cases* — mitigated by up-front template validation before any filesystem work.
