@@ -653,6 +653,8 @@ So that initialising large workspaces is faster when network bandwidth allows.
 
 Users can safely remove a targeted workspace's directory structure. `ws purge` always requires explicit targeting, prompts for confirmation before any deletion, supports dry-run preview, and supports non-interactive mode for CI.
 
+> **Implementation prerequisite:** Stories 3.1 (targeting resolver — `internal/targeting/`) and 3.6 (reporter — `internal/reporter/`) must be complete before implementing Epic 4 stories.
+
 ### Story 4.1: Purge Targeting — Explicit Flag Required
 
 As a developer using `zgard`,
@@ -762,6 +764,8 @@ So that I can verify my targeting before committing to a destructive operation.
 ## Epic 5: Repository Synchronization (`ws pull`)
 
 Users can run `zgard ws pull` to update all repositories in a targeted workspace to their configured branches. The command supports targeting, skips missing repos gracefully, supports dry-run preview, and supports parallel execution.
+
+> **Implementation prerequisite:** Stories 3.1 (targeting resolver — `internal/targeting/`) and 3.6 (reporter — `internal/reporter/`) must be complete before implementing Epic 5 stories.
 
 ### Story 5.1: Execute `git pull --rebase` for Each Repository
 
