@@ -84,7 +84,7 @@ func newPurgeCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print actions without executing them")
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
 	cmd.Flags().BoolVar(&noConfirm, "no-confirm", false, "Skip confirmation prompts")
-	cmd.Flags().StringVarP(&wsName, "workspace", "w", "", "Target workspace name")
+	cmd.Flags().StringVarP(&wsName, "ws", "w", "", "Target workspace name")
 	cmd.Flags().BoolVar(&all, "all", false, "Purge all workspaces")
 
 	return cmd
