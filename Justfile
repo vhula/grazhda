@@ -39,7 +39,6 @@ clean:
 
 test:
     echo "Running tests..."
-    cd cmd && go test ./...
     cd internal && go test ./...
     cd zgard && go test ./...
     echo "✓ Tests passed"
@@ -47,13 +46,12 @@ test:
 tidy:
     echo "Syncing workspace and tidying modules..."
     go work sync
-    cd cmd && go mod tidy
     cd internal && go mod tidy
+    cd zgard && go mod tidy
     echo "✓ Go modules tidied"
 
 fmt:
     echo "Formatting Go modules..."
-    cd cmd && go fmt ./...
     cd internal && go fmt ./...
     cd zgard && go fmt ./...
     echo "✓ Go modules formatted"

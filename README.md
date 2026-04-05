@@ -36,14 +36,11 @@ The full pipeline for any command is:
 
 | Component | Module | Role |
 | :--- | :--- | :--- |
-| `zgard` | `github.com/vhula/grazhda/zgard` | Entry point – wires Cobra and calls `cmd` |
-| `cmd/ws` | `github.com/vhula/grazhda/cmd` | Cobra command definitions for `ws init`, `ws purge`, `ws pull` |
+| `zgard` | `github.com/vhula/grazhda/zgard` | Entry point — root command + `ws` subcommands |
+| `zgard/ws` | `github.com/vhula/grazhda/zgard` | Cobra command definitions for `ws init`, `ws purge`, `ws pull` |
 | `internal/config` | `github.com/vhula/grazhda/internal` | Config loading, validation, and clone template rendering |
-| `internal/targeting` | `github.com/vhula/grazhda/internal` | Workspace resolver (`--ws` / `--all` / default) |
-| `internal/workspace` | `github.com/vhula/grazhda/internal` | `Init`, `Purge`, `Pull` orchestration logic |
-| `internal/executor` | `github.com/vhula/grazhda/internal` | `Executor` interface; `OsExecutor` (real) and `MockExecutor` (tests) |
-| `internal/reporter` | `github.com/vhula/grazhda/internal` | Per-operation progress output and run summary |
-| `dukh` | `github.com/vhula/grazhda/dukh` | gRPC server – placeholder (Phase 2) |
+| `internal/workspace` | `github.com/vhula/grazhda/internal` | All workspace logic: `Init`, `Purge`, `Pull`, targeting, reporting, execution |
+| `dukh` | `github.com/vhula/grazhda/dukh` | gRPC server — placeholder (Phase 2) |
 
 ## Technology Stack
 
@@ -53,7 +50,7 @@ The full pipeline for any command is:
 | Logging | [charm.land/log/v2](https://charm.land/log) |
 | Config | YAML (`gopkg.in/yaml.v3`) |
 | Build | `just` (`Justfile`) |
-| Module layout | Go workspace (`go.work`) – three modules: `cmd`, `internal`, `zgard` |
+| Module layout | Go workspace (`go.work`) — two modules: `internal`, `zgard` |
 
 ## Current Status
 
@@ -248,21 +245,17 @@ just tidy          # go work sync + go mod tidy per module
 
 ```
 grazhda/
-├── go.work                  # workspace: cmd, internal, zgard, dukh
+├── go.work                  # workspace: internal, zgard, dukh
 ├── Justfile                 # build/test/fmt/tidy targets
 ├── config.template.yaml     # workspace config template
-├── cmd/                     # module: github.com/vhula/grazhda/cmd
-│   ├── root.go              # Cobra root command + Execute()
-│   └── ws/                  # ws parent + init/purge/pull subcommands
 ├── internal/                # module: github.com/vhula/grazhda/internal
 │   ├── config/              # Load, Validate, DefaultWorkspace, RenderCloneCmd
-│   ├── targeting/           # Resolve(cfg, wsName, all)
-│   ├── executor/            # Executor interface, OsExecutor, MockExecutor
-│   ├── workspace/           # Init, Purge, Pull + RunOptions
-│   ├── reporter/            # Reporter – Record, Summary, ExitCode
+│   ├── workspace/           # Init, Purge, Pull, Resolve, Reporter, Executor
 │   └── testdata/            # YAML fixtures for unit tests
 ├── zgard/                   # module: github.com/vhula/grazhda/zgard
-│   └── main.go              # entry point → cmd.Execute()
+│   ├── main.go              # entry point → Execute()
+│   ├── root.go              # Cobra root command + Execute()
+│   └── ws/                  # ws parent + init/purge/pull subcommands
 └── dukh/                    # module: github.com/vhula/grazhda/dukh (placeholder)
 ```
 

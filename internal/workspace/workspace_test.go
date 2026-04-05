@@ -9,8 +9,6 @@ import (
 	"testing"
 
 	"github.com/vhula/grazhda/internal/config"
-	"github.com/vhula/grazhda/internal/executor"
-	"github.com/vhula/grazhda/internal/reporter"
 	"github.com/vhula/grazhda/internal/workspace"
 )
 
@@ -40,8 +38,8 @@ func makeWorkspace(t *testing.T) (config.Workspace, string) {
 func TestInit_ClonesRepos(t *testing.T) {
 	ws, _ := makeWorkspace(t)
 	var out, errOut strings.Builder
-	rep := reporter.NewReporter(&out, &errOut)
-	mock := &executor.MockExecutor{}
+	rep := workspace.NewReporter(&out, &errOut)
+	mock := &workspace.MockExecutor{}
 
 	err := workspace.Init(ws, mock, rep, workspace.RunOptions{})
 	if err != nil {
@@ -67,8 +65,8 @@ func TestInit_SkipsExistingRepo(t *testing.T) {
 	}
 
 	var out, errOut strings.Builder
-	rep := reporter.NewReporter(&out, &errOut)
-	mock := &executor.MockExecutor{}
+	rep := workspace.NewReporter(&out, &errOut)
+	mock := &workspace.MockExecutor{}
 
 	err := workspace.Init(ws, mock, rep, workspace.RunOptions{})
 	if err != nil {
@@ -87,8 +85,8 @@ func TestInit_SkipsExistingRepo(t *testing.T) {
 func TestInit_DryRun(t *testing.T) {
 	ws, _ := makeWorkspace(t)
 	var out, errOut strings.Builder
-	rep := reporter.NewReporter(&out, &errOut)
-	mock := &executor.MockExecutor{}
+	rep := workspace.NewReporter(&out, &errOut)
+	mock := &workspace.MockExecutor{}
 
 	err := workspace.Init(ws, mock, rep, workspace.RunOptions{DryRun: true})
 	if err != nil {
@@ -106,10 +104,10 @@ func TestInit_DryRun(t *testing.T) {
 func TestInit_ContinueOnFailure(t *testing.T) {
 	ws, _ := makeWorkspace(t)
 	var out, errOut strings.Builder
-	rep := reporter.NewReporter(&out, &errOut)
+	rep := workspace.NewReporter(&out, &errOut)
 
 	callCount := 0
-	mock := &executor.MockExecutor{}
+	mock := &workspace.MockExecutor{}
 	// First call fails, second succeeds
 	mock.ErrFn = func(call int) error {
 		callCount++
@@ -136,8 +134,8 @@ func TestInit_ContinueOnFailure(t *testing.T) {
 func TestInit_VerboseFlag(t *testing.T) {
 	ws, _ := makeWorkspace(t)
 	var out, errOut strings.Builder
-	rep := reporter.NewReporter(&out, &errOut)
-	mock := &executor.MockExecutor{}
+	rep := workspace.NewReporter(&out, &errOut)
+	mock := &workspace.MockExecutor{}
 
 	err := workspace.Init(ws, mock, rep, workspace.RunOptions{Verbose: true})
 	if err != nil {
@@ -152,8 +150,8 @@ func TestInit_VerboseFlag(t *testing.T) {
 func TestInit_Parallel(t *testing.T) {
 	ws, _ := makeWorkspace(t)
 	var out, errOut strings.Builder
-	rep := reporter.NewReporter(&out, &errOut)
-	mock := &executor.MockExecutor{}
+	rep := workspace.NewReporter(&out, &errOut)
+	mock := &workspace.MockExecutor{}
 
 	err := workspace.Init(ws, mock, rep, workspace.RunOptions{Parallel: true})
 	if err != nil {
@@ -179,8 +177,8 @@ func TestPull_PullsExistingRepos(t *testing.T) {
 	}
 
 	var out, errOut strings.Builder
-	rep := reporter.NewReporter(&out, &errOut)
-	mock := &executor.MockExecutor{}
+	rep := workspace.NewReporter(&out, &errOut)
+	mock := &workspace.MockExecutor{}
 
 	err := workspace.Pull(ws, mock, rep, workspace.RunOptions{})
 	if err != nil {
@@ -201,8 +199,8 @@ func TestPull_PullsExistingRepos(t *testing.T) {
 func TestPull_SkipsMissingRepo(t *testing.T) {
 	ws, _ := makeWorkspace(t)
 	var out, errOut strings.Builder
-	rep := reporter.NewReporter(&out, &errOut)
-	mock := &executor.MockExecutor{}
+	rep := workspace.NewReporter(&out, &errOut)
+	mock := &workspace.MockExecutor{}
 
 	err := workspace.Pull(ws, mock, rep, workspace.RunOptions{})
 	if err != nil {
@@ -220,8 +218,8 @@ func TestPull_SkipsMissingRepo(t *testing.T) {
 func TestPull_DryRun(t *testing.T) {
 	ws, _ := makeWorkspace(t)
 	var out, errOut strings.Builder
-	rep := reporter.NewReporter(&out, &errOut)
-	mock := &executor.MockExecutor{}
+	rep := workspace.NewReporter(&out, &errOut)
+	mock := &workspace.MockExecutor{}
 
 	err := workspace.Pull(ws, mock, rep, workspace.RunOptions{DryRun: true})
 	if err != nil {
@@ -244,7 +242,7 @@ func TestPurge_RemovesDirectory(t *testing.T) {
 
 	ws := config.Workspace{Name: "myws", Path: wsDir}
 	var out, errOut strings.Builder
-	rep := reporter.NewReporter(&out, &errOut)
+	rep := workspace.NewReporter(&out, &errOut)
 
 	err := workspace.Purge(ws, rep, workspace.RunOptions{NoConfirm: true})
 	if err != nil {
@@ -262,7 +260,7 @@ func TestPurge_RemovesDirectory(t *testing.T) {
 func TestPurge_SkipsMissingDirectory(t *testing.T) {
 	ws := config.Workspace{Name: "ghost", Path: "/nonexistent/path/ghost"}
 	var out, errOut strings.Builder
-	rep := reporter.NewReporter(&out, &errOut)
+	rep := workspace.NewReporter(&out, &errOut)
 
 	err := workspace.Purge(ws, rep, workspace.RunOptions{NoConfirm: true})
 	if err != nil {
@@ -286,7 +284,7 @@ func TestPurge_DryRun(t *testing.T) {
 
 	ws := config.Workspace{Name: "myws", Path: wsDir}
 	var out, errOut strings.Builder
-	rep := reporter.NewReporter(&out, &errOut)
+	rep := workspace.NewReporter(&out, &errOut)
 
 	err := workspace.Purge(ws, rep, workspace.RunOptions{DryRun: true})
 	if err != nil {
@@ -305,8 +303,8 @@ func TestPurge_DryRun(t *testing.T) {
 func TestInit_SummaryLabels(t *testing.T) {
 	ws, _ := makeWorkspace(t)
 	var out, errOut strings.Builder
-	rep := reporter.NewReporter(&out, &errOut)
-	mock := &executor.MockExecutor{}
+	rep := workspace.NewReporter(&out, &errOut)
+	mock := &workspace.MockExecutor{}
 
 	workspace.Init(ws, mock, rep, workspace.RunOptions{}) //nolint:errcheck
 	rep.Summary("cloned", false)
