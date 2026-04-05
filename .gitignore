@@ -1,5 +1,6 @@
 .idea
 bin/
+internal/proto/
 # Compiled class file
 *.class
 
