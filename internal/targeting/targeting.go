@@ -1,29 +1,35 @@
 package targeting
 
-import "github.com/vhula/grazhda/internal/config"
+import (
+	"fmt"
 
-// Target identifies a resolved set of workspaces and projects to operate on.
-type Target struct {
-	Workspaces []config.Workspace
-}
+	"github.com/vhula/grazhda/internal/config"
+)
 
-// Resolve selects workspaces and projects from cfg based on the provided
-// workspace name (empty = default workspace).
-func Resolve(cfg *config.Config, workspaceName string) (*Target, error) {
-	if workspaceName != "" {
+// Resolve returns the workspaces to operate on based on flag inputs.
+// wsName selects a specific workspace by name; all selects every workspace.
+// When both are empty/false, the default workspace is returned.
+func Resolve(cfg *config.Config, wsName string, all bool) ([]config.Workspace, error) {
+	if wsName != "" && all {
+		return nil, fmt.Errorf("--ws and --all are mutually exclusive")
+	}
+
+	if all {
+		return cfg.Workspaces, nil
+	}
+
+	if wsName != "" {
 		for _, ws := range cfg.Workspaces {
-			if ws.Name == workspaceName {
-				return &Target{Workspaces: []config.Workspace{ws}}, nil
+			if ws.Name == wsName {
+				return []config.Workspace{ws}, nil
 			}
 		}
+		return nil, fmt.Errorf("workspace %q not found in config", wsName)
 	}
-	for _, ws := range cfg.Workspaces {
-		if ws.Default {
-			return &Target{Workspaces: []config.Workspace{ws}}, nil
-		}
+
+	ws, err := config.DefaultWorkspace(cfg)
+	if err != nil {
+		return nil, err
 	}
-	if len(cfg.Workspaces) > 0 {
-		return &Target{Workspaces: []config.Workspace{cfg.Workspaces[0]}}, nil
-	}
-	return &Target{}, nil
+	return []config.Workspace{*ws}, nil
 }
