@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/vhula/grazhda/internal/config"
+	clr "github.com/vhula/grazhda/internal/color"
 	"github.com/vhula/grazhda/internal/executor"
 	"github.com/vhula/grazhda/internal/reporter"
 	"github.com/vhula/grazhda/internal/workspace"
@@ -30,7 +31,7 @@ func newInitCmd() *cobra.Command {
 			}
 			if errs := config.Validate(cfg); len(errs) > 0 {
 				for _, e := range errs {
-					fmt.Fprintln(os.Stderr, e)
+					fmt.Fprintln(os.Stderr, clr.Red(e))
 				}
 				return fmt.Errorf("configuration is invalid")
 			}

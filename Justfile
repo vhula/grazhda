@@ -45,9 +45,8 @@ test:
 
 tidy:
     echo "Syncing workspace and tidying modules..."
-    go work sync
     cd internal && go mod tidy
-    cd zgard && go mod tidy
+    cd zgard && go mod tidy -e
     echo "✓ Go modules tidied"
 
 fmt:

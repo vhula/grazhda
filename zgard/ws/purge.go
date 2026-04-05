@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
+	clr "github.com/vhula/grazhda/internal/color"
 	"github.com/vhula/grazhda/internal/config"
 	"github.com/vhula/grazhda/internal/reporter"
 	"github.com/vhula/grazhda/internal/workspace"
@@ -24,7 +25,7 @@ func newPurgeCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// ws purge requires explicit targeting
 			if wsName == "" && !all {
-				fmt.Fprintln(os.Stderr, "ws purge requires --ws <name> or --all")
+				fmt.Fprintln(os.Stderr, clr.Red("ws purge requires --ws <name> or --all"))
 				os.Exit(1)
 			}
 
@@ -35,7 +36,7 @@ func newPurgeCmd() *cobra.Command {
 			}
 			if errs := config.Validate(cfg); len(errs) > 0 {
 				for _, e := range errs {
-					fmt.Fprintln(os.Stderr, e)
+					fmt.Fprintln(os.Stderr, clr.Red(e))
 				}
 				return fmt.Errorf("configuration is invalid")
 			}
@@ -52,7 +53,7 @@ func newPurgeCmd() *cobra.Command {
 					paths = append(paths, filepath.Join(ws.Path))
 				}
 				if !confirm(os.Stdout, os.Stdin, "The following directories will be removed:", paths) {
-					fmt.Println("Aborted.")
+					fmt.Println(clr.Yellow("Aborted."))
 					return nil
 				}
 			}

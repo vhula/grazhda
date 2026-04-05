@@ -4,6 +4,16 @@ import (
 	"fmt"
 	"io"
 	"sync"
+
+	clr "github.com/vhula/grazhda/internal/color"
+)
+
+// Color helpers — disabled automatically when output is not a TTY or NO_COLOR is set.
+var (
+	green  = clr.Green
+	red    = clr.Red
+	yellow = clr.Yellow
+	blue   = clr.Blue
 )
 
 // OpResult records the outcome of a single repository operation.
@@ -29,11 +39,11 @@ func NewReporter(out, errOut io.Writer) *Reporter {
 	return &Reporter{out: out, errOut: errOut}
 }
 
-// PrintLine writes a plain line to stdout (for section headers and verbose output).
+// PrintLine writes an informational line (blue) to stdout, e.g. section headers.
 func (r *Reporter) PrintLine(msg string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	fmt.Fprintln(r.out, msg)
+	fmt.Fprintln(r.out, blue(msg))
 }
 
 // Record appends an operation result and prints the per-repo status line.
@@ -42,16 +52,23 @@ func (r *Reporter) Record(res OpResult) {
 	defer r.mu.Unlock()
 	r.results = append(r.results, res)
 
-	symbol := "✓"
+	symbol := green("✓")
 	if res.Err != nil {
-		symbol = "✗"
+		symbol = red("✗")
 	} else if res.Skipped {
-		symbol = "⏭"
+		symbol = yellow("⏭")
 	}
 
 	displayMsg := res.Msg
-	if res.Err != nil && displayMsg == "" {
-		displayMsg = res.Err.Error()
+	if res.Err != nil {
+		if displayMsg == "" {
+			displayMsg = res.Err.Error()
+		}
+		displayMsg = red(displayMsg)
+	} else if res.Skipped {
+		displayMsg = yellow(displayMsg)
+	} else {
+		displayMsg = green(displayMsg)
 	}
 
 	fmt.Fprintf(r.out, "    %s %-14s — %s\n", symbol, res.Repo, displayMsg)
@@ -77,14 +94,17 @@ func (r *Reporter) Summary(successLabel string, dryRun bool) {
 
 	prefix := ""
 	if dryRun {
-		prefix = "[DRY RUN] "
+		prefix = yellow("[DRY RUN] ")
 	}
-	fmt.Fprintf(r.out, "\n%s✓ %d %s  ⏭ %d skipped  ✗ %d failed\n",
-		prefix, success, successLabel, skipped, failed)
+	fmt.Fprintf(r.out, "\n%s%s %d %s  %s %d skipped  %s %d failed\n",
+		prefix,
+		green("✓"), success, successLabel,
+		yellow("⏭"), skipped,
+		red("✗"), failed)
 
 	for _, res := range r.results {
 		if res.Err != nil {
-			fmt.Fprintf(r.errOut, "      %s: %s\n", res.Repo, res.Err.Error())
+			fmt.Fprintf(r.errOut, "      %s\n", red(res.Repo+": "+res.Err.Error()))
 		}
 	}
 }
