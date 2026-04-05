@@ -1,0 +1,9 @@
+workspaces:
+  - name: bad-template
+    path: /tmp/ws-bad-template
+    clone_command_template: "git clone {{.Unclosed"
+    projects:
+      - name: backend
+        branch: main
+        repositories:
+          - name: api
