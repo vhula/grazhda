@@ -1,10 +1,8 @@
-# Grazhda Monorepo - Using Justfile
+# Grazhda Monorepo — Build Reference
 
-This project uses Justfile for task automation and building.
+This project uses [Just](https://github.com/casey/just) for task automation.
 
-## Installation
-
-Install Just first:
+## Install Just
 
 ```bash
 # Using Cargo (if you have Rust installed)
@@ -16,51 +14,57 @@ cargo install just
 
 ## Available Tasks
 
-Run any task with `just <task-name>`:
-
 ```bash
-just build          # Build Dukh and Zgard binaries
-just build-dukh     # Build only the Dukh CLI
-just build-zgard    # Build only the Zgard CLI
-just test           # Run tests for all modules
-just zip            # Build everything and create bin/grazhda.zip
-just clean          # Remove all built binaries
+just build          # Build zgard binary + copy bash scripts to bin/
+just build-zgard    # Build only the zgard CLI → bin/zgard
+just copy-scripts   # Copy grazhda / grazhda-init.sh to bin/
+just test           # Run go test ./... across all modules
+just fmt            # Run gofmt across all modules
+just tidy           # Run go mod tidy for each module
+just clean          # Remove the bin/ directory
 just help           # Show all available tasks
 ```
 
 ## Quick Start
 
 ```bash
-# Build all modules to the bin/ directory
+# Build everything
 just build
 
 # Test everything
 just test
 
-# Create a distributable zip file
-just zip
-
-# Clean up generated files
+# Clean up
 just clean
 ```
 
 ## Output
 
-- Built binaries are placed in `bin/dukh` and `bin/zgard`
-- Zip archive is created at `bin/grazhda.zip`
+Built artifacts are placed in `bin/`:
+
+| File | Description |
+| :--- | :--- |
+| `bin/zgard` | zgard CLI binary |
+| `bin/grazhda` | Installer bootstrap script |
+| `bin/grazhda-init.sh` | Workspace init shell script |
 
 ## Project Structure
 
 ```
 grazhda/
-├── go.work              # Go workspace definition
-├── justfile             # Task automation
-├── Dockerfile           # Container build
-├── dukh/                # CLI module 1
-│   ├── go.mod
-│   └── main.go
-├── zgard/               # CLI module 2
-│   ├── go.mod
-│   └── main.go
-└── bin/                 # Built binaries (created by build)
+├── go.work              # Go workspace (internal, zgard, dukh)
+├── Justfile             # Task automation
+├── config.template.yaml # Workspace config template
+├── internal/            # Shared Go module
+│   ├── color/           # Terminal color helpers
+│   ├── config/          # Config loading + validation
+│   ├── executor/        # Shell command executor interface
+│   ├── reporter/        # Progress output + run summary
+│   └── workspace/       # Init/Purge/Pull domain logic
+├── zgard/               # zgard CLI module
+│   ├── main.go
+│   ├── root.go
+│   └── ws/              # ws init / purge / pull commands
+├── dukh/                # Placeholder (Phase 2)
+└── bin/                 # Built outputs (created by just build)
 ```

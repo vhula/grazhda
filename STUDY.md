@@ -153,6 +153,9 @@ grazhda/
 │   │   ├── executor.go          ← Executor interface + OsExecutor
 │   │   └── mock.go              ← MockExecutor for tests
 │   │
+│   ├── color/
+│   │   └── color.go             ← Green/Red/Yellow/Blue helpers (wraps fatih/color)
+│   │
 │   ├── reporter/
 │   │   ├── reporter.go          ← Reporter: ✓/⏭/✗ output + summary
 │   │   └── reporter_test.go     ← 9 unit tests
@@ -1616,9 +1619,8 @@ fmt:
     cd zgard && go fmt ./...
 
 tidy:
-    go work sync
     cd internal && go mod tidy
-    cd zgard && go mod tidy
+    cd zgard && go mod tidy -e
 ```
 
 | Command | What it does |
@@ -1627,16 +1629,14 @@ tidy:
 | `just build` | Builds `bin/zgard` + copies `grazhda.sh` bash scripts to `bin/` |
 | `just test` | Runs `go test ./...` for both modules |
 | `just fmt` | Auto-formats all `.go` files with `gofmt` (the standard formatter) |
-| `just tidy` | `go work sync` + `go mod tidy` for each module — keeps `go.mod`/`go.sum` clean |
+| `just tidy` | `go mod tidy` for each module — removes unused dependencies and adds missing ones |
 | `just clean` | Removes the `bin/` directory |
 
 **`go build -o ../bin/zgard .`** compiles the package in the current directory (`.`) and writes the binary to `../bin/zgard`. The `-o` flag specifies the output file name.
 
 **`go fmt ./...`** formats every `.go` file in the current module. Gofmt is opinionated — it enforces a single canonical style so there is no debate about formatting. In Go, formatting is not style; it is mandatory.
 
-**`go mod tidy`** removes unused dependencies from `go.mod` and `go.sum`, and adds any missing ones. Run it after adding or removing imports.
-
-**`go work sync`** updates `go.work.sum` (the workspace-level checksum file) to match the current state of all modules in `go.work`.
+**`go mod tidy`** removes unused dependencies from `go.mod` and `go.sum`, and adds any missing ones. Run it after adding or removing imports. The `zgard` module uses `go mod tidy -e` (tolerate errors) because it depends on the local `internal` module which is resolved via `go.work` and not published to the Go module registry.
 
 ---
 

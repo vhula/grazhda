@@ -79,13 +79,13 @@ This document provides the complete epic and story breakdown for **Grazhda — z
 - **Three-module workspace:** `cmd/` (`github.com/vhula/grazhda/cmd`), `internal/` (`github.com/vhula/grazhda/internal`), and `zgard/` (`github.com/vhula/grazhda/zgard`) are separate Go modules registered in `go.work`.
 - **Executor interface:** `Run(dir string, command string) error` — `OsExecutor` wraps `sh -c`; `MockExecutor` records calls for tests.
 - **RunOptions struct:** `{DryRun, Verbose, Parallel, NoConfirm bool}` — passed to all workspace functions; never read Cobra flags inside `internal/`.
-- **Reporter:** two `charmbracelet/log v2` logger instances (stdout for INFO/WARN, stderr for ERROR); `Record(OpResult)`, `Summary()`, `ExitCode()`.
+- **Reporter:** writes to stdout (progress) and stderr (errors); `Record(OpResult)`, `Summary()`, `ExitCode()`; coloured output via `fatih/color`.
 - **OpResult:** `{Workspace, Project, Repo string; Skipped bool; Err error}`.
 - **Defer cleanup (NFR5):** `success := false; defer func() { if !success { os.RemoveAll(destPath) } }()`.
 - **Parallel:** `sync.WaitGroup` + goroutines; mutex-protected Reporter; uncapped Phase 1.
 - **`$GRAZHDA_DIR`:** read in `cmd/ws/*.go` only; defaults to `$HOME/.grazhda`; passed as string to `config.Load(path)`.
 - **Confirmation prompt:** inline `confirm(prompt string, r io.Reader) bool` in `internal/workspace/purge.go`.
-- **Dependencies:** `github.com/spf13/cobra v1.9.1`, `gopkg.in/yaml.v3 v3.0.1`, `charm.land/log/v2 v2.x`.
+- **Dependencies:** `github.com/spf13/cobra v1.9.1`, `gopkg.in/yaml.v3 v3.0.1`, `github.com/fatih/color v1.19.0`.
 - **Build:** `just build-zgard` → `bin/zgard`; `just test` → `go test ./...` across all modules.
 
 ### UX Design Requirements
@@ -197,17 +197,17 @@ So that the monorepo module boundaries are established and the workspace is read
 ### Story 1.2: Install Dependencies in Each Module
 
 As a developer,
-I want all required dependencies (`cobra`, `yaml.v3`, `charm.land/log/v2`) installed in the correct modules,
+I want all required dependencies (`cobra`, `yaml.v3`, `github.com/fatih/color`) installed in the correct modules,
 So that all packages can import their dependencies without version conflicts.
 
 **Acceptance Criteria:**
 
 **Given** the `cmd` module
-**When** I run `go get github.com/spf13/cobra@v1.9.1` and `go get charm.land/log/v2`
+**When** I run `go get github.com/spf13/cobra@v1.9.1` and `go get github.com/fatih/color`
 **Then** `cmd/go.mod` lists both dependencies and `cmd/go.sum` is updated
 
 **Given** the `internal` module
-**When** I run `go get gopkg.in/yaml.v3@v3.0.1` and `go get charm.land/log/v2`
+**When** I run `go get gopkg.in/yaml.v3@v3.0.1` and `go get github.com/fatih/color`
 **Then** `internal/go.mod` lists both dependencies
 
 **Given** the `zgard` module

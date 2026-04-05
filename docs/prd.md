@@ -265,7 +265,7 @@ zgard
 
 ### Output Formats
 
-- **Terminal output only** — human-readable, coloured via `charmbracelet/log`.
+- **Terminal output only** — human-readable, coloured via `fatih/color`.
 - Output levels: INFO (progress, skips), WARN (non-fatal issues), ERROR (failures).
 - `--verbose` / `-v` enables detailed per-operation output (e.g. exact clone command being run).
 - `--dry-run` prefixes all output lines with `[DRY RUN]` to make preview mode unambiguous.
@@ -304,7 +304,7 @@ workspaces:
 - Built with Go + Cobra; each `ws` subcommand is a separate Cobra command registered under a `ws` parent.
 - Clone commands are executed via `os/exec` using the rendered Go template output as the shell command string.
 - Config loaded once at startup via `gopkg.in/yaml.v3`; validation runs immediately after parsing.
-- Logging via `github.com/charmbracelet/log` with level control tied to `--verbose` flag.
+- Logging via `github.com/fatih/color` with level control tied to `--verbose` flag.
 - Workspace targeting logic (default / `--name` / `--all`) is shared across all three commands via a common resolver function.
 
 ## Functional Requirements

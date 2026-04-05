@@ -11,6 +11,19 @@ date: '2026-04-05'
 
 # Architecture Decision Document
 
+> **⚠️ Implementation Note:** This document is the original planning-phase architecture. The final implementation diverged in several areas:
+>
+> | Plan | Implementation |
+> | :--- | :--- |
+> | Three modules: `cmd/`, `internal/`, `zgard/` | Two modules: `internal/`, `zgard/` — `cmd/` was eliminated; its code lives in `zgard/ws/` |
+> | `charmbracelet/log` for output | `fatih/color` for coloured terminal output; no logging library |
+> | `internal/targeting/` as its own package | `internal/workspace/targeting.go` (file within `workspace` package) |
+> | `internal/reporter/` described in rough terms | Fully implemented with `Record`, `Summary`, `ExitCode`, `PrintLine` |
+> | `internal/executor/` with `Executor` interface | Implemented as described; `OsExecutor` captures stderr for rich error messages |
+> | No colour output mentioned | `internal/color/` package added wrapping `fatih/color` |
+>
+> **For the current accurate source layout see [README.md](../README.md) and [STUDY.md](../STUDY.md).**
+
 _This document builds collaboratively through step-by-step discovery. Sections are appended as we work through each architectural decision together._
 
 ## Project Context Analysis

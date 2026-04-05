@@ -49,7 +49,7 @@ The full pipeline for any command is:
 | Area | Technology |
 | :--- | :--- |
 | CLI | Go + [Cobra](https://github.com/spf13/cobra) |
-| Logging | [charm.land/log/v2](https://charm.land/log) |
+| Terminal Output | [fatih/color](https://github.com/fatih/color) |
 | Config | YAML (`gopkg.in/yaml.v3`) |
 | Build | `just` (`Justfile`) |
 | Module layout | Go workspace (`go.work`) — two modules: `internal`, `zgard` |
@@ -212,9 +212,9 @@ workspaces:
 ```
 Workspace: default
   Project: backend
-    ✓ api          – cloned (main)
-    ✗ auth         – exit status 128: repository not found
-    ⏭ api-v2       – already exists, skipped
+    ✓ api          — cloned (main)
+    ✗ auth         — fatal: Remote branch dev not found in upstream origin
+    ⏭ api-v2       — already exists, skipped
 
 ✓ 1 cloned  ⏭ 1 skipped  ✗ 1 failed
 ```
@@ -233,14 +233,14 @@ just build-zgard   # produces bin/zgard
 
 ```bash
 just test          # go test ./... across all modules
-just test          # add -race: cd internal && go test -race ./...
+just test          # with race detector: cd internal && go test -race ./...
 ```
 
 ### Format & Tidy
 
 ```bash
 just fmt           # gofmt across all modules
-just tidy          # go work sync + go mod tidy per module
+just tidy          # go mod tidy per module
 ```
 
 ### Module Layout
@@ -251,6 +251,7 @@ grazhda/
 ├── Justfile                 # build/test/fmt/tidy targets
 ├── config.template.yaml     # workspace config template
 ├── internal/                # module: github.com/vhula/grazhda/internal
+│   ├── color/               # Terminal color helpers (fatih/color wrapper)
 │   ├── config/              # Load, Validate, DefaultWorkspace, RenderCloneCmd
 │   ├── executor/            # Executor interface, OsExecutor, MockExecutor
 │   ├── reporter/            # Reporter — Record, Summary, ExitCode

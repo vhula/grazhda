@@ -185,12 +185,12 @@ Workspace: default
 
 **Selected approach: Structured plain-text with additive colour**
 
-No external TUI framework (Bubble Tea, tview) for Phase 1. Output is composed of plain-text lines with a consistent prefix grammar. `charmbracelet/log v2` provides colour-aware structured logging that auto-detects TTY and downgrades gracefully in CI/pipe contexts.
+No external TUI framework (Bubble Tea, tview) for Phase 1. Output is composed of plain-text lines with a consistent prefix grammar. `fatih/color` provides colour helpers that auto-detect TTY and disable colours gracefully in CI/pipe contexts.
 
 **Rationale:**
 - Simplest possible dependency surface for a CLI tool
 - Colour is additive — every status is conveyed by symbol/prefix first, colour second
-- `charmbracelet/log v2` handles TTY detection, colour downsampling, and log level routing automatically
+- `fatih/color` handles TTY detection and colour disabling automatically
 - Plain-text output is universally parseable by shell scripts and CI systems
 
 ### Output Vocabulary (Design Tokens)
@@ -250,7 +250,7 @@ The tool never surprises the user. Every action is either previewed or immediate
 
 ### Colour System
 
-Implemented via `charmbracelet/log v2` — colours are auto-detected and downsampled to terminal capability. All colour choices have monochrome fallbacks via symbols.
+Implemented via `fatih/color` — colours are auto-detected and downsampled to terminal capability. All colour choices have monochrome fallbacks via symbols.
 
 | Context | Colour (256/truecolor) | Monochrome fallback |
 |---|---|---|
@@ -522,7 +522,7 @@ When `--verbose` is active:
 
 ### CI / Non-TTY Accessibility
 
-- When stdout is not a TTY (pipe, redirect, CI): colour is disabled automatically by `charmbracelet/log v2`
+- When stdout is not a TTY (pipe, redirect, CI): colour is disabled automatically by `fatih/color`
 - All status is conveyed by symbols (`✓`, `✗`, `⏭`) and text — never by colour alone
 - `--no-confirm` flag makes the tool fully non-interactive for CI pipelines
 - Exit codes are the machine-readable status signal: `0` = all success, `1` = any failure or config error
