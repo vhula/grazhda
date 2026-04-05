@@ -8,6 +8,12 @@
 
 ---
 
+## 🎬 Demo
+
+![Grazhda demo](grazhda-demo.gif)
+
+---
+
 ## 🔥 The Problem
 
 You change laptops. You onboard a new teammate. You re-provision a machine after a crash. Then comes the ritual: remember which repos go where, which branches are right for each project, which SSH key format each remote uses. Repeat forty times. Miss one. Break something.
