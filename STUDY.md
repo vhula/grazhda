@@ -1,6 +1,6 @@
 # Grazhda — Study Guide for Junior Go Developers
 
-This guide explains the Grazhda project structure and its Go source code from first principles. No prior Go knowledge is assumed. By the end you will understand how the project is organised, what each file does, and why Go code is written the way it is.
+This guide explains the Grazhda project from first principles. You do not need to know Go before reading this. By the end you will understand how the repository is organised, what every file does, why the code is written the way it is, and a broad set of Go language concepts — all illustrated with the actual project code.
 
 ---
 
@@ -9,85 +9,124 @@ This guide explains the Grazhda project structure and its Go source code from fi
 1. [What is Grazhda?](#1-what-is-grazhda)
 2. [The Go Module System](#2-the-go-module-system)
 3. [Project Directory Layout](#3-project-directory-layout)
-4. [Reading a Go File — Fundamentals](#4-reading-a-go-file--fundamentals)
+4. [Go Language Fundamentals](#4-go-language-fundamentals)
+   - [Variables and Types](#41-variables-and-types)
+   - [Functions](#42-functions)
+   - [Structs](#43-structs)
+   - [Pointers](#44-pointers)
+   - [Interfaces](#45-interfaces)
+   - [Slices and Maps](#46-slices-and-maps)
+   - [Error Handling](#47-error-handling)
+   - [Goroutines and Concurrency](#48-goroutines-and-concurrency)
+   - [defer](#49-defer)
+   - [init()](#410-init)
+   - [Visibility (exported vs unexported)](#411-visibility-exported-vs-unexported)
 5. [internal/config — Loading Configuration](#5-internalconfig--loading-configuration)
-6. [internal/workspace — The Core Domain](#6-internalworkspace--the-core-domain)
-   - [options.go — RunOptions struct](#61-optionsgo--runoptions-struct)
-   - [executor.go — Running Shell Commands](#62-executorgo--running-shell-commands)
-   - [mock.go — Faking Execution in Tests](#63-mockgo--faking-execution-in-tests)
-   - [reporter.go — Showing Progress](#64-reportergo--showing-progress)
-   - [targeting.go — Choosing Workspaces](#65-targetinggo--choosing-workspaces)
-   - [workspace.go — Init, Purge, Pull](#66-workspacego--init-purge-pull)
-7. [zgard — The CLI Entry Point](#7-zgard--the-cli-entry-point)
-   - [main.go — The Program Starts Here](#71-maingo--the-program-starts-here)
-   - [root.go — The Root Command](#72-rootgo--the-root-command)
-   - [zgard/ws — Workspace Subcommands](#73-zgardws--workspace-subcommands)
-8. [How Data Flows — End-to-End](#8-how-data-flows--end-to-end)
-9. [Testing in Go](#9-testing-in-go)
-10. [Build System (Justfile)](#10-build-system-justfile)
-11. [Go Concepts Glossary](#11-go-concepts-glossary)
+6. [internal/executor — Running Shell Commands](#6-internalexecutor--running-shell-commands)
+7. [internal/reporter — Showing Progress](#7-internalreporter--showing-progress)
+8. [internal/workspace — The Core Domain](#8-internalworkspace--the-core-domain)
+   - [options.go](#81-optionsgo)
+   - [targeting.go — Choosing Workspaces](#82-targetinggo--choosing-workspaces)
+   - [workspace.go — Init, Purge, Pull](#83-workspacego--init-purge-pull)
+9. [zgard — The CLI Entry Point](#9-zgard--the-cli-entry-point)
+   - [main.go and root.go](#91-maingo-and-rootgo)
+   - [zgard/ws — Workspace Commands](#92-zgardws--workspace-commands)
+10. [How Data Flows End-to-End](#10-how-data-flows-end-to-end)
+11. [Testing in Go](#11-testing-in-go)
+12. [Build System (Justfile)](#12-build-system-justfile)
+13. [Configuration Reference](#13-configuration-reference)
+14. [Go Concepts Glossary](#14-go-concepts-glossary)
 
 ---
 
 ## 1. What is Grazhda?
 
-Grazhda is a **command-line tool** (CLI) that manages software development workspaces on your computer. A *workspace* is a directory that holds several git repositories, organised into projects.
+Grazhda is a **command-line tool** (CLI) called `zgard` that manages software development workspaces on your local machine.
 
-When you type `zgard ws init`, Grazhda:
-1. Reads a YAML configuration file to understand which repositories belong to the workspace.
-2. Creates the directory structure on disk.
-3. Runs `git clone` for each repository.
-4. Prints a live progress report and a summary.
+A *workspace* in Grazhda terms is a directory that contains one or more *projects*, each of which contains one or more git repositories. You describe the structure once in a YAML file and then use `zgard` to:
 
-There is only one user-facing binary: **`zgard`**.
+- **`zgard ws init`** — create the directory structure and clone all repositories
+- **`zgard ws pull`** — pull the latest changes in every repository
+- **`zgard ws purge`** — delete a workspace directory
+
+```
+~/.grazhda/config.yaml describes:
+  workspace "default"
+    project "backend"
+      repository "api"        → cloned to ~/ws/backend/api
+      repository "auth"       → cloned to ~/ws/backend/auth
+    project "frontend"
+      repository "dashboard"  → cloned to ~/ws/frontend/dashboard
+```
 
 ---
 
 ## 2. The Go Module System
 
-Before looking at source code, you need to understand how Go organises code.
-
 ### Packages
 
-Every Go source file starts with `package <name>`. A **package** is a group of `.go` files in the same directory. All files in a directory share the same package name and can see each other's types and functions directly.
+Every `.go` file begins with `package <name>`. A **package** is a group of files in the same directory. All files sharing a package can see each other's types and functions directly — no import needed.
 
-```go
-// This file is part of the "config" package.
-package config
+```
+internal/reporter/
+├── reporter.go       ← package reporter
+└── reporter_test.go  ← package reporter_test  (external test package)
 ```
 
 ### Modules
 
-A **module** is a collection of packages with a root `go.mod` file that declares the module's name (called its *import path*). Grazhda has two active modules:
+A **module** is a directory tree with a `go.mod` file at its root. The `go.mod` declares:
+1. The module's canonical import path (used by other modules to import it)
+2. The Go version being used
+3. External dependency versions
 
-| Directory | Module path |
+Grazhda has two active modules:
+
+| Directory | Module path (`go.mod` module line) |
 | :--- | :--- |
 | `internal/` | `github.com/vhula/grazhda/internal` |
 | `zgard/` | `github.com/vhula/grazhda/zgard` |
 
-The module path is used to import packages from *other* modules:
+To import the `reporter` package from `zgard/`, you write:
 
 ```go
-import "github.com/vhula/grazhda/internal/config"
+import "github.com/vhula/grazhda/internal/reporter"
 ```
 
-### Go Workspace (`go.work`)
+Go uses the module path as a namespace — `internal/reporter/reporter.go` says `package reporter` but is imported using the full path `github.com/vhula/grazhda/internal/reporter`.
 
-The top-level `go.work` file tells Go that both modules live locally together — so they can reference each other without being published online:
+### go.work — Local Multi-Module Workspace
+
+Normally, when module A imports module B, Go downloads B from the internet (from a registry like `pkg.go.dev`). The `go.work` file at the project root tells Go to use local copies instead:
 
 ```
 go 1.26.1
 
 use (
-    ./internal
+    ./internal   ← use the local internal/ directory as the module
     ./zgard
-    ./dukh    // placeholder for future component
+    ./dukh
 )
 ```
 
+This lets the two modules reference each other during development without publishing anything online.
+
 ### The `internal/` Convention
 
-Any package under a directory named `internal` can only be imported by code in the **parent** of that `internal/` directory. Here, `internal/config` can only be imported by `zgard/` (its sibling) or other code in the same repository. This prevents external users of the module from depending on your private implementation details.
+Go has a language-enforced rule: any package inside a directory named `internal` can only be imported by code **within the parent of that `internal/` directory**. Since `internal/` is at the repository root, only code in this same repository can import it. This prevents external consumers of the module from depending on your private implementation details.
+
+### go.mod and go.sum
+
+`go.mod` lists direct and indirect dependencies with their versions:
+
+```
+require (
+    github.com/spf13/cobra v1.9.1
+    gopkg.in/yaml.v3 v3.0.1
+)
+```
+
+`go.sum` is a lock file that stores cryptographic checksums of every downloaded dependency. You should commit both files; never edit `go.sum` by hand.
 
 ---
 
@@ -95,122 +134,529 @@ Any package under a directory named `internal` can only be imported by code in t
 
 ```
 grazhda/
-├── go.work                  ← ties modules together locally
-├── Justfile                 ← build/test/fmt shortcuts (like a Makefile)
-├── config.template.yaml     ← copy this to ~/.grazhda/config.yaml
-├── README.md
-├── STUDY.md                 ← this file
 │
-├── internal/                ← module: github.com/vhula/grazhda/internal
-│   ├── go.mod               ← module declaration + dependencies
+├── go.work                      ← ties local modules together
+├── Justfile                     ← `just build-zgard`, `just test`, etc.
+├── config.template.yaml         ← example config; copy to ~/.grazhda/config.yaml
+├── README.md
+├── STUDY.md                     ← this file
+│
+├── internal/                    ← module: github.com/vhula/grazhda/internal
+│   ├── go.mod
+│   ├── go.sum
+│   │
 │   ├── config/
-│   │   ├── config.go        ← config types, Load, Validate, RenderCloneCmd
-│   │   └── config_test.go   ← 14 tests for config logic
+│   │   ├── config.go            ← Load, Validate, DefaultWorkspace, RenderCloneCmd
+│   │   └── config_test.go       ← 14 unit tests
+│   │
+│   ├── executor/
+│   │   ├── executor.go          ← Executor interface + OsExecutor
+│   │   └── mock.go              ← MockExecutor for tests
+│   │
+│   ├── reporter/
+│   │   ├── reporter.go          ← Reporter: ✓/⏭/✗ output + summary
+│   │   └── reporter_test.go     ← 9 unit tests
+│   │
 │   ├── workspace/
-│   │   ├── options.go       ← RunOptions struct (dry-run, verbose, parallel, etc.)
-│   │   ├── executor.go      ← Executor interface + OsExecutor (real shell runner)
-│   │   ├── mock.go          ← MockExecutor (fake runner for tests)
-│   │   ├── reporter.go      ← Reporter: prints ✓/⏭/✗ lines and summary
-│   │   ├── targeting.go     ← Resolve: picks which workspaces to operate on
-│   │   ├── workspace.go     ← Init, Purge, Pull — the main operations
-│   │   ├── workspace_test.go
-│   │   ├── reporter_test.go
-│   │   └── targeting_test.go
-│   └── testdata/            ← YAML fixture files used by tests
+│   │   ├── options.go           ← RunOptions struct
+│   │   ├── targeting.go         ← Resolve: picks workspaces from flags
+│   │   ├── workspace.go         ← Init, Purge, Pull
+│   │   ├── workspace_test.go    ← 12 unit tests
+│   │   └── targeting_test.go    ← 7 unit tests
+│   │
+│   └── testdata/                ← YAML fixtures used by tests
 │       ├── valid_single_workspace.yaml
 │       ├── valid_multi_workspace.yaml
-│       └── ...
+│       ├── duplicate_workspace_names.yaml
+│       ├── missing_required_fields.yaml
+│       ├── missing_branch.yaml
+│       └── invalid_template.yaml
 │
-├── zgard/                   ← module: github.com/vhula/grazhda/zgard
-│   ├── go.mod
-│   ├── main.go              ← program entry point: calls Execute()
-│   ├── root.go              ← defines the "zgard" Cobra command
-│   └── ws/
-│       ├── ws.go            ← "zgard ws" parent command
-│       ├── init.go          ← "zgard ws init" subcommand
-│       ├── purge.go         ← "zgard ws purge" subcommand
-│       ├── pull.go          ← "zgard ws pull" subcommand
-│       ├── config.go        ← resolveConfigPath() helper
-│       └── confirm.go       ← confirm() prompt helper
-│
-└── dukh/                    ← future gRPC server (placeholder only)
+└── zgard/                       ← module: github.com/vhula/grazhda/zgard
+    ├── go.mod
+    ├── go.sum
+    ├── main.go                  ← func main() — program entry point
+    ├── root.go                  ← zgard root Cobra command + Execute()
+    └── ws/
+        ├── ws.go                ← "zgard ws" parent command
+        ├── init.go              ← "zgard ws init" with all flags
+        ├── purge.go             ← "zgard ws purge" with all flags
+        ├── pull.go              ← "zgard ws pull" with all flags
+        ├── config.go            ← resolveConfigPath() helper
+        ├── confirm.go           ← confirm() prompt helper
+        └── ws_test.go           ← placeholder test
 ```
 
-**Key insight:** `internal/workspace` contains *all* the business logic — the rules about how workspaces are managed. The `zgard/ws/` packages contain only the CLI glue — parsing flags, reading config, calling workspace functions, and calling `os.Exit`.
+**Logical grouping rationale:**
+
+| Package | Why it is separate |
+| :--- | :--- |
+| `config` | Config concerns are standalone — load YAML, validate, render templates. No dependency on executor or reporter. |
+| `executor` | Shell execution is a generic concern, reusable for any future command (not just workspace). |
+| `reporter` | Progress output is a generic concern, reusable for any future zgard command. |
+| `workspace` | Domain logic — orchestrates executor and reporter to implement Init/Purge/Pull. |
+| `zgard/ws` | CLI layer only — parse flags, resolve config, call workspace functions, call `os.Exit`. |
 
 ---
 
-## 4. Reading a Go File — Fundamentals
+## 4. Go Language Fundamentals
 
-Here is the skeleton of any Go source file:
+### 4.1 Variables and Types
+
+Go is **statically typed** — every variable has a fixed type known at compile time.
 
 ```go
-package mypackage          // 1. Package declaration
+// var keyword with explicit type
+var name string = "grazhda"
 
-import (                   // 2. Imports — what other packages we use
-    "fmt"
-    "os"
-    "github.com/vhula/grazhda/internal/config"
-)
+// Short declaration — type is inferred
+path := "/home/jake/ws"
 
-// MyStruct is a type with named fields.
-type MyStruct struct {
-    Name string
-    Age  int
-}
+// Multiple assignment
+count, err := someFunction()
 
-// NewMyStruct creates a MyStruct. By convention, constructors are named New<Type>.
-func NewMyStruct(name string, age int) *MyStruct {
-    return &MyStruct{Name: name, Age: age}
-}
-
-// Greet is a method on *MyStruct. The (m *MyStruct) part is the "receiver".
-func (m *MyStruct) Greet() string {
-    return fmt.Sprintf("Hello, I am %s, age %d", m.Name, m.Age)
-}
+// Zero values — Go initialises all variables
+var n int      // 0
+var s string   // ""
+var b bool     // false
+var p *int     // nil (a nil pointer)
 ```
 
-### Pointers (`*` and `&`)
+**Built-in types used in Grazhda:**
 
-Go passes values by copy. When a function needs to *modify* a value — or when a struct is large — you use a **pointer**:
+| Type | Description | Example |
+| :--- | :--- | :--- |
+| `string` | Immutable sequence of UTF-8 bytes | `"api"` |
+| `bool` | True or false | `true`, `false` |
+| `int` | Platform-width integer (64-bit on 64-bit OS) | `42` |
+| `error` | Built-in interface for errors | `nil` or `errors.New("msg")` |
+| `[]T` | Slice: a variable-length list of T | `[]string{"a", "b"}` |
+| `map[K]V` | Hash map from K to V | `map[string]bool{}` |
+| `*T` | Pointer to a value of type T | `&config.Config{}` |
 
-- `*MyStruct` means "a pointer to a MyStruct" (the memory address of one)
-- `&value` means "take the address of value"
-- When you see `return &MyStruct{...}`, the function returns the address of the new struct, not a copy
-
-### Error Handling
-
-Go does not have exceptions. Instead, functions return an `error` value as the last return:
+### 4.2 Functions
 
 ```go
-func Load(path string) (*Config, error) {
-    data, err := os.ReadFile(path)
-    if err != nil {
-        return nil, fmt.Errorf("config file %q: %w", path, err)
+// Basic function: name, parameters (name type), return types
+func add(a int, b int) int {
+    return a + b
+}
+
+// Multiple return values — Go's idiomatic way to return results + errors
+func divide(a, b float64) (float64, error) {
+    if b == 0 {
+        return 0, fmt.Errorf("division by zero")
     }
-    // success — return the value and nil for the error
-    return &cfg, nil
+    return a / b, nil
+}
+
+// Calling a function with multiple returns
+result, err := divide(10, 3)
+if err != nil {
+    // handle error
+}
+
+// Discarding a return value with _
+result, _ := divide(10, 3)  // we don't care about the error
+```
+
+**Named return values** (used occasionally):
+
+```go
+func split(s string) (head, tail string) {
+    head = s[:1]
+    tail = s[1:]
+    return   // "naked return" — returns head and tail
 }
 ```
 
-The caller always checks `if err != nil`. The `%w` verb in `fmt.Errorf` *wraps* the original error so it can be unwrapped later.
+### 4.3 Structs
 
-### Interfaces
-
-An **interface** describes behaviour — a set of methods a type must have. Any type that has those methods automatically satisfies the interface (no explicit `implements` keyword):
+A **struct** groups named fields into a composite type:
 
 ```go
+type Workspace struct {
+    Name    string
+    Path    string
+    Default bool
+}
+
+// Creating a struct value
+ws := Workspace{Name: "default", Path: "/home/jake/ws", Default: true}
+
+// Accessing fields
+fmt.Println(ws.Name)  // "default"
+ws.Path = "/tmp/ws"   // modify a field
+```
+
+**Struct tags** are string metadata attached to fields. The YAML library reads the `yaml:"..."` tag to know which YAML key maps to which field:
+
+```go
+type Repository struct {
+    Name         string `yaml:"name"`
+    Branch       string `yaml:"branch,omitempty"`   // optional field
+    LocalDirName string `yaml:"local_dir_name,omitempty"`
+}
+```
+
+Without the tag, `yaml.Unmarshal` would look for a key named `LocalDirName` (the field name) instead of `local_dir_name`.
+
+### 4.4 Pointers
+
+By default Go passes values **by copy**. A pointer holds the memory *address* of a value:
+
+```go
+// *Config means "a pointer to a Config"
+func Load(path string) (*Config, error) {
+    var cfg Config
+    // ... fill in cfg ...
+    return &cfg, nil   // & takes the address of cfg
+}
+
+cfg, err := Load("config.yaml")
+// cfg is *Config — a pointer
+fmt.Println(cfg.Name)   // Go auto-dereferences: cfg.Name is short for (*cfg).Name
+```
+
+**When to use pointers:**
+- The function needs to *modify* the caller's value (e.g. `Reporter.Record`)
+- The struct is large and copying it would be expensive
+- `nil` is a meaningful "no value" (e.g. optional config fields)
+
+**Pointer receiver vs value receiver:**
+
+```go
+// Value receiver — gets a copy; modifications don't affect the original
+func (ws Workspace) DisplayName() string {
+    return ws.Name
+}
+
+// Pointer receiver — gets the original; can modify it; also more efficient for large structs
+func (r *Reporter) Record(res OpResult) {
+    r.results = append(r.results, res)  // modifies the Reporter
+}
+```
+
+As a rule, if *any* method on a type uses a pointer receiver, all methods should use a pointer receiver for consistency.
+
+### 4.5 Interfaces
+
+An **interface** defines behaviour as a set of method signatures. Any type that implements those methods *automatically* satisfies the interface — no explicit declaration required:
+
+```go
+// Interface declaration
 type Executor interface {
     Run(dir string, command string) error
 }
 
-// OsExecutor has a Run method, so it satisfies Executor automatically.
+// OsExecutor satisfies Executor because it has a Run method with the right signature
 type OsExecutor struct{}
 
-func (e OsExecutor) Run(dir string, command string) error { ... }
+func (e OsExecutor) Run(dir string, command string) error {
+    cmd := exec.Command("sh", "-c", command)
+    cmd.Dir = dir
+    return cmd.Run()
+}
+
+// MockExecutor also satisfies Executor
+type MockExecutor struct{ Calls []string }
+
+func (m *MockExecutor) Run(dir string, command string) error {
+    m.Calls = append(m.Calls, command)
+    return nil
+}
+
+// A function accepting the interface works with EITHER type
+func Init(ws config.Workspace, exec Executor, ...) error {
+    // exec can be OsExecutor or MockExecutor — Init doesn't know or care
+}
 ```
 
-Interfaces are how Go achieves testability — you can swap the real `OsExecutor` for a `MockExecutor` in tests.
+This is how Go achieves **testability without mocking frameworks** — define an interface, write a real implementation and a fake implementation, inject the fake in tests.
+
+**The standard library uses interfaces everywhere:**
+
+```go
+type io.Writer interface {
+    Write(p []byte) (n int, err error)
+}
+
+// os.File satisfies io.Writer (you can write to a file)
+// strings.Builder satisfies io.Writer (you can write to a string buffer)
+// bytes.Buffer satisfies io.Writer
+
+// Reporter accepts io.Writer, so it works with both:
+rep := reporter.NewReporter(os.Stdout, os.Stderr)          // production
+rep := reporter.NewReporter(&strings.Builder{}, &strings.Builder{})  // tests
+```
+
+### 4.6 Slices and Maps
+
+**Slices** are dynamically-sized views over arrays:
+
+```go
+// Literal
+repos := []string{"api", "auth", "dashboard"}
+
+// Length and access
+fmt.Println(len(repos))   // 3
+fmt.Println(repos[0])     // "api"
+fmt.Println(repos[1:])    // ["auth", "dashboard"] — sub-slice
+
+// append — returns a new slice (may allocate new backing array)
+repos = append(repos, "gateway")
+
+// make — creates a slice with a given length and capacity
+errs := make([]string, 0, 10)  // empty slice, capacity 10 — avoids reallocation
+
+// Range — iterate over a slice
+for i, repo := range repos {
+    fmt.Println(i, repo)
+}
+
+// Ignore the index
+for _, repo := range repos {
+    fmt.Println(repo)
+}
+```
+
+**Maps** are hash tables:
+
+```go
+// make — creates an empty map
+seenWS := make(map[string]bool)
+
+// Set
+seenWS["default"] = true
+
+// Get — returns the value and an "ok" bool
+val, ok := seenWS["default"]   // val=true, ok=true
+val, ok = seenWS["other"]      // val=false, ok=false
+
+// Simpler read (zero value if key missing)
+if seenWS["default"] {
+    // already seen
+}
+
+// Delete
+delete(seenWS, "default")
+
+// Range
+for name, seen := range seenWS {
+    fmt.Println(name, seen)
+}
+```
+
+### 4.7 Error Handling
+
+Go has no exceptions. Functions return `error` as the last return value:
+
+```go
+// nil means "no error happened"
+func Load(path string) (*Config, error) {
+    data, err := os.ReadFile(path)
+    if err != nil {
+        // Wrap the error with context using %w
+        return nil, fmt.Errorf("config file %q: %w", path, err)
+    }
+    return &cfg, nil
+}
+
+// The caller must check the error
+cfg, err := config.Load(cfgPath)
+if err != nil {
+    return err   // propagate up
+}
+```
+
+**`fmt.Errorf` with `%w`** wraps the original error. Callers can later use `errors.Is` or `errors.As` to inspect the chain:
+
+```go
+if errors.Is(err, os.ErrNotExist) {
+    // the original error was "file not found"
+}
+```
+
+**When to return vs when to log:** In library code (`internal/`), always return errors — let the caller decide what to do. In CLI code (`zgard/ws/`), errors from `RunE` are printed by Cobra automatically.
+
+### 4.8 Goroutines and Concurrency
+
+A **goroutine** is a lightweight thread managed by the Go runtime. You can run thousands simultaneously:
+
+```go
+// Start a goroutine with the go keyword
+go func() {
+    fmt.Println("running concurrently")
+}()
+
+// The anonymous function executes concurrently with the caller
+```
+
+**Why goroutines?** For `--parallel`, Grazhda clones repositories at the same time to save wall-clock time. Without goroutines, clones would run one after another.
+
+**sync.WaitGroup** — waiting for goroutines to finish:
+
+```go
+var wg sync.WaitGroup
+
+for _, repo := range proj.Repositories {
+    wg.Add(1)          // increment counter BEFORE starting goroutine
+    repo := repo       // capture: give each goroutine its own copy of repo
+    go func() {
+        defer wg.Done()  // decrement counter when goroutine finishes
+        cloneRepo(repo)
+    }()
+}
+
+wg.Wait()  // block until counter reaches zero
+```
+
+**sync.Mutex** — preventing data races:
+
+When multiple goroutines read and write the same memory simultaneously, the result is undefined — this is called a **data race** and is a serious bug. A `Mutex` (mutual exclusion lock) ensures only one goroutine can be in a critical section at a time:
+
+```go
+type MockExecutor struct {
+    mu    sync.Mutex
+    Calls []string
+}
+
+func (m *MockExecutor) Run(dir, command string) error {
+    m.mu.Lock()           // acquire the lock — other goroutines block here
+    m.Calls = append(m.Calls, command)
+    m.mu.Unlock()         // release the lock
+    return nil
+}
+```
+
+A simpler pattern using `defer`:
+
+```go
+func (r *Reporter) Record(res OpResult) {
+    r.mu.Lock()
+    defer r.mu.Unlock()   // guaranteed to run when Record returns
+    r.results = append(r.results, res)
+    // ... do more work — mutex is still held
+}
+```
+
+**Race detector:** Run `go test -race ./...` to have the Go toolchain instrument your binary and detect races at runtime.
+
+**Loop variable capture (a common gotcha):**
+
+```go
+for _, repo := range proj.Repositories {
+    go func() {
+        fmt.Println(repo.Name)  // BUG in older Go: all goroutines share the same `repo`
+    }()
+}
+
+// Fix: shadow the variable inside the loop
+for _, repo := range proj.Repositories {
+    repo := repo   // new `repo` variable scoped to this iteration
+    go func() {
+        fmt.Println(repo.Name)  // each goroutine captures its own copy
+    }()
+}
+```
+
+Go 1.22+ fixed this for `for` loops, but the explicit capture is still idiomatic for clarity.
+
+### 4.9 defer
+
+`defer` schedules a function call to run when the surrounding function returns — regardless of how it returns (normal return, early return, panic):
+
+```go
+func processFile(path string) error {
+    f, err := os.Open(path)
+    if err != nil {
+        return err
+    }
+    defer f.Close()   // will run when processFile returns, no matter what
+
+    // ... work with f ...
+    return nil
+}
+```
+
+**Common patterns:**
+
+```go
+// 1. Unlock a mutex
+r.mu.Lock()
+defer r.mu.Unlock()
+
+// 2. Close resources
+defer f.Close()
+defer conn.Close()
+
+// 3. Rollback on failure (used in cloneRepo)
+var success bool
+defer func() {
+    if !success {
+        os.RemoveAll(repoPath)  // clean up partial clone
+    }
+}()
+// ... try to clone ...
+success = true   // if we reach here, defer does nothing
+```
+
+Multiple defers run in **LIFO** (last in, first out) order — the last deferred function runs first.
+
+### 4.10 init()
+
+`init()` is a special function that the Go runtime calls automatically after package-level variables are initialised, before `main()`:
+
+```go
+// zgard/root.go
+var rootCmd = &cobra.Command{...}   // package-level variable, initialised first
+
+func init() {
+    rootCmd.AddCommand(ws.NewCmd())   // then init() runs
+}
+
+func main() {
+    Execute()   // then main() runs
+}
+```
+
+Rules:
+- Multiple files in the same package can each have an `init()` function — all of them run
+- `init()` cannot be called explicitly
+- `init()` cannot take parameters or return values
+- Use it for one-time setup that depends on other package-level variables being initialised first
+
+### 4.11 Visibility (exported vs unexported)
+
+Go uses naming convention for access control — no `public`/`private` keywords:
+
+| First letter | Visibility | Example |
+| :--- | :--- | :--- |
+| Uppercase | **Exported** — visible outside the package | `NewReporter`, `OpResult`, `Executor` |
+| Lowercase | **Unexported** — private to the package | `expandHome`, `cloneRepo`, `mu` |
+
+This applies to functions, types, struct fields, constants, and variables:
+
+```go
+type Reporter struct {
+    out     io.Writer    // unexported — tests can't access this directly
+    errOut  io.Writer    // unexported
+    mu      sync.Mutex  // unexported
+    results []OpResult  // unexported
+}
+
+// Exported constructor — the only way to create a Reporter from outside the package
+func NewReporter(out, errOut io.Writer) *Reporter {
+    return &Reporter{out: out, errOut: errOut}
+}
+
+// Exported methods — form the public API
+func (r *Reporter) Record(res OpResult) { ... }
+func (r *Reporter) Summary(label string, dryRun bool) { ... }
+func (r *Reporter) ExitCode() int { ... }
+```
+
+**Test packages:** A file with `package reporter_test` (note the `_test` suffix) is an *external test package*. It can only access exported identifiers, just like any other package. This is useful for testing the public API in isolation. Files with `package reporter` inside a `_test.go` file are *internal* test files and can access unexported identifiers.
 
 ---
 
@@ -220,7 +666,7 @@ Interfaces are how Go achieves testability — you can swap the real `OsExecutor
 
 ### The Type Hierarchy
 
-Grazhda's config maps directly to Go types using struct *tags* that tell the YAML decoder which field name to look for:
+The configuration file describes a tree: Config → Workspaces → Projects → Repositories. The Go types mirror this exactly:
 
 ```go
 type Config struct {
@@ -248,34 +694,52 @@ type Repository struct {
 }
 ```
 
-`[]Workspace` means a **slice** (a dynamically-sized list) of Workspace values. The `,omitempty` tag means the field is optional in the YAML file.
+The `yaml:"..."` struct tags tell the `gopkg.in/yaml.v3` library which YAML key to look for. Without the `local_dir_name` tag, the decoder would look for a key `LocalDirName` (the exact field name) which would not match the snake_case YAML convention.
+
+`omitempty` means: when marshalling to YAML, omit the field if it is the zero value (empty string). When unmarshalling, the field is simply not set if the key is absent.
 
 ### Load
 
 ```go
 func Load(path string) (*Config, error) {
-    data, err := os.ReadFile(path)    // read raw bytes from disk
+    data, err := os.ReadFile(path)
     if err != nil {
         return nil, fmt.Errorf("config file %q: %w", path, err)
     }
     var cfg Config
-    if err := yaml.Unmarshal(data, &cfg); err != nil {  // parse YAML into cfg
+    if err := yaml.Unmarshal(data, &cfg); err != nil {
         return nil, fmt.Errorf("parsing config %q: %w", path, err)
     }
     return &cfg, nil
 }
 ```
 
-`yaml.Unmarshal` fills in the `cfg` struct by matching YAML keys to struct field tags.
+`os.ReadFile` reads the entire file into a `[]byte` (a slice of bytes). `yaml.Unmarshal` parses those bytes and fills the `cfg` struct by matching YAML keys to struct field tags. `&cfg` passes a pointer so the decoder can write into it.
+
+### DefaultWorkspace
+
+```go
+func DefaultWorkspace(cfg *Config) (*Workspace, error) {
+    for i := range cfg.Workspaces {
+        ws := &cfg.Workspaces[i]   // pointer to slice element, not a copy
+        if ws.Default || ws.Name == "default" {
+            return ws, nil
+        }
+    }
+    return nil, fmt.Errorf("no default workspace found: add a workspace with name: default or use --ws")
+}
+```
+
+Why `for i := range` instead of `for _, ws := range`? Because `for _, ws := range cfg.Workspaces` gives you a **copy** of each element, and `&ws` would give the address of the copy, not the original slice element. Using `&cfg.Workspaces[i]` gives the address of the actual slice element.
 
 ### Validate
 
-`Validate` checks for mistakes *before* any filesystem operation runs. It returns a `[]string` — a slice of human-readable error messages:
+Validation runs up-front — all errors are collected and reported before any filesystem change:
 
 ```go
 func Validate(cfg *Config) []string {
     var errs []string
-    seenWS := make(map[string]bool)   // map to detect duplicates
+    seenWS := make(map[string]bool)
 
     for i, ws := range cfg.Workspaces {
         if ws.Name == "" {
@@ -285,27 +749,42 @@ func Validate(cfg *Config) []string {
         } else {
             seenWS[ws.Name] = true
         }
-        // ... more checks
+        // ... more checks for path, clone_command_template, projects, branches ...
     }
     return errs
 }
 ```
 
-`make(map[string]bool)` creates an empty map from string keys to boolean values. `seenWS[ws.Name] = true` records that we've seen a name; `seenWS[ws.Name]` returns `true` if the key exists, `false` otherwise.
+Returning `[]string` (a slice of error messages) rather than `error` allows reporting *all* problems at once instead of stopping at the first one. In the CLI commands, the caller prints each message then returns a single summary error:
+
+```go
+if errs := config.Validate(cfg); len(errs) > 0 {
+    for _, e := range errs {
+        fmt.Fprintln(os.Stderr, e)
+    }
+    return fmt.Errorf("configuration is invalid")
+}
+```
 
 ### RenderCloneCmd
 
-This function fills in a Go template (e.g. `git clone --branch {{.Branch}} https://github.com/org/{{.RepoName}} {{.DestDir}}`) with real values:
+This function takes a Go template string like:
+
+```
+git clone --branch {{.Branch}} https://github.com/org/{{.RepoName}} {{.DestDir}}
+```
+
+and fills it in with real values for a specific repository:
 
 ```go
 func RenderCloneCmd(tmplStr, projectPath string, proj Project, repo Repository) (string, error) {
     branch := repo.Branch
     if branch == "" {
-        branch = proj.Branch   // repo inherits project branch if not set
+        branch = proj.Branch   // fall back to project-level branch
     }
     destName := repo.LocalDirName
     if destName == "" {
-        destName = repo.Name
+        destName = repo.Name   // fall back to repo name as directory name
     }
     data := CloneTemplateData{
         Branch:   branch,
@@ -324,43 +803,33 @@ func RenderCloneCmd(tmplStr, projectPath string, proj Project, repo Repository) 
 }
 ```
 
-`bytes.Buffer` is an in-memory buffer that implements `io.Writer`. `template.Execute` writes the rendered output into the buffer, and `buf.String()` converts it to a regular string.
+`text/template` is a standard library package. `{{.Branch}}` refers to the `Branch` field of the data struct. `bytes.Buffer` is an in-memory byte buffer — `t.Execute` writes rendered output into it, and `buf.String()` converts it to a string.
+
+`filepath.Join` produces a platform-correct path: on Windows it uses `\`, on Unix it uses `/`.
 
 ---
 
-## 6. internal/workspace — The Core Domain
+## 6. internal/executor — Running Shell Commands
 
-Everything in the `workspace` package works together. All six files share `package workspace` so they can use each other's types and functions directly without an import.
+**Files:** `internal/executor/executor.go`, `internal/executor/mock.go`
 
-### 6.1 options.go — RunOptions struct
+The executor package is deliberately generic — it knows nothing about Grazhda's workspace concept. It can run any shell command in any directory.
 
-```go
-package workspace
-
-// RunOptions controls the behaviour of workspace operations.
-type RunOptions struct {
-    DryRun    bool
-    Verbose   bool
-    Parallel  bool
-    NoConfirm bool
-}
-```
-
-This is a simple **struct** — a collection of named fields. All four fields are `bool` (true/false). In Go, `bool` fields default to `false`, so a zero-value `RunOptions{}` means "normal run, no flags set".
-
-This struct is passed to `Init`, `Purge`, and `Pull` so they share a consistent set of options.
-
-### 6.2 executor.go — Running Shell Commands
+### The Executor Interface
 
 ```go
-package workspace
-
-import "os/exec"
-
 type Executor interface {
     Run(dir string, command string) error
 }
+```
 
+One method. Any type with `Run(dir string, command string) error` satisfies `Executor`. This interface is the *contract* between:
+- The workspace package (the *consumer*) which needs to run shell commands
+- The executor package (the *provider*) which actually runs them
+
+### OsExecutor
+
+```go
 type OsExecutor struct{}
 
 func (e OsExecutor) Run(dir string, command string) error {
@@ -370,19 +839,17 @@ func (e OsExecutor) Run(dir string, command string) error {
 }
 ```
 
-`exec.Command("sh", "-c", command)` creates a new system process that runs the shell command. `cmd.Dir = dir` sets the working directory. `cmd.Run()` executes it and blocks until it exits, returning an error if the process failed.
+`exec.Command("sh", "-c", command)` creates a `*exec.Cmd`. The `sh -c` invocation runs the full command string through the shell, so glob patterns, environment variables, and pipes all work.
 
-The `Executor` interface has only one method: `Run`. This makes it easy to swap implementations:
-- In production: `OsExecutor` — runs real shell commands
-- In tests: `MockExecutor` — records calls, never touches the filesystem
+`cmd.Dir = dir` sets the working directory for the subprocess.
 
-### 6.3 mock.go — Faking Execution in Tests
+`cmd.Run()` starts the process and waits for it to exit. It returns:
+- `nil` if the process exited with code 0 (success)
+- An `*exec.ExitError` if the process exited with a non-zero code
+
+### MockExecutor
 
 ```go
-package workspace
-
-import "sync"
-
 type MockExecutor struct {
     mu    sync.Mutex
     Calls []string
@@ -404,24 +871,40 @@ func (m *MockExecutor) Run(dir string, command string) error {
 }
 ```
 
-**Why the mutex?** When `--parallel` is used, multiple goroutines call `Run` at the same time. `sync.Mutex` ensures only one goroutine modifies `m.Calls` at a time — otherwise two goroutines writing to the slice simultaneously would cause a *data race* (a bug where the result depends on timing).
+`MockExecutor` records every call in `Calls`. Tests inspect this slice to assert that the right commands were run.
 
-`m.mu.Lock()` acquires the lock; `m.mu.Unlock()` releases it. The `defer` pattern (used in reporter below) is more idiomatic, but here the lock is released early on purpose — the error function is called *outside* the lock to avoid holding it longer than necessary.
+Two ways to inject errors:
+- `mock.Err = errors.New("clone failed")` — every call fails
+- `mock.ErrFn = func(call int) error { ... }` — per-call control (e.g. fail only the first call)
 
-`ErrFn` is a **function field**: `func(callIndex int) error` means "a function that takes an int and returns an error". Tests set this to simulate the first clone failing:
+The mutex protects `Calls` because `--parallel` mode calls `Run` from multiple goroutines simultaneously. The `errFn` is read *inside* the lock and invoked *outside* — deliberately, so the error function itself is not constrained from acquiring other locks.
+
+---
+
+## 7. internal/reporter — Showing Progress
+
+**Files:** `internal/reporter/reporter.go`, `internal/reporter/reporter_test.go`
+
+The reporter package is also generic — it can display progress for any operation that produces a stream of named results. Like executor, it knows nothing about workspaces specifically.
+
+### OpResult
 
 ```go
-mock.ErrFn = func(call int) error {
-    if call == 1 { return errors.New("clone failed") }
-    return nil
+type OpResult struct {
+    Workspace string
+    Project   string
+    Repo      string
+    Skipped   bool
+    Err       error
+    Msg       string
 }
 ```
 
-### 6.4 reporter.go — Showing Progress
+Every repository operation produces one `OpResult`. The `Err` field distinguishes failure from success; `Skipped` marks a repository that was intentionally not operated on (e.g. already cloned).
+
+### Reporter
 
 ```go
-package workspace
-
 type Reporter struct {
     out     io.Writer
     errOut  io.Writer
@@ -434,11 +917,23 @@ func NewReporter(out, errOut io.Writer) *Reporter {
 }
 ```
 
-`io.Writer` is a standard library interface with one method: `Write(p []byte) (n int, err error)`. Both `os.Stdout` and `strings.Builder` implement it. By accepting `io.Writer` instead of writing directly to `os.Stdout`, the Reporter works identically in tests (writing to a `strings.Builder`) and in production (writing to the terminal).
+The constructor accepts `io.Writer` for both output streams. In production:
 
-The unexported fields (`out`, `errOut`, `mu`, `results`) start with lowercase letters — Go's convention for package-private visibility. They can only be accessed from within the `workspace` package.
+```go
+rep := reporter.NewReporter(os.Stdout, os.Stderr)
+```
 
-#### Record
+In tests:
+
+```go
+var out, errOut strings.Builder
+rep := reporter.NewReporter(&out, &errOut)
+// after the operation, inspect out.String() and errOut.String()
+```
+
+This pattern is called **dependency injection** — the dependencies (`os.Stdout`, `os.Stderr`) are *injected* from outside instead of hard-coded. It makes the code testable without forking processes or capturing stdout.
+
+### Record
 
 ```go
 func (r *Reporter) Record(res OpResult) {
@@ -452,21 +947,52 @@ func (r *Reporter) Record(res OpResult) {
     } else if res.Skipped {
         symbol = "⏭"
     }
+
+    displayMsg := res.Msg
+    if res.Err != nil && displayMsg == "" {
+        displayMsg = res.Err.Error()
+    }
+
     fmt.Fprintf(r.out, "    %s %-14s — %s\n", symbol, res.Repo, displayMsg)
 }
 ```
 
-`defer r.mu.Unlock()` schedules `Unlock` to run when the function returns, regardless of how it exits. This is Go's idiomatic way to ensure a lock is always released.
+`fmt.Fprintf(w, format, args...)` writes a formatted string to any `io.Writer` — in this case the reporter's `out`.
 
-`%-14s` in the format string means: format as a string, left-aligned, padded to at least 14 characters. This makes repo names line up in columns.
+Format specifiers:
+- `%s` — string
+- `%d` — integer
+- `%q` — quoted string (adds surrounding `"` and escapes special chars)
+- `%-14s` — left-aligned string padded to 14 characters minimum
 
-#### Summary
+`res.Err.Error()` calls the `Error() string` method on the `error` interface, returning the error message as a plain string.
+
+### Summary
 
 ```go
 func (r *Reporter) Summary(successLabel string, dryRun bool) {
-    // count success, skipped, failed from r.results
+    r.mu.Lock()
+    defer r.mu.Unlock()
+
+    var success, skipped, failed int
+    for _, res := range r.results {
+        switch {
+        case res.Err != nil:
+            failed++
+        case res.Skipped:
+            skipped++
+        default:
+            success++
+        }
+    }
+
+    prefix := ""
+    if dryRun {
+        prefix = "[DRY RUN] "
+    }
     fmt.Fprintf(r.out, "\n%s✓ %d %s  ⏭ %d skipped  ✗ %d failed\n",
         prefix, success, successLabel, skipped, failed)
+
     for _, res := range r.results {
         if res.Err != nil {
             fmt.Fprintf(r.errOut, "      %s: %s\n", res.Repo, res.Err.Error())
@@ -475,47 +1001,70 @@ func (r *Reporter) Summary(successLabel string, dryRun bool) {
 }
 ```
 
-The `successLabel` string varies by command: `"cloned"`, `"pulled"`, `"removed"`, or `"would clone"` in dry-run. This avoids duplicating the Summary function for each command.
+The `successLabel` parameter allows the summary to read naturally for each command:
 
-Failures are printed to `errOut` (stderr) while the summary line goes to `out` (stdout) — following the Unix convention that diagnostics go to stderr.
+| Command | label (normal) | label (dry-run) |
+| :--- | :--- | :--- |
+| `ws init` | `"cloned"` | `"would clone"` |
+| `ws pull` | `"pulled"` | `"would pull"` |
+| `ws purge` | `"removed"` | `"would remove"` |
 
-### 6.5 targeting.go — Choosing Workspaces
+Failure details go to `errOut` (stderr) — following the Unix convention that diagnostics and errors go to stderr while normal output goes to stdout. This lets callers pipe stdout without capturing error messages.
+
+---
+
+## 8. internal/workspace — The Core Domain
+
+The workspace package orchestrates the executor and reporter to implement three operations: Init, Purge, and Pull.
+
+### 8.1 options.go
+
+```go
+type RunOptions struct {
+    DryRun    bool
+    Verbose   bool
+    Parallel  bool
+    NoConfirm bool
+}
+```
+
+A **value object** — carries options from the CLI layer down to domain functions. Because it is a struct (not individual parameters), adding a new option in the future requires only changing this struct, not every function signature.
+
+### 8.2 targeting.go — Choosing Workspaces
 
 ```go
 func Resolve(cfg *config.Config, wsName string, all bool) ([]config.Workspace, error) {
     if wsName != "" && all {
         return nil, fmt.Errorf("--ws and --all are mutually exclusive")
     }
+
     if all {
         return cfg.Workspaces, nil
     }
+
     if wsName != "" {
         for _, ws := range cfg.Workspaces {
             if ws.Name == wsName {
-                return []config.Workspace{ws}, nil
+                return []config.Workspace{ws}, nil   // wrap in a 1-element slice
             }
         }
         return nil, fmt.Errorf("workspace %q not found in config", wsName)
     }
+
+    // Default: no flags given — use the default workspace
     ws, err := config.DefaultWorkspace(cfg)
     if err != nil {
         return nil, err
     }
-    return []config.Workspace{*ws}, nil
+    return []config.Workspace{*ws}, nil   // dereference pointer to get value
 }
 ```
 
-`Resolve` handles four cases in priority order:
-1. `--ws` and `--all` together → error (mutually exclusive)
-2. `--all` → return every workspace
-3. `--ws <name>` → return the named workspace
-4. Neither → return the default workspace
+`[]config.Workspace{ws}` is a **slice literal** — creates a slice with one element. All three CLI commands iterate over the returned slice, so they handle the single-workspace and all-workspaces cases identically.
 
-`[]config.Workspace{ws}` creates a one-element slice literal. `*ws` dereferences the pointer returned by `DefaultWorkspace` to get the value.
+`*ws` dereferences the pointer: `ws` is `*config.Workspace` (a pointer), so `*ws` is the `config.Workspace` value it points to.
 
-### 6.6 workspace.go — Init, Purge, Pull
-
-This is the largest file — the main orchestration logic.
+### 8.3 workspace.go — Init, Purge, Pull
 
 #### expandHome
 
@@ -532,12 +1081,12 @@ func expandHome(path string) string {
 }
 ```
 
-`path[0]` is the first byte of the string. `path[1:]` is a **slice** of the string starting from index 1 (everything after the `~`). `filepath.Join` concatenates path segments with the OS-appropriate separator.
+`path[0]` is the first **byte** of the string (Go strings are byte sequences, not rune sequences). `path[1:]` is a string slice from index 1 to the end — everything after the `~`.
 
 #### Init
 
 ```go
-func Init(ws config.Workspace, exec Executor, rep *Reporter, opts RunOptions) error {
+func Init(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, opts RunOptions) error {
     rep.PrintLine("Workspace: " + ws.Name)
     wsPath := expandHome(ws.Path)
 
@@ -555,7 +1104,7 @@ func Init(ws config.Workspace, exec Executor, rep *Reporter, opts RunOptions) er
             var wg sync.WaitGroup
             for _, repo := range proj.Repositories {
                 wg.Add(1)
-                repo := repo                  // capture loop variable
+                repo := repo           // capture loop variable
                 go func() {
                     defer wg.Done()
                     cloneRepo(ws, proj, projPath, repo, exec, rep, opts)
@@ -572,87 +1121,116 @@ func Init(ws config.Workspace, exec Executor, rep *Reporter, opts RunOptions) er
 }
 ```
 
-**`sync.WaitGroup`** is a counter for goroutines:
-- `wg.Add(1)` increments the counter before launching each goroutine
-- `wg.Done()` (via defer) decrements it when the goroutine finishes
-- `wg.Wait()` blocks until the counter reaches zero — i.e., all goroutines are done
-
-**`go func() { ... }()`** launches a goroutine — a lightweight concurrent task. Goroutines run concurrently (potentially in parallel on multi-core machines).
-
-**`repo := repo`** (the "capture" line) is a Go idiom for loop variables before Go 1.22. Without it, all goroutines would reference the same `repo` variable and might all see the last value of the loop. Creating a local copy ensures each goroutine sees its own value.
-
-**`0o755`** is an octal literal for Unix permissions: owner can read/write/execute; group and others can read/execute.
+`os.MkdirAll(path, perm)` creates the directory and all missing parent directories. `0o755` is an **octal integer literal** (the `0o` prefix) for Unix permission bits: owner can read/write/execute; group and others can read and execute.
 
 #### cloneRepo — the defer/success pattern
 
 ```go
-func cloneRepo(...) {
-    // ...
+func cloneRepo(ws config.Workspace, proj config.Project, projPath string, repo config.Repository, exec executor.Executor, rep *reporter.Reporter, opts RunOptions) {
+    // ... resolve destName, branch, repoPath ...
 
+    // Skip if already cloned
+    if _, err := os.Stat(repoPath); err == nil {
+        rep.Record(reporter.OpResult{..., Skipped: true, Msg: "already exists, skipped"})
+        return
+    }
+
+    cmd, err := config.RenderCloneCmd(ws.CloneCommandTemplate, projPath, proj, repo)
+    if err != nil { /* record error, return */ }
+
+    if opts.Verbose {
+        rep.PrintLine(fmt.Sprintf("  → %s", cmd))
+    }
+
+    // Rollback guard
     var success bool
     defer func() {
         if !success {
-            os.RemoveAll(repoPath)  // cleanup if clone failed
+            os.RemoveAll(repoPath)   // delete partial clone on any failure
         }
     }()
 
     if err := exec.Run(projPath, cmd); err != nil {
-        rep.Record(OpResult{..., Err: err})
-        return   // success remains false → defer cleans up
+        rep.Record(reporter.OpResult{..., Err: err})
+        return   // success remains false — defer will clean up
     }
 
-    success = true   // clone succeeded → defer does nothing
-    rep.Record(OpResult{..., Msg: "cloned"})
+    success = true   // we reached here — defer does nothing
+    rep.Record(reporter.OpResult{..., Msg: fmt.Sprintf("cloned (%s)", branch)})
 }
 ```
 
-The `defer` here implements *rollback on failure*: if the clone command fails, the partially-created directory is removed so the next run will retry from a clean state.
+The defer/success pattern is a clean way to implement transactional-style cleanup: if anything goes wrong after the directory is created, the partial clone is removed so the workspace is left in a consistent state.
+
+`os.Stat(path)` returns info about a file/directory. When the path does not exist, it returns an error (specifically `*fs.PathError`). The `if _, err := os.Stat(repoPath); err == nil` idiom checks "does this path exist?" — `err == nil` means the stat succeeded, i.e. the path exists.
 
 #### Purge
 
 ```go
-func Purge(ws config.Workspace, rep *Reporter, opts RunOptions) error {
+func Purge(ws config.Workspace, rep *reporter.Reporter, opts RunOptions) error {
     wsPath := expandHome(ws.Path)
 
+    if opts.DryRun {
+        rep.PrintLine(fmt.Sprintf("[DRY RUN] would remove: %s", wsPath))
+        rep.Record(reporter.OpResult{Workspace: ws.Name, Repo: ws.Name,
+            Msg: fmt.Sprintf("[DRY RUN] would remove %s", wsPath)})
+        return nil
+    }
+
     if _, err := os.Stat(wsPath); os.IsNotExist(err) {
-        rep.Record(OpResult{..., Skipped: true, Msg: "directory not found, skipped"})
+        rep.Record(reporter.OpResult{..., Skipped: true, Msg: "directory not found, skipped"})
         return nil
     }
 
     if err := os.RemoveAll(wsPath); err != nil {
-        rep.Record(OpResult{..., Err: err})
+        rep.Record(reporter.OpResult{..., Err: err})
         return nil
     }
-    // ...
+
+    rep.Record(reporter.OpResult{..., Msg: fmt.Sprintf("removed %s", wsPath)})
+    return nil
 }
 ```
 
-`os.Stat` returns info about a file/directory. If the path does not exist, `os.IsNotExist(err)` returns `true`. `os.RemoveAll` deletes a directory and all its contents — the equivalent of `rm -rf`.
+`os.IsNotExist(err)` is a helper that returns true if the error means "path does not exist". This is the idiomatic way to check for a missing file.
 
-Note that Purge *does not take an Executor* — it only calls standard library file functions, not shell commands. This makes it simpler and more predictable.
+`os.RemoveAll(path)` deletes the entire directory tree — equivalent to `rm -rf`. It returns `nil` if the path does not exist (so you could skip the `os.Stat` check, but the explicit check allows reporting "skipped" vs "removed").
+
+Note: `Purge` does *not* take an `Executor`. It uses only standard library file functions. This is simpler and more predictable — no shell parsing involved.
 
 #### Pull
 
-`Pull` mirrors `Init`'s structure but calls `pullRepo` instead of `cloneRepo`. It skips repositories that have not been cloned yet (the directory does not exist):
+Pull mirrors Init but skips non-existent repos and runs `git pull --rebase`:
 
 ```go
-if _, err := os.Stat(repoPath); os.IsNotExist(err) {
-    rep.Record(OpResult{..., Skipped: true, Msg: "not present, skipped"})
+cmd := fmt.Sprintf("git pull --rebase origin %s", branch)
+if err := exec.Run(repoPath, cmd); err != nil {
+    rep.Record(reporter.OpResult{..., Err: err})
     return
 }
-cmd := fmt.Sprintf("git pull --rebase origin %s", branch)
-exec.Run(repoPath, cmd)
 ```
 
-The pull command is constructed as a plain string, not a template — it is always `git pull --rebase origin <branch>` with no customisation needed.
+The pull command is constructed as a plain string, not a template, because `git pull` is always the same command structure — unlike clone which varies by hosting provider.
 
 ---
 
-## 7. zgard — The CLI Entry Point
+## 9. zgard — The CLI Entry Point
 
-The `zgard` module uses the [Cobra](https://github.com/spf13/cobra) library to build the CLI. Cobra organises commands as a tree: `zgard` → `ws` → `init | purge | pull`.
+Grazhda uses [Cobra](https://github.com/spf13/cobra), a popular Go library for building CLIs. Cobra organises commands as a tree:
 
-### 7.1 main.go — The Program Starts Here
+```
+zgard                  ← root command (rootCmd)
+└── ws                 ← parent command (ws.NewCmd())
+    ├── init           ← subcommand (newInitCmd())
+    ├── purge          ← subcommand (newPurgeCmd())
+    └── pull           ← subcommand (newPullCmd())
+```
+
+Each command is a `*cobra.Command` struct with fields like `Use`, `Short`, `Long`, `RunE`, and a set of registered flags.
+
+### 9.1 main.go and root.go
+
+**`zgard/main.go`** — the entire file:
 
 ```go
 package main
@@ -662,16 +1240,15 @@ func main() {
 }
 ```
 
-`package main` is special — the Go toolchain looks for `func main()` here to start the program. This file is deliberately minimal; all logic is in `root.go`.
+`package main` is special — the Go toolchain looks for `func main()` in a `package main` file to start the program. `main.go` is intentionally empty of logic; all setup lives in `root.go`.
 
-### 7.2 root.go — The Root Command
+**`zgard/root.go`:**
 
 ```go
 package main
 
 import (
     "os"
-
     "github.com/spf13/cobra"
     "github.com/vhula/grazhda/zgard/ws"
 )
@@ -693,13 +1270,13 @@ func init() {
 }
 ```
 
-`var rootCmd = &cobra.Command{...}` declares a **package-level variable** — it lives for the duration of the program.
+`var rootCmd = &cobra.Command{...}` is a **package-level variable**. It is initialised before `main()` runs. Package-level variables cannot reference values that are computed at runtime (no function calls in the initialiser — except function calls that return a pointer to a constant-like value, which `&cobra.Command{...}` is).
 
-`func init()` is a special Go function that runs automatically before `main()`. Go allows multiple `init()` functions across files; they run in the order the files are imported. Here it registers the `ws` subcommand tree.
+`func init()` runs after package-level variables are set and before `main()`. It calls `ws.NewCmd()` to get the configured `ws` command and registers it under `rootCmd`.
 
-`ws.NewCmd()` is a constructor from the `zgard/ws` package that returns the fully-configured `ws` command.
+`rootCmd.Execute()` parses `os.Args` (the command-line arguments), finds the matching command, validates flags, and calls the command's `RunE` function. If it returns an error, Cobra prints it automatically.
 
-### 7.3 zgard/ws — Workspace Subcommands
+### 9.2 zgard/ws — Workspace Commands
 
 #### ws.go
 
@@ -710,6 +1287,7 @@ func NewCmd() *cobra.Command {
     cmd := &cobra.Command{
         Use:   "ws",
         Short: "Workspace operations",
+        Long:  "Manage workspace lifecycle: initialize, purge, or pull repositories.",
     }
     cmd.AddCommand(newInitCmd())
     cmd.AddCommand(newPurgeCmd())
@@ -718,9 +1296,9 @@ func NewCmd() *cobra.Command {
 }
 ```
 
-`NewCmd` is exported (capital N) — callable from other packages. `newInitCmd`, `newPurgeCmd`, `newPullCmd` are unexported (lowercase n) — they are implementation details of the `ws` package.
+`NewCmd` is exported (uppercase). The three `new*Cmd()` functions are unexported — they are internal construction details of the `ws` package. This is a clean public API: callers get one function to call, and the internals are hidden.
 
-#### config.go
+#### config.go — resolving the config path
 
 ```go
 func resolveConfigPath() string {
@@ -733,9 +1311,11 @@ func resolveConfigPath() string {
 }
 ```
 
-`os.Getenv` reads an environment variable. The `_` discards the error from `UserHomeDir` (if the home directory cannot be found, `dir` will be empty and the path will be relative — acceptable fallback).
+`os.Getenv("GRAZHDA_DIR")` returns the value of the environment variable, or `""` if it is not set. The `_` discards the error from `UserHomeDir` — if the home directory cannot be resolved, `dir` is empty and the path will be relative to the current directory (an acceptable degraded behaviour).
 
-#### confirm.go
+`filepath.Join(home, ".grazhda")` produces `$HOME/.grazhda` on any platform.
+
+#### confirm.go — the interactive prompt
 
 ```go
 func confirm(out io.Writer, reader io.Reader, msg string, paths []string) bool {
@@ -754,14 +1334,17 @@ func confirm(out io.Writer, reader io.Reader, msg string, paths []string) bool {
 }
 ```
 
-`bufio.NewScanner` wraps a reader to read line by line. `scanner.Scan()` reads the next line, returning `false` at EOF. `strings.EqualFold` compares strings case-insensitively — so `y`, `Y`, `yes` all work.
+`bufio.NewScanner(reader)` wraps an `io.Reader` to read line by line. `scanner.Scan()` reads the next line from the input, returning `false` at EOF (or if the reader is a terminal and the user pressed Ctrl+D).
 
-By accepting `io.Writer` and `io.Reader` as parameters instead of using `os.Stdout`/`os.Stdin` directly, this function is fully testable: pass a `strings.Builder` for output and `strings.NewReader("y\n")` for input.
+`strings.TrimSpace` removes leading/trailing whitespace (spaces, tabs, newlines). `strings.EqualFold` compares strings case-insensitively — `"y"`, `"Y"`, `"yes"`, `"YES"` all return true.
 
-#### init.go — a complete command
+By accepting `io.Writer` and `io.Reader` as parameters instead of using `os.Stdout`/`os.Stdin` directly, `confirm` is testable: inject `strings.NewReader("y\n")` to simulate typing `y` + Enter.
+
+#### init.go — a complete Cobra command
 
 ```go
 func newInitCmd() *cobra.Command {
+    // Flag variables declared in the enclosing scope
     var dryRun bool
     var verbose bool
     var parallel bool
@@ -772,36 +1355,51 @@ func newInitCmd() *cobra.Command {
         Use:   "init",
         Short: "Initialize a workspace by cloning all repositories",
         RunE: func(cmd *cobra.Command, args []string) error {
+            // 1. Resolve config path
             cfgPath := resolveConfigPath()
-            cfg, err := config.Load(cfgPath)
-            if err != nil { return err }
 
+            // 2. Load and validate config
+            cfg, err := config.Load(cfgPath)
+            if err != nil {
+                return err
+            }
             if errs := config.Validate(cfg); len(errs) > 0 {
-                for _, e := range errs { fmt.Fprintln(os.Stderr, e) }
+                for _, e := range errs {
+                    fmt.Fprintln(os.Stderr, e)
+                }
                 return fmt.Errorf("configuration is invalid")
             }
 
+            // 3. Resolve target workspaces
             workspaces, err := workspace.Resolve(cfg, wsName, all)
-            if err != nil { return err }
+            if err != nil {
+                return err
+            }
 
-            exec := workspace.OsExecutor{}
-            rep := workspace.NewReporter(os.Stdout, os.Stderr)
-            opts := workspace.RunOptions{DryRun: dryRun, Verbose: verbose, Parallel: parallel}
-
+            // 4. Run the operation
+            exec := executor.OsExecutor{}
+            rep := reporter.NewReporter(os.Stdout, os.Stderr)
+            opts := workspace.RunOptions{
+                DryRun: dryRun, Verbose: verbose, Parallel: parallel,
+            }
             for _, ws := range workspaces {
                 if err := workspace.Init(ws, exec, rep, opts); err != nil {
                     return err
                 }
             }
 
+            // 5. Print summary and exit
             label := "cloned"
-            if dryRun { label = "would clone" }
+            if dryRun {
+                label = "would clone"
+            }
             rep.Summary(label, dryRun)
             os.Exit(rep.ExitCode())
             return nil
         },
     }
 
+    // Register flags — each BoolVar/StringVarP writes into the local variable
     cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print actions without executing them")
     cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
     cmd.Flags().BoolVar(&parallel, "parallel", false, "Clone repositories concurrently")
@@ -812,108 +1410,199 @@ func newInitCmd() *cobra.Command {
 }
 ```
 
-**Closure over local variables:** `dryRun`, `verbose`, etc. are declared *outside* the `RunE` function but referenced *inside* it. When `RunE` runs, it reads the values of those variables at that moment — after Cobra has already parsed the command-line flags and written into them via `cmd.Flags().BoolVar(&dryRun, ...)`. This is why the flag registration passes `&dryRun` (the address of the variable): Cobra writes the parsed flag value directly into that variable.
+**Closures and flag variables:** `dryRun`, `verbose`, etc. are declared *outside* the `RunE` function but used *inside* it. The inner function *closes over* those variables — this is a **closure**. When `RunE` runs (after Cobra has parsed the command line), the flag variables already hold the parsed values written there by Cobra via the `&dryRun` pointer.
 
-**`RunE` vs `Run`:** Cobra commands can use `Run` (no error return) or `RunE` (returns error). `RunE` is preferred because Cobra automatically prints the error and exits with a non-zero code if RunE returns a non-nil error.
+**`BoolVar(&dryRun, "dry-run", false, "...")`** registers a `--dry-run` flag:
+- `&dryRun` — pointer to the variable that receives the value
+- `"dry-run"` — the long flag name
+- `false` — the default value
+- `"..."` — the help text
 
-**`os.Exit(rep.ExitCode())`:** `os.Exit` terminates the process immediately with the given code. It bypasses all deferred functions — so it's called only at the very end, after cleanup is complete. Exit code 0 = success; 1 = at least one repository failed.
+**`BoolVarP(&verbose, "verbose", "v", false, "...")`** — the `P` variant adds a short form `-v`.
+
+**`os.Exit(rep.ExitCode())`** terminates the process immediately with the given code. It *bypasses* all deferred functions, so it must only be called after all cleanup is done (Cobra cannot run more code after it). Exit code 0 = success; 1 = at least one repo operation failed.
 
 ---
 
-## 8. How Data Flows — End-to-End
+## 10. How Data Flows End-to-End
 
-Here is what happens when you run `zgard ws init --ws myws --parallel`:
+Here is the complete call chain for `zgard ws init --ws myws --parallel`:
 
 ```
+os.Args = ["zgard", "ws", "init", "--ws", "myws", "--parallel"]
+
 main()
-  └─ Execute()
-       └─ rootCmd.Execute()       [Cobra parses args and flags]
-            └─ ws init RunE()
-                 ├─ resolveConfigPath()           → "$HOME/.grazhda/config.yaml"
-                 ├─ config.Load(path)             → *Config
-                 ├─ config.Validate(cfg)          → [] (no errors)
-                 ├─ workspace.Resolve(cfg, "myws", false) → []Workspace{myws}
-                 ├─ workspace.OsExecutor{}
-                 ├─ workspace.NewReporter(stdout, stderr)
-                 └─ workspace.Init(myws, exec, rep, opts{Parallel:true})
-                      ├─ rep.PrintLine("Workspace: myws")
-                      ├─ for project in myws.Projects:
-                      │    ├─ rep.PrintLine("  Project: backend")
-                      │    ├─ os.MkdirAll(projPath)
-                      │    └─ [goroutine] cloneRepo(api)
-                      │       [goroutine] cloneRepo(auth)
-                      │       wg.Wait()
-                      └─ return nil
-                 rep.Summary("cloned", false)   → prints "✓ 2 cloned  ⏭ 0 skipped  ✗ 0 failed"
-                 os.Exit(0)
+└─ Execute()
+     └─ rootCmd.Execute()                  [Cobra parses os.Args]
+          └─ ws.RunE called
+               │
+               ├─ resolveConfigPath()
+               │    └─ os.Getenv("GRAZHDA_DIR") or $HOME/.grazhda/config.yaml
+               │
+               ├─ config.Load(path)
+               │    ├─ os.ReadFile(path)   → []byte
+               │    └─ yaml.Unmarshal(...)  → *Config
+               │
+               ├─ config.Validate(cfg)     → [] (no errors)
+               │
+               ├─ workspace.Resolve(cfg, "myws", false)
+               │    └─ finds ws with Name=="myws" → []Workspace{myws}
+               │
+               ├─ executor.OsExecutor{}
+               ├─ reporter.NewReporter(os.Stdout, os.Stderr)
+               ├─ workspace.RunOptions{Parallel: true}
+               │
+               └─ workspace.Init(myws, exec, rep, opts)
+                    ├─ rep.PrintLine("Workspace: myws")
+                    │
+                    └─ for project "backend":
+                         ├─ rep.PrintLine("  Project: backend")
+                         ├─ os.MkdirAll("~/ws/backend", 0o755)
+                         │
+                         ├─ goroutine → cloneRepo(api)
+                         │    ├─ os.Stat(repoPath)        → not found, proceed
+                         │    ├─ config.RenderCloneCmd()  → "git clone --branch main ... api"
+                         │    ├─ exec.Run(projPath, cmd)  → runs git clone
+                         │    └─ rep.Record(OpResult{Repo:"api", Msg:"cloned (main)"})
+                         │
+                         └─ goroutine → cloneRepo(auth)
+                              └─ ... (same, branch="dev")
+                    wg.Wait()
+               rep.Summary("cloned", false)
+               → prints "✓ 2 cloned  ⏭ 0 skipped  ✗ 0 failed"
+               os.Exit(0)
 ```
 
 ---
 
-## 9. Testing in Go
+## 11. Testing in Go
 
-### Test Files
+### Test File Conventions
 
-Test files have the suffix `_test.go`. They are compiled only during `go test`, never in production builds.
+Test files end in `_test.go`. They are compiled only during `go test` — never in production builds.
 
-A test file can be in the same package as the code it tests (`package workspace`) — giving access to unexported functions — or in an external test package (`package workspace_test`) — testing only the public API. Grazhda uses `package workspace_test` for its workspace tests, which is the preferred style for testing public behaviour.
+```
+reporter_test.go     ← only compiled when testing
+```
+
+A test file can declare one of two packages:
+
+| Package | Access | Typical use |
+| :--- | :--- | :--- |
+| `package reporter` | Can access unexported identifiers | Testing internals |
+| `package reporter_test` | Only exported identifiers | Testing the public API |
+
+Grazhda uses `package reporter_test`, `package workspace_test`, etc. — testing the public API only. This ensures tests remain valid even if internal implementation changes.
 
 ### Test Functions
 
 ```go
-func TestInit_ClonesRepos(t *testing.T) {
-    ws, _ := makeWorkspace(t)
+func TestRecord_Success(t *testing.T) {
+    // Arrange
     var out, errOut strings.Builder
-    rep := workspace.NewReporter(&out, &errOut)
-    mock := &workspace.MockExecutor{}
+    rep := reporter.NewReporter(&out, &errOut)
 
-    err := workspace.Init(ws, mock, rep, workspace.RunOptions{})
-    if err != nil {
-        t.Fatalf("Init error: %v", err)
-    }
+    // Act
+    rep.Record(reporter.OpResult{Repo: "api", Msg: "cloned (main)"})
 
-    if len(mock.Calls) != 2 {
-        t.Errorf("expected 2 clone calls, got %d", len(mock.Calls))
+    // Assert
+    if !strings.Contains(out.String(), "✓") {
+        t.Errorf("expected success symbol, got: %q", out.String())
     }
 }
 ```
 
-- `t *testing.T` is the test context provided by the framework
-- `t.Fatalf` fails the test immediately and prints the message
-- `t.Errorf` records a failure but continues running the test
-- `strings.Builder` captures what the Reporter writes so we can assert on it
-- `MockExecutor.Calls` records which commands were "run" without touching disk
+All test functions must be named `Test<Something>` and take `*testing.T`:
+
+| Method | Behaviour |
+| :--- | :--- |
+| `t.Fatalf("msg", ...)` | Fail test immediately and stop this test function |
+| `t.Errorf("msg", ...)` | Record failure but continue running the test |
+| `t.Helper()` | Mark this function as a helper so failures point to the caller |
+
+**`strings.Builder`** is a string buffer that implements `io.Writer`. It is the idiomatic way to capture written output in tests.
+
+### Table-Driven Tests
+
+A common Go pattern for testing many inputs:
+
+```go
+func TestValidate(t *testing.T) {
+    tests := []struct {
+        name     string
+        input    string
+        wantErrs int
+    }{
+        {"valid", "valid.yaml", 0},
+        {"missing name", "missing_name.yaml", 1},
+        {"duplicate names", "duplicate.yaml", 1},
+    }
+
+    for _, tc := range tests {
+        t.Run(tc.name, func(t *testing.T) {
+            cfg, _ := config.Load("../testdata/" + tc.input)
+            errs := config.Validate(cfg)
+            if len(errs) != tc.wantErrs {
+                t.Errorf("expected %d errors, got %d: %v", tc.wantErrs, len(errs), errs)
+            }
+        })
+    }
+}
+```
+
+`t.Run(name, func)` creates a named sub-test. You can run a specific sub-test with `go test -run TestValidate/duplicate_names`.
+
+### Helper Functions
+
+```go
+func makeWorkspace(t *testing.T) (config.Workspace, string) {
+    t.Helper()   // marks this as a helper — failures point to the caller, not here
+    tmp := t.TempDir()   // creates a temporary directory, cleaned up after the test
+    ws := config.Workspace{
+        Name:                 "test-ws",
+        Path:                 tmp,
+        CloneCommandTemplate: "echo clone {{.RepoName}} {{.DestDir}}",
+        Projects: []config.Project{
+            {Name: "backend", Branch: "main",
+             Repositories: []config.Repository{
+                 {Name: "api"},
+                 {Name: "auth", Branch: "dev"},
+             }},
+        },
+    }
+    return ws, tmp
+}
+```
+
+`t.TempDir()` creates a unique temporary directory that is automatically deleted when the test finishes. Never use hard-coded `/tmp/grazhda-test` — it breaks when tests run in parallel.
 
 ### Running Tests
 
 ```bash
-cd internal && go test ./...    # all packages under internal/
-cd zgard    && go test ./...    # all packages under zgard/
-# or use the Justfile shortcut:
-just test
+go test ./...                     # all packages, from module root
+go test ./workspace/...           # workspace package only
+go test -run TestInit             # only tests matching "TestInit"
+go test -race ./...               # with race detector
+go test -v ./...                  # verbose: show each test name
+go test -count=1 ./...            # disable test result cache (force re-run)
 ```
 
-`./...` is a wildcard that matches the current package and all sub-packages.
-
-### Race Detector
-
-```bash
-cd internal && go test -race ./...
-```
-
-The `-race` flag instruments the binary to detect **data races** — bugs where two goroutines access the same memory concurrently without synchronisation. The `MockExecutor` mutex was added specifically because the race detector caught a concurrent write to `Calls` during parallel tests.
+The `-race` flag instruments the binary to detect data races at runtime. It is slower (10–20x) but should be run before every commit in code with goroutines.
 
 ### Test Fixtures
 
-`internal/testdata/*.yaml` contains example config files used by config tests. Using real files rather than inline strings makes tests readable and lets you validate realistic configs.
+`internal/testdata/*.yaml` contains example config files. Using fixture files:
+- Makes test intent visible — you can read the YAML to understand what is being tested
+- Avoids cluttering test code with multi-line strings
+- Can be shared across multiple test functions
 
 ---
 
-## 10. Build System (Justfile)
+## 12. Build System (Justfile)
 
-`Justfile` is like a Makefile but uses the `just` tool. Each recipe is a named set of shell commands:
+`Justfile` uses the `just` command runner — similar to `make` but simpler syntax. Each named recipe contains shell commands:
 
-```
+```just
 build-zgard:
     mkdir -p bin
     cd zgard && go build -o ../bin/zgard .
@@ -934,35 +1623,112 @@ tidy:
 
 | Command | What it does |
 | :--- | :--- |
-| `just build-zgard` | Compiles `bin/zgard` |
-| `just test` | Runs all unit tests |
-| `just fmt` | Auto-formats Go source (`gofmt`) |
-| `just tidy` | Syncs `go.work` and updates `go.mod`/`go.sum` |
+| `just build-zgard` | Compiles `bin/zgard` (the production binary) |
+| `just build` | Builds `bin/zgard` + copies `grazhda.sh` bash scripts to `bin/` |
+| `just test` | Runs `go test ./...` for both modules |
+| `just fmt` | Auto-formats all `.go` files with `gofmt` (the standard formatter) |
+| `just tidy` | `go work sync` + `go mod tidy` for each module — keeps `go.mod`/`go.sum` clean |
+| `just clean` | Removes the `bin/` directory |
+
+**`go build -o ../bin/zgard .`** compiles the package in the current directory (`.`) and writes the binary to `../bin/zgard`. The `-o` flag specifies the output file name.
+
+**`go fmt ./...`** formats every `.go` file in the current module. Gofmt is opinionated — it enforces a single canonical style so there is no debate about formatting. In Go, formatting is not style; it is mandatory.
+
+**`go mod tidy`** removes unused dependencies from `go.mod` and `go.sum`, and adds any missing ones. Run it after adding or removing imports.
+
+**`go work sync`** updates `go.work.sum` (the workspace-level checksum file) to match the current state of all modules in `go.work`.
 
 ---
 
-## 11. Go Concepts Glossary
+## 13. Configuration Reference
+
+The config file location is resolved in this order:
+1. `$GRAZHDA_DIR/config.yaml` (when the environment variable is set)
+2. `~/.grazhda/config.yaml` (the default)
+
+### Full annotated example
+
+```yaml
+workspaces:
+  # First workspace: the default
+  - name: default                        # unique identifier, used with --ws
+    default: true                        # mark as default (or just name it "default")
+    path: /home/jake/ws                  # workspace root directory
+    clone_command_template: >            # YAML folded scalar — newlines become spaces
+      git clone --branch {{.Branch}}
+      https://github.com/myorg/{{.RepoName}}
+      {{.DestDir}}
+    projects:
+      - name: backend                    # project directory: /home/jake/ws/backend
+        branch: main                     # default branch for repos in this project
+        repositories:
+          - name: api                    # cloned to /home/jake/ws/backend/api
+          - name: auth
+            branch: dev                  # overrides project branch for this repo only
+          - name: api
+            local_dir_name: api-v2       # cloned to /home/jake/ws/backend/api-v2
+
+  # Second workspace: personal projects
+  - name: personal
+    path: /home/jake/personal
+    clone_command_template: "git clone git@github.com:jake/{{.RepoName}} {{.DestDir}}"
+    projects:
+      - name: tools
+        branch: main
+        repositories:
+          - name: dotfiles
+          - name: scripts
+```
+
+### Template Variables
+
+| Variable | Resolves to |
+| :--- | :--- |
+| `{{.Branch}}` | `repository.branch` if set, otherwise `project.branch` |
+| `{{.RepoName}}` | `repository.name` |
+| `{{.DestDir}}` | `<project_path>/<local_dir_name>` if set, otherwise `<project_path>/<name>` |
+
+---
+
+## 14. Go Concepts Glossary
 
 | Term | Plain-English meaning |
 | :--- | :--- |
-| **package** | A directory of `.go` files that share a package name and can see each other's unexported identifiers |
-| **module** | A tree of packages with a `go.mod` file declaring the module path and dependencies |
-| **interface** | A named set of method signatures; any type with those methods satisfies the interface |
-| **struct** | A composite type grouping named fields, like a record or object |
-| **pointer** (`*T`) | A value that holds the memory address of a `T`; used to share and mutate values |
-| **slice** (`[]T`) | A dynamically-sized list of `T` values |
-| **map** (`map[K]V`) | A hash table mapping keys of type `K` to values of type `V` |
-| **goroutine** | A lightweight concurrent task started with `go func()` |
-| **channel** | A typed pipe for communicating between goroutines (not used in this project) |
-| **`sync.Mutex`** | A mutual exclusion lock — only one goroutine can hold it at a time |
-| **`sync.WaitGroup`** | A counter that blocks until all goroutines have called `Done()` |
-| **`defer`** | Schedules a function call to run when the surrounding function returns |
-| **`error`** | A built-in interface; `nil` means no error; non-nil means something went wrong |
-| **`io.Writer`** | Standard interface for anything that can accept bytes (stdout, files, buffers…) |
-| **`io.Reader`** | Standard interface for anything that can produce bytes (stdin, strings, files…) |
-| **`:=`** | Short variable declaration — declares and assigns in one step |
-| **`_`** | Blank identifier — discards a value the compiler would otherwise require you to use |
-| **struct tag** (`yaml:"name"`) | Metadata on a struct field read by libraries like the YAML decoder |
-| **`init()`** | A special function that runs automatically before `main()` |
-| **exported identifier** | Any identifier starting with an uppercase letter — visible outside the package |
-| **unexported identifier** | Any identifier starting with a lowercase letter — private to the package |
+| **package** | A directory of `.go` files sharing a package name; files in the same package can see each other's unexported identifiers |
+| **module** | A tree of packages with a `go.mod` at the root; the unit of versioning and distribution |
+| **import path** | The string used in `import "..."` — for external modules, this is the module path from `go.mod` plus any sub-package path |
+| **go.work** | A workspace file that maps module paths to local directories, enabling multi-module development without publishing |
+| **internal/** | A directory name enforced by Go: packages inside `internal/` can only be imported by code in the parent of `internal/` |
+| **interface** | A named set of method signatures; any type with those methods satisfies the interface automatically |
+| **struct** | A composite type grouping named fields |
+| **struct tag** | Backtick-quoted metadata on a struct field, read by reflection (e.g. `yaml:"name"`) |
+| **pointer** (`*T`) | A value holding the memory address of a `T`; `&x` takes the address of `x`; `*p` dereferences pointer `p` |
+| **slice** (`[]T`) | A dynamically-sized list; backed by an array but with its own length and capacity |
+| **map** (`map[K]V`) | A hash table; zero value is `nil`; must be initialised with `make(map[K]V)` before writing |
+| **goroutine** | A lightweight concurrent task started with `go func(){}()`; managed by the Go runtime |
+| **channel** | A typed pipe for communicating between goroutines; not used in this project |
+| **sync.Mutex** | A mutual exclusion lock; only one goroutine can hold it at a time |
+| **sync.WaitGroup** | A counter that blocks `Wait()` until all goroutines have called `Done()` |
+| **data race** | A bug where two goroutines read/write the same memory concurrently without synchronisation; detected with `go test -race` |
+| **defer** | Schedules a call to run when the enclosing function returns, in LIFO order |
+| **closure** | A function that captures variables from its surrounding scope |
+| **`init()`** | A special function that runs automatically after package-level variable initialisation, before `main()` |
+| **exported** | An identifier starting with an uppercase letter; visible outside the package |
+| **unexported** | An identifier starting with a lowercase letter; private to the package |
+| **receiver** | The `(r *Reporter)` part of a method definition; like `this` or `self` in other languages |
+| **nil** | The zero value for pointers, interfaces, slices, maps, channels, and functions; represents "no value" |
+| **zero value** | The default value of a type when not explicitly set: `0` for ints, `""` for strings, `false` for bools, `nil` for pointers/interfaces |
+| **`error`** | A built-in interface with one method: `Error() string`; `nil` means no error |
+| **`fmt.Errorf`** | Creates a formatted error; `%w` wraps an existing error so it can be unwrapped later |
+| **`io.Writer`** | Standard interface for write targets (`os.Stdout`, `strings.Builder`, `bytes.Buffer`, files…) |
+| **`io.Reader`** | Standard interface for read sources (`os.Stdin`, `strings.NewReader`, files…) |
+| **dependency injection** | Passing dependencies (like `io.Writer`) as parameters rather than hard-coding them; enables testability |
+| **`:=`** | Short variable declaration — declares and assigns in one step; type is inferred |
+| **`_`** | Blank identifier — discards a return value that must otherwise be used |
+| **`go test -race`** | Runs tests with the race detector enabled; ~10x slower but catches concurrent bugs |
+| **`go mod tidy`** | Removes unused deps and adds missing ones to `go.mod` and `go.sum` |
+| **`go fmt`** | Auto-formats `.go` files to the canonical gofmt style |
+| **`./...`** | A wildcard pattern meaning "this package and all sub-packages"; used with `go test`, `go build`, etc. |
+| **octal literal** | `0o755` — integer written in base 8; used for Unix file permission bits |
+| **`t.TempDir()`** | Creates a unique temp directory in tests that is cleaned up automatically after the test |
+| **`t.Helper()`** | Marks a function as a test helper so error messages point to the calling test, not the helper |

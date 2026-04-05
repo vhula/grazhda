@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/vhula/grazhda/internal/config"
+	"github.com/vhula/grazhda/internal/reporter"
 	"github.com/vhula/grazhda/internal/workspace"
 )
 
@@ -56,7 +57,7 @@ func newPurgeCmd() *cobra.Command {
 				}
 			}
 
-			rep := workspace.NewReporter(os.Stdout, os.Stderr)
+			rep := reporter.NewReporter(os.Stdout, os.Stderr)
 			opts := workspace.RunOptions{
 				DryRun:    dryRun,
 				Verbose:   verbose,

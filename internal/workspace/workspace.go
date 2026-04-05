@@ -7,6 +7,8 @@ import (
 	"sync"
 
 	"github.com/vhula/grazhda/internal/config"
+	"github.com/vhula/grazhda/internal/executor"
+	"github.com/vhula/grazhda/internal/reporter"
 )
 
 // expandHome expands a leading ~ to the user's home directory.
@@ -22,7 +24,7 @@ func expandHome(path string) string {
 }
 
 // Init initializes the workspace by creating directory structure and cloning all repositories.
-func Init(ws config.Workspace, exec Executor, rep *Reporter, opts RunOptions) error {
+func Init(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, opts RunOptions) error {
 	rep.PrintLine("Workspace: " + ws.Name)
 	wsPath := expandHome(ws.Path)
 
@@ -59,7 +61,7 @@ func Init(ws config.Workspace, exec Executor, rep *Reporter, opts RunOptions) er
 	return nil
 }
 
-func cloneRepo(ws config.Workspace, proj config.Project, projPath string, repo config.Repository, exec Executor, rep *Reporter, opts RunOptions) {
+func cloneRepo(ws config.Workspace, proj config.Project, projPath string, repo config.Repository, exec executor.Executor, rep *reporter.Reporter, opts RunOptions) {
 	destName := repo.LocalDirName
 	if destName == "" {
 		destName = repo.Name
@@ -73,7 +75,7 @@ func cloneRepo(ws config.Workspace, proj config.Project, projPath string, repo c
 
 	if opts.DryRun {
 		if _, err := os.Stat(repoPath); err == nil {
-			rep.Record(OpResult{
+			rep.Record(reporter.OpResult{
 				Workspace: ws.Name, Project: proj.Name, Repo: repo.Name,
 				Skipped: true, Msg: "[DRY RUN] already exists, would skip",
 			})
@@ -81,12 +83,12 @@ func cloneRepo(ws config.Workspace, proj config.Project, projPath string, repo c
 		}
 		cmd, err := config.RenderCloneCmd(ws.CloneCommandTemplate, projPath, proj, repo)
 		if err != nil {
-			rep.Record(OpResult{
+			rep.Record(reporter.OpResult{
 				Workspace: ws.Name, Project: proj.Name, Repo: repo.Name, Err: err,
 			})
 			return
 		}
-		rep.Record(OpResult{
+		rep.Record(reporter.OpResult{
 			Workspace: ws.Name, Project: proj.Name, Repo: repo.Name,
 			Msg: fmt.Sprintf("[DRY RUN] would clone (%s)  → %s", branch, cmd),
 		})
@@ -95,7 +97,7 @@ func cloneRepo(ws config.Workspace, proj config.Project, projPath string, repo c
 
 	// Skip if already cloned
 	if _, err := os.Stat(repoPath); err == nil {
-		rep.Record(OpResult{
+		rep.Record(reporter.OpResult{
 			Workspace: ws.Name, Project: proj.Name, Repo: repo.Name,
 			Skipped: true, Msg: "already exists, skipped",
 		})
@@ -104,7 +106,7 @@ func cloneRepo(ws config.Workspace, proj config.Project, projPath string, repo c
 
 	cmd, err := config.RenderCloneCmd(ws.CloneCommandTemplate, projPath, proj, repo)
 	if err != nil {
-		rep.Record(OpResult{
+		rep.Record(reporter.OpResult{
 			Workspace: ws.Name, Project: proj.Name, Repo: repo.Name, Err: err,
 		})
 		return
@@ -122,26 +124,26 @@ func cloneRepo(ws config.Workspace, proj config.Project, projPath string, repo c
 	}()
 
 	if err := exec.Run(projPath, cmd); err != nil {
-		rep.Record(OpResult{
+		rep.Record(reporter.OpResult{
 			Workspace: ws.Name, Project: proj.Name, Repo: repo.Name, Err: err,
 		})
 		return
 	}
 
 	success = true
-	rep.Record(OpResult{
+	rep.Record(reporter.OpResult{
 		Workspace: ws.Name, Project: proj.Name, Repo: repo.Name,
 		Msg: fmt.Sprintf("cloned (%s)", branch),
 	})
 }
 
 // Purge removes the workspace directory tree.
-func Purge(ws config.Workspace, rep *Reporter, opts RunOptions) error {
+func Purge(ws config.Workspace, rep *reporter.Reporter, opts RunOptions) error {
 	wsPath := expandHome(ws.Path)
 
 	if opts.DryRun {
 		rep.PrintLine(fmt.Sprintf("[DRY RUN] would remove: %s", wsPath))
-		rep.Record(OpResult{
+		rep.Record(reporter.OpResult{
 			Workspace: ws.Name, Repo: ws.Name,
 			Msg: fmt.Sprintf("[DRY RUN] would remove %s", wsPath),
 		})
@@ -149,7 +151,7 @@ func Purge(ws config.Workspace, rep *Reporter, opts RunOptions) error {
 	}
 
 	if _, err := os.Stat(wsPath); os.IsNotExist(err) {
-		rep.Record(OpResult{
+		rep.Record(reporter.OpResult{
 			Workspace: ws.Name, Repo: ws.Name,
 			Skipped: true, Msg: "directory not found, skipped",
 		})
@@ -157,13 +159,13 @@ func Purge(ws config.Workspace, rep *Reporter, opts RunOptions) error {
 	}
 
 	if err := os.RemoveAll(wsPath); err != nil {
-		rep.Record(OpResult{
+		rep.Record(reporter.OpResult{
 			Workspace: ws.Name, Repo: ws.Name, Err: err,
 		})
 		return nil
 	}
 
-	rep.Record(OpResult{
+	rep.Record(reporter.OpResult{
 		Workspace: ws.Name, Repo: ws.Name,
 		Msg: fmt.Sprintf("removed %s", wsPath),
 	})
@@ -171,7 +173,7 @@ func Purge(ws config.Workspace, rep *Reporter, opts RunOptions) error {
 }
 
 // Pull runs git pull --rebase for each repository in the workspace.
-func Pull(ws config.Workspace, exec Executor, rep *Reporter, opts RunOptions) error {
+func Pull(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, opts RunOptions) error {
 	rep.PrintLine("Workspace: " + ws.Name)
 	wsPath := expandHome(ws.Path)
 
@@ -199,7 +201,7 @@ func Pull(ws config.Workspace, exec Executor, rep *Reporter, opts RunOptions) er
 	return nil
 }
 
-func pullRepo(ws config.Workspace, proj config.Project, projPath string, repo config.Repository, exec Executor, rep *Reporter, opts RunOptions) {
+func pullRepo(ws config.Workspace, proj config.Project, projPath string, repo config.Repository, exec executor.Executor, rep *reporter.Reporter, opts RunOptions) {
 	destName := repo.LocalDirName
 	if destName == "" {
 		destName = repo.Name
@@ -213,13 +215,13 @@ func pullRepo(ws config.Workspace, proj config.Project, projPath string, repo co
 
 	if opts.DryRun {
 		if _, err := os.Stat(repoPath); os.IsNotExist(err) {
-			rep.Record(OpResult{
+			rep.Record(reporter.OpResult{
 				Workspace: ws.Name, Project: proj.Name, Repo: repo.Name,
 				Skipped: true, Msg: "[DRY RUN] not present, would skip",
 			})
 			return
 		}
-		rep.Record(OpResult{
+		rep.Record(reporter.OpResult{
 			Workspace: ws.Name, Project: proj.Name, Repo: repo.Name,
 			Msg: fmt.Sprintf("[DRY RUN] would pull (%s)", branch),
 		})
@@ -228,7 +230,7 @@ func pullRepo(ws config.Workspace, proj config.Project, projPath string, repo co
 
 	// Skip repos not yet cloned
 	if _, err := os.Stat(repoPath); os.IsNotExist(err) {
-		rep.Record(OpResult{
+		rep.Record(reporter.OpResult{
 			Workspace: ws.Name, Project: proj.Name, Repo: repo.Name,
 			Skipped: true, Msg: "not present, skipped",
 		})
@@ -242,13 +244,13 @@ func pullRepo(ws config.Workspace, proj config.Project, projPath string, repo co
 	}
 
 	if err := exec.Run(repoPath, cmd); err != nil {
-		rep.Record(OpResult{
+		rep.Record(reporter.OpResult{
 			Workspace: ws.Name, Project: proj.Name, Repo: repo.Name, Err: err,
 		})
 		return
 	}
 
-	rep.Record(OpResult{
+	rep.Record(reporter.OpResult{
 		Workspace: ws.Name, Project: proj.Name, Repo: repo.Name,
 		Msg: fmt.Sprintf("pulled (%s)", branch),
 	})

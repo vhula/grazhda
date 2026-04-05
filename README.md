@@ -39,7 +39,9 @@ The full pipeline for any command is:
 | `zgard` | `github.com/vhula/grazhda/zgard` | Entry point — root command + `ws` subcommands |
 | `zgard/ws` | `github.com/vhula/grazhda/zgard` | Cobra command definitions for `ws init`, `ws purge`, `ws pull` |
 | `internal/config` | `github.com/vhula/grazhda/internal` | Config loading, validation, and clone template rendering |
-| `internal/workspace` | `github.com/vhula/grazhda/internal` | All workspace logic: `Init`, `Purge`, `Pull`, targeting, reporting, execution |
+| `internal/workspace` | `github.com/vhula/grazhda/internal` | `Init`, `Purge`, `Pull` orchestration + workspace targeting (`Resolve`) |
+| `internal/executor` | `github.com/vhula/grazhda/internal` | `Executor` interface; `OsExecutor` (real) and `MockExecutor` (tests) |
+| `internal/reporter` | `github.com/vhula/grazhda/internal` | Per-operation progress output and run summary |
 | `dukh` | `github.com/vhula/grazhda/dukh` | gRPC server — placeholder (Phase 2) |
 
 ## Technology Stack
@@ -250,7 +252,9 @@ grazhda/
 ├── config.template.yaml     # workspace config template
 ├── internal/                # module: github.com/vhula/grazhda/internal
 │   ├── config/              # Load, Validate, DefaultWorkspace, RenderCloneCmd
-│   ├── workspace/           # Init, Purge, Pull, Resolve, Reporter, Executor
+│   ├── executor/            # Executor interface, OsExecutor, MockExecutor
+│   ├── reporter/            # Reporter — Record, Summary, ExitCode
+│   ├── workspace/           # Init, Purge, Pull, Resolve + RunOptions
 │   └── testdata/            # YAML fixtures for unit tests
 ├── zgard/                   # module: github.com/vhula/grazhda/zgard
 │   ├── main.go              # entry point → Execute()

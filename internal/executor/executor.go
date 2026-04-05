@@ -1,4 +1,4 @@
-package workspace
+package executor
 
 import "os/exec"
 
