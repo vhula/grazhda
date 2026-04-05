@@ -5,7 +5,7 @@ set -e
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
+BLUE='\033[1;34m'
 NC='\033[0m'
 
 if [ -z "$GRAZHDA_DIR" ]; then
@@ -47,8 +47,6 @@ verify_requirements() {
 
     check_binary "git" "Install from: https://git-scm.com/" || failed=1
     check_binary "go" "Install from: https://golang.org/dl/" || failed=1
-    check_binary "just" "Install from: https://github.com/casey/just/releases" || failed=1
-    check_binary "protoc" "Install from: https://github.com/protocolbuffers/protobuf/releases" || failed=1
 
     if [ $failed -eq 1 ]; then
         echo -e "${RED}Please install all missing dependencies and try again.${NC}"
@@ -60,8 +58,12 @@ verify_requirements() {
 }
 
 install_from_sources() {
-    just build
+    mkdir -p bin
+    cd zgard && go build -o ../bin/zgard . && cd ..
+    cp grazhda ./bin/
+    cp grazhda-init.sh ./bin/
 
+    mkdir -p "$GRAZHDA_DIR/bin"
     cp bin/* "$GRAZHDA_DIR/bin/"
 
     echo -e "${GREEN}✓ Grazhda built successfully${NC}"

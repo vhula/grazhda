@@ -1,0 +1,8 @@
+workspaces:
+  - name: ws-missing-branch
+    path: /tmp/ws-missing-branch
+    clone_command_template: "git clone https://github.com/org/{{.RepoName}} {{.DestDir}}"
+    projects:
+      - name: backend
+        repositories:
+          - name: api

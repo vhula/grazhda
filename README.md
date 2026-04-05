@@ -1,71 +1,47 @@
 # Grazhda
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Go](https://img.shields.io/badge/Go-1.26+-00ADD8?logo=go&logoColor=white)](https://go.dev)
+[![Phase](https://img.shields.io/badge/Phase-1%20%E2%80%94%20zgard-brightgreen)](https://github.com/vhula/grazhda)
 
-Grazhda is a local automation toolkit for workspace lifecycle and repeatable developer setup.
+**One command to clone your entire dev environment. Exactly how you left it.**
 
-## Table of Contents
+---
 
-- [Design](#design)
-- [Components](#components)
-- [Technology Stack](#technology-stack)
-- [Current Status](#current-status)
-- [Quick Start](#quick-start)
-- [Configuration](#configuration)
-- [Development](#development)
-- [License](#license)
+## 🔥 The Problem
 
-## Design
+You change laptops. You onboard a new teammate. You re-provision a machine after a crash. Then comes the ritual: remember which repos go where, which branches are right for each project, which SSH key format each remote uses. Repeat forty times. Miss one. Break something.
 
-Grazhda currently uses a split design:
+Developer environments are configuration. Configuration should be code.
 
-- `zgard` is a local CLI that performs workspace operations directly.
-- Workspace logic lives in `internal/ws` and is driven by `config.yaml`.
-- `dukh` is a separate gRPC server for Dukh process control endpoints only.
+---
 
-### Workspace Operations
+## ⚡ The Solution
 
-`zgard ws init` and `zgard ws purge` are local workspace operations.
+`zgard` reads a single YAML file that describes your workspaces — where they live on disk, which repos belong to each project, which branch each repo tracks. Then it does the work.
 
-`zgard` loads `${GRAZHDA_DIR}/config.yaml`, creates/purges workspace directories, creates `dukh.log` files in workspace roots, creates project directories, and runs repository clone commands based on `clone_command_template`.
+```
+zgard ws init
+```
 
-## Components
+```
+Workspace: default
+  Project: backend
+    ✓ api          — cloned (main)
+    ✓ auth         — cloned (dev)
+    ✓ gateway      — cloned (main)
+  Project: infra
+    ✓ terraform    — cloned (main)
+    ⏭ k8s-configs  — already exists, skipped
 
-| Component | Role |
-| :--- | :--- |
-| `zgard` | User CLI for local workspace operations (`ws init`, `ws purge`) |
-| `internal/ws` | Workspace domain logic used by `zgard` |
-| `internal/config` | Config loading from `${GRAZHDA_DIR}/config.yaml` |
-| `dukh` | gRPC server process with Dukh service methods |
+✓ 4 cloned  ⏭ 1 skipped  ✗ 0 failed
+```
 
-## Technology Stack
+Every failure is reported with the actual git error — no more hunting for `exit status 128`.
 
-| Area | Technology |
-| :--- | :--- |
-| CLI | Go + Cobra |
-| Logging | `github.com/charmbracelet/log` |
-| RPC | gRPC + Protocol Buffers |
-| Config | YAML (`gopkg.in/yaml.v3`) |
-| Build orchestration | `just` (`Justfile`) |
+---
 
-## Current Status
-
-| Tool | Language | Role | Status |
-| :--- | :------- | :--- | :----- |
-| **Grazhda** | Bash | Installer | 🚧 In Development |
-| **Dukh** | Go | Worker (gRPC server) | 🚧 In Development |
-| **Zgard** | Go | Command CLI | 🚧 In Development |
-| **Molfar** | Java | Brain | 📅 Planned |
-| **Molf** | Java | Interface CLI | 📅 Planned |
-
-## Quick Start
-
-### Prerequisites
-
-- `bash`
-- `curl`
-- `git`
-- Go `1.26+` (for local development/build)
+## 🚀 Quick Start
 
 ### Install
 
@@ -73,90 +49,196 @@ Grazhda currently uses a split design:
 curl -s https://raw.githubusercontent.com/vhula/grazhda/refs/heads/main/grazhda.sh | bash
 ```
 
-### Initialize and Purge Workspaces
+The installer builds `zgard` from source and places it in `$GRAZHDA_DIR/bin/`.
+
+### Configure
 
 ```bash
-zgard ws init
-zgard ws purge
+cp config.template.yaml "$GRAZHDA_DIR/config.yaml"
+$EDITOR "$GRAZHDA_DIR/config.yaml"
 ```
 
-### Dukh Commands
+### Run
 
 ```bash
-dukh start
-dukh stop
-dukh status
+zgard ws init            # clone everything in the default workspace
+zgard ws pull            # pull latest on all repos
+zgard ws purge --name old-ws  # remove a workspace
 ```
 
-## Configuration
+> **Prerequisites:** `bash`, `curl`, `git`, Go `1.26+`
 
-### Location
+---
 
-Grazhda reads config from:
+## 🗂️ Commands
 
-```text
-${GRAZHDA_DIR}/config.yaml
+### `zgard ws init`
+Clone all repositories for a workspace. Skips repos that already exist. Continues on failure and reports all errors at the end.
+
+```bash
+zgard ws init                    # default workspace
+zgard ws init --name myws        # named workspace
+zgard ws init --all --parallel   # all workspaces, concurrently
+zgard ws init --dry-run          # preview without executing
 ```
 
-Use `config.template.yaml` as the base template.
+### `zgard ws pull`
+Run `git pull --rebase` for every repo in a workspace. Skips repos that haven't been cloned yet.
 
-### Top-Level Sections
+```bash
+zgard ws pull                    # default workspace
+zgard ws pull --all --parallel   # all workspaces, concurrently
+zgard ws pull --dry-run          # preview without executing
+```
+
+### `zgard ws purge`
+Remove a workspace directory tree. Always asks for confirmation. Always requires an explicit target.
+
+```bash
+zgard ws purge --name myws            # remove one workspace (prompts)
+zgard ws purge --all --no-confirm     # remove all, no prompt (for CI)
+zgard ws purge --name myws --dry-run  # preview what would be removed
+```
+
+### Common Flags
+
+| Flag | Commands | Description |
+| :--- | :--- | :--- |
+| `-n, --name <name>` | init, pull, purge | Target a named workspace |
+| `--all` | init, pull, purge | Target all workspaces |
+| `--dry-run` | init, pull, purge | Print actions without executing |
+| `--parallel` | init, pull | Run repo operations concurrently |
+| `-v, --verbose` | init, pull, purge | Print the rendered git command before each operation |
+| `--no-confirm` | purge | Skip the confirmation prompt |
+
+---
+
+## ⚙️ Configuration
+
+`zgard` resolves `config.yaml` from:
+1. `$GRAZHDA_DIR/config.yaml` — when `$GRAZHDA_DIR` is set
+2. `~/.grazhda/config.yaml` — default fallback
+
+### Example
 
 ```yaml
-dukh:
-  host: localhost
-  port: 50501
-
-general:
-  install_dir: ${GRAZHDA_DIR}
-  sources_dir: ${GRAZHDA_DIR}/sources
-  bin_dir: ${GRAZHDA_DIR}/bin
-
 workspaces:
   - name: default
     default: true
-    path: /home/jake/ws
-    clone_command_template: git clone --branch {{.Branch}} https://github.com/grazhda/{{.RepoName}} {{.DestDir}}
+    path: ~/ws
+    clone_command_template: "git clone --branch {{.Branch}} git@github.com:myorg/{{.RepoName}} {{.DestDir}}"
+    projects:
+      - name: backend
+        branch: main
+        repositories:
+          - name: api
+          - name: auth
+            branch: dev            # overrides project branch
+          - name: api
+            local_dir_name: api-v2 # cloned into <project>/api-v2
+
+  - name: personal
+    path: ~/personal
+    clone_command_template: "git clone git@github.com:me/{{.RepoName}} {{.DestDir}}"
+    projects:
+      - name: tools
+        branch: main
+        repositories:
+          - name: dotfiles
+          - name: scripts
 ```
 
-- `dukh`: network settings for the Dukh server.
-- `general`: installation and binary/source paths.
-- `workspaces`: workspace layout and clone definitions used by `zgard`.
+### Clone Template Variables
 
-### Workspace Model
+| Variable | Resolves to |
+| :--- | :--- |
+| `{{.Branch}}` | `repository.branch` if set, otherwise `project.branch` |
+| `{{.RepoName}}` | `repository.name` |
+| `{{.DestDir}}` | `<project_path>/<local_dir_name>` or `<project_path>/<name>` |
 
-Each workspace defines:
+### Field Reference
 
-- `name`: workspace identifier.
-- `path`: absolute path where the workspace directory is created.
-- `clone_command_template`: Go template used to build repository clone commands.
-- `projects`: project directories and repositories/subprojects.
+<details>
+<summary><strong>Workspace fields</strong></summary>
 
-Repository options:
+| Field | Required | Description |
+| :--- | :---: | :--- |
+| `name` | ✅ | Unique identifier; used with `--name` |
+| `default` | — | Marks this workspace as the default target |
+| `path` | ✅ | Root directory for the workspace (`~` is expanded) |
+| `clone_command_template` | ✅ | Go template string for the clone command |
+| `projects` | — | List of project subdirectories |
 
-- `name`: repository name (`{{.RepoName}}`).
-- `local_dir_name` (optional): local destination directory (`{{.DestDir}}`).
+</details>
 
-Template variables supported by clone command rendering:
+<details>
+<summary><strong>Project fields</strong></summary>
 
-- `{{.Branch}}`
-- `{{.RepoName}}`
-- `{{.DestDir}}`
+| Field | Required | Description |
+| :--- | :---: | :--- |
+| `name` | ✅ | Directory name under the workspace path |
+| `branch` | ✅ | Default branch for all repos in this project |
+| `repositories` | — | List of repositories to clone |
 
-## Development
+</details>
 
-Common tasks:
+<details>
+<summary><strong>Repository fields</strong></summary>
+
+| Field | Required | Description |
+| :--- | :---: | :--- |
+| `name` | ✅ | Repository name; used as `{{.RepoName}}` |
+| `branch` | — | Overrides the project-level branch |
+| `local_dir_name` | — | Clone destination name; overrides `name` |
+
+</details>
+
+---
+
+## 🗺️ Roadmap
+
+| Tool | Role | Status |
+| :--- | :--- | :---: |
+| **zgard** | Workspace lifecycle CLI | ✅ |
+| **Grazhda installer** | Source-build installer script | 🚧 |
+| **dukh** | Background gRPC worker | 📅 Phase 2 |
+| **Molfar** | Orchestration server | 📅 Phase 3 |
+| **Molf** | Orchestrator CLI | 📅 Phase 3 |
+
+---
+
+## 🛠️ Development
 
 ```bash
-just generate
-just build
-just test
-just fmt
-just tidy
+just build-zgard   # build → bin/zgard
+just test          # run all tests
+just fmt           # format all Go source
+just tidy          # tidy all modules
 ```
 
-`just generate` generates protobuf code from `proto/dukh.proto`.
+### Module Layout
 
-## License
+```
+grazhda/
+├── go.work
+├── Justfile
+├── config.template.yaml
+├── internal/               # shared module
+│   ├── color/              # terminal colour helpers
+│   ├── config/             # load · validate · render templates
+│   ├── executor/           # shell command interface + mock
+│   ├── reporter/           # per-repo progress + run summary
+│   └── workspace/          # init · purge · pull · targeting
+└── zgard/                  # CLI module
+    ├── main.go
+    ├── root.go
+    └── ws/                 # ws init · ws purge · ws pull
+```
 
-This project is licensed under GNU GPL v3. See `LICENSE`.
+---
+
+## 📄 License
+
+GNU GPL v3 — see [`LICENSE`](LICENSE).
+
+

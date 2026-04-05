@@ -1,124 +1,261 @@
-package config
+package config_test
 
 import (
-	"os"
+	"errors"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
+
+	"github.com/vhula/grazhda/internal/config"
 )
 
-func TestLoadConfig(t *testing.T) {
-	tempDir := t.TempDir()
+func testdataPath(name string) string {
+	_, file, _, _ := runtime.Caller(0)
+	return filepath.Join(filepath.Dir(file), "..", "testdata", name)
+}
 
-	os.Setenv("GRAZHDA_DIR", tempDir)
-	defer os.Unsetenv("GRAZHDA_DIR")
+// --- Load ---
 
-	configPath := filepath.Join(tempDir, "config.yaml")
-	yamlContent, err := os.ReadFile("../../config.template.yaml")
+func TestLoad_ValidSingleWorkspace(t *testing.T) {
+	cfg, err := config.Load(testdataPath("valid_single_workspace.yaml"))
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("unexpected error: %v", err)
 	}
-	err = os.WriteFile(configPath, yamlContent, 0644)
-	if err != nil {
-		t.Fatal(err)
+	if len(cfg.Workspaces) != 1 {
+		t.Fatalf("expected 1 workspace, got %d", len(cfg.Workspaces))
 	}
+	if cfg.Workspaces[0].Name != "test-ws" {
+		t.Errorf("expected workspace name 'test-ws', got %q", cfg.Workspaces[0].Name)
+	}
+}
 
-	cfg, err := LoadConfig()
-	if err != nil {
-		t.Fatalf("LoadConfig failed: %v", err)
+func TestLoad_FileNotFound(t *testing.T) {
+	_, err := config.Load("/nonexistent/path/config.yaml")
+	if err == nil {
+		t.Fatal("expected error for missing file")
 	}
+	if !errors.Is(err, errors.Unwrap(err)) && !strings.Contains(err.Error(), "config file") {
+		t.Errorf("error should mention config file path, got: %v", err)
+	}
+}
 
-	if cfg.Dukh.Host != "localhost" {
-		t.Errorf("Expected Dukh.Host to be 'localhost', got '%s'", cfg.Dukh.Host)
-	}
-	if cfg.Dukh.Port != 50501 {
-		t.Errorf("Expected Dukh.Port to be 50501, got %d", cfg.Dukh.Port)
-	}
-	if cfg.Zgard.Config == nil {
-		t.Error("Expected Zgard.Config to be initialized")
-	}
-	if cfg.General.InstallDir != "${GRAZHDA_DIR}" {
-		t.Errorf("Expected General.InstallDir to be '${GRAZHDA_DIR}', got '%s'", cfg.General.InstallDir)
-	}
-	if cfg.General.SourcesDir != "${GRAZHDA_DIR}/sources" {
-		t.Errorf("Expected General.SourcesDir to be '${GRAZHDA_DIR}/sources', got '%s'", cfg.General.SourcesDir)
-	}
-	if cfg.General.BinDir != "${GRAZHDA_DIR}/bin" {
-		t.Errorf("Expected General.BinDir to be '${GRAZHDA_DIR}/bin', got '%s'", cfg.General.BinDir)
+func TestLoad_ValidMultiWorkspace(t *testing.T) {
+	cfg, err := config.Load(testdataPath("valid_multi_workspace.yaml"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(cfg.Workspaces) != 2 {
-		t.Errorf("Expected 2 workspaces, got %d", len(cfg.Workspaces))
-	}
-
-	ws1 := cfg.Workspaces[0]
-	if ws1.Name != "default" {
-		t.Errorf("Expected first workspace name to be 'default', got '%s'", ws1.Name)
-	}
-	if !ws1.Default {
-		t.Error("Expected first workspace to be default")
-	}
-	if ws1.Path != "/home/jake/ws" {
-		t.Errorf("Expected first workspace path to be '/home/jake/ws', got '%s'", ws1.Path)
-	}
-	if ws1.CloneCommandTemplate != "git clone --branch {{.Branch}} https://github.com/grazhda/{{.RepoName}} {{.DestDir}}" {
-		t.Errorf("Unexpected CloneCommandTemplate for first workspace")
-	}
-	if len(ws1.Projects) != 2 {
-		t.Errorf("Expected 2 projects in first workspace, got %d", len(ws1.Projects))
-	}
-
-	ws2 := cfg.Workspaces[1]
-	if ws2.Name != "secondary" {
-		t.Errorf("Expected second workspace name to be 'secondary', got '%s'", ws2.Name)
-	}
-	if ws2.Default {
-		t.Error("Expected second workspace not to be default")
-	}
-	if ws2.Path != "/home/jake/secondary_ws" {
-		t.Errorf("Expected second workspace path to be '/home/jake/secondary_ws', got '%s'", ws2.Path)
-	}
-	if ws2.CloneCommandTemplate != "git clone --branch {{.Branch}} https://github.com/grazhda/{{.RepoName}} {{.DestDir}}" {
-		t.Errorf("Unexpected CloneCommandTemplate for second workspace")
-	}
-	if len(ws2.Projects) != 1 {
-		t.Errorf("Expected 1 project in second workspace, got %d", len(ws2.Projects))
+		t.Fatalf("expected 2 workspaces, got %d", len(cfg.Workspaces))
 	}
 }
 
-func TestLoadConfig_NoEnv(t *testing.T) {
-	os.Unsetenv("GRAZHDA_DIR")
+// --- DefaultWorkspace ---
 
-	_, err := LoadConfig()
-	if err == nil {
-		t.Error("Expected error when GRAZHDA_DIR is not set")
-	}
-}
-
-func TestLoadConfig_FileNotFound(t *testing.T) {
-	tempDir := t.TempDir()
-
-	os.Setenv("GRAZHDA_DIR", tempDir)
-	defer os.Unsetenv("GRAZHDA_DIR")
-
-	_, err := LoadConfig()
-	if err == nil {
-		t.Error("Expected error when config.yaml does not exist")
-	}
-}
-
-func TestLoadConfig_InvalidYAML(t *testing.T) {
-	tempDir := t.TempDir()
-
-	os.Setenv("GRAZHDA_DIR", tempDir)
-	defer os.Unsetenv("GRAZHDA_DIR")
-
-	configPath := filepath.Join(tempDir, "config.yaml")
-	err := os.WriteFile(configPath, []byte("invalid: yaml: content: ["), 0644)
+func TestDefaultWorkspace_FoundByDefault(t *testing.T) {
+	cfg, err := config.Load(testdataPath("valid_multi_workspace.yaml"))
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("load: %v", err)
 	}
+	ws, err := config.DefaultWorkspace(cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ws.Name != "default" {
+		t.Errorf("expected default workspace, got %q", ws.Name)
+	}
+}
 
-	_, err = LoadConfig()
+func TestDefaultWorkspace_NotFound(t *testing.T) {
+	cfg := &config.Config{
+		Workspaces: []config.Workspace{{Name: "other", Path: "/tmp"}},
+	}
+	_, err := config.DefaultWorkspace(cfg)
 	if err == nil {
-		t.Error("Expected error when YAML is invalid")
+		t.Fatal("expected error for missing default workspace")
+	}
+	if !strings.Contains(err.Error(), "no default workspace found") {
+		t.Errorf("unexpected error message: %v", err)
+	}
+}
+
+// --- Validate ---
+
+func TestValidate_ValidConfig(t *testing.T) {
+	cfg, _ := config.Load(testdataPath("valid_single_workspace.yaml"))
+	errs := config.Validate(cfg)
+	if len(errs) != 0 {
+		t.Errorf("expected no errors, got: %v", errs)
+	}
+}
+
+func TestValidate_MissingPath(t *testing.T) {
+	cfg := &config.Config{
+		Workspaces: []config.Workspace{{
+			Name:                 "default",
+			CloneCommandTemplate: "git clone {{.RepoName}}",
+			Projects: []config.Project{{
+				Name:   "p",
+				Branch: "main",
+			}},
+		}},
+	}
+	errs := config.Validate(cfg)
+	if len(errs) == 0 {
+		t.Fatal("expected validation errors")
+	}
+	found := false
+	for _, e := range errs {
+		if strings.Contains(e, "workspace[0].path: required field missing") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected path error, got: %v", errs)
+	}
+}
+
+func TestValidate_DuplicateWorkspaceNames(t *testing.T) {
+	cfg, err := config.Load(testdataPath("duplicate_workspace_names.yaml"))
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	errs := config.Validate(cfg)
+	found := false
+	for _, e := range errs {
+		if strings.Contains(e, "workspace names must be unique") && strings.Contains(e, "default") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected duplicate workspace name error, got: %v", errs)
+	}
+}
+
+func TestValidate_DuplicateProjectNames(t *testing.T) {
+	cfg := &config.Config{
+		Workspaces: []config.Workspace{{
+			Name:                 "default",
+			Path:                 "/tmp/ws",
+			CloneCommandTemplate: "git clone {{.RepoName}}",
+			Projects: []config.Project{
+				{Name: "backend", Branch: "main"},
+				{Name: "backend", Branch: "main"},
+			},
+		}},
+	}
+	errs := config.Validate(cfg)
+	found := false
+	for _, e := range errs {
+		if strings.Contains(e, "duplicate project name") && strings.Contains(e, "backend") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected duplicate project error, got: %v", errs)
+	}
+}
+
+func TestValidate_MultipleErrors(t *testing.T) {
+	cfg, err := config.Load(testdataPath("missing_required_fields.yaml"))
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	errs := config.Validate(cfg)
+	if len(errs) < 2 {
+		t.Errorf("expected multiple errors, got %d: %v", len(errs), errs)
+	}
+}
+
+func TestValidate_InvalidTemplate(t *testing.T) {
+	cfg, err := config.Load(testdataPath("invalid_template.yaml"))
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	errs := config.Validate(cfg)
+	found := false
+	for _, e := range errs {
+		if strings.Contains(e, "invalid template") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected invalid template error, got: %v", errs)
+	}
+}
+
+func TestValidate_MissingBranch(t *testing.T) {
+	cfg, err := config.Load(testdataPath("missing_branch.yaml"))
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	errs := config.Validate(cfg)
+	found := false
+	for _, e := range errs {
+		if strings.Contains(e, "branch: required field missing") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected missing branch error, got: %v", errs)
+	}
+}
+
+// --- RenderCloneCmd ---
+
+func TestRenderCloneCmd_Basic(t *testing.T) {
+	tmpl := "git clone --branch {{.Branch}} https://github.com/org/{{.RepoName}} {{.DestDir}}"
+	proj := config.Project{Name: "backend", Branch: "main"}
+	repo := config.Repository{Name: "api"}
+
+	cmd, err := config.RenderCloneCmd(tmpl, "/workspace/backend", proj, repo)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	expected := "git clone --branch main https://github.com/org/api /workspace/backend/api"
+	if cmd != expected {
+		t.Errorf("expected %q, got %q", expected, cmd)
+	}
+}
+
+func TestRenderCloneCmd_RepoOverridesBranch(t *testing.T) {
+	tmpl := "git clone --branch {{.Branch}} https://github.com/org/{{.RepoName}} {{.DestDir}}"
+	proj := config.Project{Name: "backend", Branch: "main"}
+	repo := config.Repository{Name: "auth", Branch: "dev"}
+
+	cmd, err := config.RenderCloneCmd(tmpl, "/workspace/backend", proj, repo)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(cmd, "dev") {
+		t.Errorf("expected branch 'dev', got %q", cmd)
+	}
+}
+
+func TestRenderCloneCmd_LocalDirName(t *testing.T) {
+	tmpl := "git clone {{.RepoName}} {{.DestDir}}"
+	proj := config.Project{Name: "backend", Branch: "main"}
+	repo := config.Repository{Name: "api", LocalDirName: "api-service"}
+
+	cmd, err := config.RenderCloneCmd(tmpl, "/workspace/backend", proj, repo)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(cmd, "api-service") {
+		t.Errorf("expected local_dir_name 'api-service' in cmd, got %q", cmd)
+	}
+	if strings.Contains(cmd, "/api ") || strings.HasSuffix(cmd, "/api") {
+		t.Errorf("DestDir should use local_dir_name, not repo name, got %q", cmd)
+	}
+}
+
+func TestRenderCloneCmd_InvalidTemplate(t *testing.T) {
+	tmpl := "git clone {{.Unclosed"
+	proj := config.Project{Name: "p", Branch: "main"}
+	repo := config.Repository{Name: "r"}
+
+	_, err := config.RenderCloneCmd(tmpl, "/ws", proj, repo)
+	if err == nil {
+		t.Fatal("expected error for invalid template")
 	}
 }

@@ -1,0 +1,17 @@
+workspaces:
+  - name: default
+    path: /tmp/ws-default
+    clone_command_template: "git clone --branch {{.Branch}} https://github.com/org/{{.RepoName}} {{.DestDir}}"
+    projects:
+      - name: backend
+        branch: main
+        repositories:
+          - name: api
+  - name: default
+    path: /tmp/ws-default-dup
+    clone_command_template: "git clone https://github.com/org/{{.RepoName}} {{.DestDir}}"
+    projects:
+      - name: frontend
+        branch: main
+        repositories:
+          - name: webapp
