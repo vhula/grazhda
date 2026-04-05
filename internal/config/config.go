@@ -66,7 +66,7 @@ func DefaultWorkspace(cfg *Config) (*Workspace, error) {
 			return ws, nil
 		}
 	}
-	return nil, fmt.Errorf("no default workspace found: add a workspace with name: default or use --ws")
+	return nil, fmt.Errorf("no default workspace found: add a workspace with name: default or use --name")
 }
 
 // Validate returns all validation errors in cfg; an empty slice means valid.

@@ -109,7 +109,7 @@ grazhda/                          # repo root (go.work)
 │   │   ├── executor.go           # Executor interface + os/exec implementation
 │   │   └── mock.go               # Mock executor for tests
 │   ├── targeting/
-│   │   └── resolver.go           # Default/--ws/--all targeting logic
+│   │   └── resolver.go           # Default/--name/--all targeting logic
 │   ├── reporter/
 │   │   └── reporter.go           # Result accumulator + summary output
 │   └── testdata/
@@ -485,7 +485,7 @@ grazhda/                               # repo root (go.work)
 
 ```
 cmd/ws/init.go                         # module: github.com/vhula/grazhda/cmd
-  IN:  Cobra flags (--ws, --all, --dry-run, --verbose, --no-confirm, --parallel)
+  IN:  Cobra flags (--name, --all, --dry-run, --verbose, --no-confirm, --parallel)
   OUT: os.Exit(reporter.ExitCode())
 
 github.com/vhula/grazhda/internal/config/
@@ -512,7 +512,7 @@ github.com/vhula/grazhda/internal/reporter/
 ### Data Flow
 
 ```
-User invokes: zgard ws init --ws myws --dry-run
+User invokes: zgard ws init --name myws --dry-run
 
 zgard/main.go
   └─► cmd/ws/init.go              Parse flags → build RunOptions{DryRun:true, WsName:"myws"}

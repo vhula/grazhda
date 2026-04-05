@@ -315,7 +315,7 @@ So that I can run commands without specifying a workspace name when a `default` 
 
 **Given** a config with no workspace named `default`
 **When** `config.DefaultWorkspace(cfg)` is called
-**Then** it returns a descriptive error: `"no default workspace found: add a workspace with name: default or use --ws"`
+**Then** it returns a descriptive error: `"no default workspace found: add a workspace with name: default or use --name"`
 
 **Given** `$GRAZHDA_DIR` is not set
 **When** the `cmd` layer resolves the config path
@@ -407,11 +407,11 @@ So that `ws init`, `ws pull`, and `ws purge` all use a consistent, tested target
 **When** `targeting.Resolve(cfg, "", false)` is called
 **Then** it returns `[]Workspace` containing only the default workspace
 
-**Given** `--ws myws` and a config containing a workspace named `myws`
+**Given** `--name myws` and a config containing a workspace named `myws`
 **When** `targeting.Resolve(cfg, "myws", false)` is called
 **Then** it returns `[]Workspace` containing only `myws`
 
-**Given** `--ws nonexistent`
+**Given** `--name nonexistent`
 **When** `targeting.Resolve(cfg, "nonexistent", false)` is called
 **Then** it returns an error: `"workspace 'nonexistent' not found in config"`
 
@@ -421,7 +421,7 @@ So that `ws init`, `ws pull`, and `ws purge` all use a consistent, tested target
 
 **Given** both `--name` and `--all` are provided
 **When** `targeting.Resolve` is called
-**Then** it returns an error: `"--ws and --all are mutually exclusive"`
+**Then** it returns an error: `"--name and --all are mutually exclusive"`
 
 **Given** a unit test using `valid_multi_workspace.yaml` fixture
 **When** `targeting.Resolve` is called with various flag combinations
@@ -599,8 +599,8 @@ So that the command is usable both interactively and in CI pipelines.
 **When** `zgard ws init --dry-run` runs
 **Then** every output line is prefixed with `[DRY RUN]`, no directories are created, and exit code is `0` (FR19, FR31)
 
-**Given** `--ws myws` flag
-**When** `zgard ws init --ws myws`
+**Given** `--name myws` flag
+**When** `zgard ws init --name myws`
 **Then** only the `myws` workspace is initialised (FR10)
 
 **Given** `--all` flag
@@ -667,16 +667,16 @@ So that I can never accidentally purge a workspace by running the command withou
 **When** the command runs
 **Then** it exits non-zero and prints to stderr: `"ws purge requires --name <name> or --all"` (FR12)
 
-**Given** `--ws myws`
-**When** `zgard ws purge --ws myws`
+**Given** `--name myws`
+**When** `zgard ws purge --name myws`
 **Then** targeting resolves to only `myws`
 
 **Given** `--all`
 **When** `zgard ws purge --all`
 **Then** targeting resolves to all workspaces in config
 
-**Given** a non-existent workspace name `--ws ghost`
-**When** `zgard ws purge --ws ghost`
+**Given** a non-existent workspace name `--name ghost`
+**When** `zgard ws purge --name ghost`
 **Then** it exits non-zero: `"workspace 'ghost' not found in config"`
 
 **Given** `--parallel` flag
@@ -715,7 +715,7 @@ So that I can never accidentally remove directories I intended to keep.
 
 **Acceptance Criteria:**
 
-**Given** `zgard ws purge --ws myws` (no `--no-confirm`)
+**Given** `zgard ws purge --name myws` (no `--no-confirm`)
 **When** the command runs
 **Then** stdout displays the confirmation prompt listing each directory to be removed, followed by `Confirm? [y/N]:` (UX-DR7)
 
@@ -743,7 +743,7 @@ So that I can verify my targeting before committing to a destructive operation.
 
 **Acceptance Criteria:**
 
-**Given** `zgard ws purge --ws myws --dry-run`
+**Given** `zgard ws purge --name myws --dry-run`
 **When** the command runs
 **Then** every path that would be removed is printed with `[DRY RUN]` prefix; no directories are deleted (FR22)
 
@@ -847,8 +847,8 @@ So that it behaves consistently with `ws init` for targeting, output, exit codes
 **When** the command runs successfully
 **Then** it exits with code `0`
 
-**Given** `--ws myws` or `--all`
-**When** `zgard ws pull --ws myws` or `zgard ws pull --all`
+**Given** `--name myws` or `--all`
+**When** `zgard ws pull --name myws` or `zgard ws pull --all`
 **Then** targeting resolves correctly (same resolver as `ws init`)
 
 **Given** `--parallel` flag

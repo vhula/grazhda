@@ -176,7 +176,7 @@ zgard ws init
 The next morning Sam re-runs `zgard ws init`. `zgard` checks each repo directory — three exist and are skipped, five are missing and cloned fresh. The workspace is now complete. Sam also wants to check what *would* happen before running `ws purge` later:
 
 ```
-zgard ws purge --ws default --dry-run
+zgard ws purge --name default --dry-run
 ```
 
 The terminal lists every directory that would be deleted. Sam runs it without `--dry-run`, confirms the Y/N prompt, and the workspace is cleanly removed.
@@ -212,7 +212,7 @@ All repos across all workspaces are pulled and rebased to their configured branc
 A team's onboarding script provisions a dev container and needs to initialize a workspace without any interactive prompts:
 
 ```bash
-zgard ws init --ws default --no-confirm
+zgard ws init --name default --no-confirm
 if [ $? -ne 0 ]; then
   echo "Workspace init failed" && exit 1
 fi

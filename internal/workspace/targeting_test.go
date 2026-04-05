@@ -66,7 +66,7 @@ func TestResolve_MutuallyExclusive(t *testing.T) {
 	cfg := makeTargetingConfig()
 	_, err := workspace.Resolve(cfg, "myws", true)
 	if err == nil {
-		t.Fatal("expected error for --ws + --all")
+		t.Fatal("expected error for --name + --all")
 	}
 	if !strings.Contains(err.Error(), "mutually exclusive") {
 		t.Errorf("unexpected error: %v", err)

@@ -355,7 +355,7 @@ exit status 1
 ### Journey 4: Workspace Purge
 
 ```
-$ zgard ws purge --ws default
+$ zgard ws purge --name default
 
 This will permanently remove:
   ~/ws/backend/api
@@ -370,7 +370,7 @@ Confirm? [y/N]: y
 
 ✓ 3 removed
 
-$ zgard ws purge --ws default --no-confirm   # CI / scripting
+$ zgard ws purge --name default --no-confirm   # CI / scripting
   ✓ Removed ~/ws/backend/api
   ...
 ```

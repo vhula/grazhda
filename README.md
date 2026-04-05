@@ -95,7 +95,7 @@ $EDITOR "$GRAZHDA_DIR/config.yaml"
 zgard ws init
 
 # Initialize a specific workspace
-zgard ws init --ws myws
+zgard ws init --name myws
 
 # Initialize all workspaces in parallel
 zgard ws init --all --parallel
@@ -113,13 +113,13 @@ zgard ws pull --parallel
 zgard ws pull --dry-run
 
 # Remove a workspace (prompts for confirmation)
-zgard ws purge --ws myws
+zgard ws purge --name myws
 
 # Remove all workspaces without prompting (for CI)
 zgard ws purge --all --no-confirm
 
 # Preview purge
-zgard ws purge --ws myws --dry-run
+zgard ws purge --name myws --dry-run
 ```
 
 ### Common Flags
