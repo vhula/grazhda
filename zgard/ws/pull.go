@@ -67,7 +67,7 @@ func newPullCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print actions without executing them")
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
 	cmd.Flags().BoolVar(&parallel, "parallel", false, "Pull repositories concurrently")
-	cmd.Flags().StringVarP(&wsName, "ws", "w", "", "Target workspace name (default: default workspace)")
+	cmd.Flags().StringVarP(&wsName, "name", "n", "", "Target workspace name (default: default workspace)")
 	cmd.Flags().BoolVar(&all, "all", false, "Operate on all workspaces")
 
 	return cmd

@@ -49,7 +49,7 @@ _This document builds collaboratively through step-by-step discovery. Sections a
 ### Cross-Cutting Concerns Identified
 
 - **Config pipeline**: load → parse → validate → resolve template — runs once at startup, shared by all commands
-- **Workspace targeting resolver**: default/`--ws`/`--all` logic shared across all three commands
+- **Workspace targeting resolver**: default/`--name`/`--all` logic shared across all three commands
 - **Dry-run mode**: must thread through every operation without executing side effects
 - **Output/logging**: charmbracelet/log with INFO/WARN/ERROR levels; `--verbose` flag; all output level-gated
 - **Error accumulation**: continue-on-failure requires a result collector that aggregates per-repo outcomes for end-of-run summary and exit code
@@ -238,8 +238,8 @@ func (r *Reporter) ExitCode() int // 0 = all success; 1 = any failure
 - Package name matches directory name
 
 **CLI Flag Naming:**
-- All flags: `kebab-case` — `--dry-run`, `--no-confirm`, `--ws`
-- Short flags: single letter where established — `-v` for verbose, `-w` for `--ws`
+- All flags: `kebab-case` — `--dry-run`, `--no-confirm`, `--name`
+- Short flags: single letter where established — `-v` for verbose, `-n` for `--name`
 - Flag variables in Cobra commands: `camelCase` — `dryRun`, `noConfirm`, `wsName`
 
 ### Structure Patterns

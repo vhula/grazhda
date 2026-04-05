@@ -60,7 +60,7 @@ The experience must support a natural two-step workflow: `zgard ws init --dry-ru
 ### Effortless Interactions
 
 - **Zero-flag happy path:** `zgard ws init` (no flags) initialises the default workspace with no required arguments — the simplest possible invocation works
-- **Safe-by-default purge:** `ws purge` always requires explicit targeting (`--ws` or `--all`) and prompts for confirmation — no way to accidentally purge without intent
+- **Safe-by-default purge:** `ws purge` always requires explicit targeting (`--name` or `--all`) and prompts for confirmation — no way to accidentally purge without intent
 - **Idempotent re-init:** running `ws init` on an already-initialised workspace skips existing repos silently — users never need to check state before re-running
 - **Re-runnable after failure:** a failed clone leaves no partial state (cleanup on failure) — the user can just re-run without manual cleanup
 
@@ -482,7 +482,7 @@ All `ws` subcommands share the same flag vocabulary:
 
 | Flag | Short | Commands | Meaning |
 |---|---|---|---|
-| `--ws <name>` | `-w` | init, purge, pull | Target named workspace |
+| `--name <name>` | `-n` | init, purge, pull | Target named workspace |
 | `--all` | | init, purge, pull | Target all workspaces |
 | `--dry-run` | | init, purge, pull | Preview without executing |
 | `--verbose` | `-v` | init, pull | Show rendered commands |

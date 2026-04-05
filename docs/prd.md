@@ -81,8 +81,8 @@ classification:
 
 ### MVP — Minimum Viable Product (Phase 1)
 
-- `zgard ws init` — initializes the default workspace (or `--ws <name>` / `--all`); creates project directories; clones repos via Go-templated clone commands; skips already-cloned repos; continues on clone failure; reports failures at end; validates config up-front.
-- `zgard ws purge` — removes the targeted workspace directory; requires explicit `--ws <name>` or `--all`; interactive Y/N confirmation; `--dry-run` support.
+- `zgard ws init` — initializes the default workspace (or `--name <name>` / `--all`); creates project directories; clones repos via Go-templated clone commands; skips already-cloned repos; continues on clone failure; reports failures at end; validates config up-front.
+- `zgard ws purge` — removes the targeted workspace directory; requires explicit `--name <name>` or `--all`; interactive Y/N confirmation; `--dry-run` support.
 - `zgard ws pull` — runs `git pull --rebase` on each repo's configured branch; same targeting flags as `ws init`.
 - Shared flags across all commands: `--dry-run`, `--verbose` / `-v`, `--no-confirm`, `--parallel`.
 - Config model: workspaces → projects → repositories (branch + optional `local_dir_name` per repo); Go template variables `{{.Branch}}`, `{{.RepoName}}`, `{{.DestDir}}`.
@@ -239,7 +239,7 @@ fi
 | `--no-confirm` flag for non-interactive use | 4 |
 | Interactive Y/N confirmation for purge | 2 |
 | `ws pull --rebase` on configured branches | 3 |
-| `--ws <name>` and `--all` targeting flags | 3, 4 |
+| `--name <name>` and `--all` targeting flags | 3, 4 |
 | Pull summary (success / conflict / skipped) | 3 |
 
 ## CLI Tool Specific Requirements
@@ -253,13 +253,13 @@ fi
 ```
 zgard
 └── ws
-    ├── init    [--ws <name> | --all] [--dry-run] [--verbose | -v] [--no-confirm]
-    ├── purge   [--ws <name> | --all] [--dry-run] [--verbose | -v] [--no-confirm]
-    └── pull    [--ws <name> | --all] [--dry-run] [--verbose | -v] [--no-confirm]
+    ├── init    [--name <name> | --all] [--dry-run] [--verbose | -v] [--no-confirm]
+    ├── purge   [--name <name> | --all] [--dry-run] [--verbose | -v] [--no-confirm]
+    └── pull    [--name <name> | --all] [--dry-run] [--verbose | -v] [--no-confirm]
 ```
 
 - All `ws` subcommands share the same targeting and behavior flags.
-- `ws init` and `ws pull` default to the workspace named `default` when no targeting flag is given; `ws purge` requires explicit `--ws` or `--all`.
+- `ws init` and `ws pull` default to the workspace named `default` when no targeting flag is given; `ws purge` requires explicit `--name` or `--all`.
 - The `--all` flag targets every workspace defined in the config.
 - Global flags (e.g. `--help`, version) follow Cobra conventions.
 
@@ -305,7 +305,7 @@ workspaces:
 - Clone commands are executed via `os/exec` using the rendered Go template output as the shell command string.
 - Config loaded once at startup via `gopkg.in/yaml.v3`; validation runs immediately after parsing.
 - Logging via `github.com/charmbracelet/log` with level control tied to `--verbose` flag.
-- Workspace targeting logic (default / `--ws` / `--all`) is shared across all three commands via a common resolver function.
+- Workspace targeting logic (default / `--name` / `--all`) is shared across all three commands via a common resolver function.
 
 ## Functional Requirements
 
@@ -323,9 +323,9 @@ workspaces:
 ### Workspace Targeting
 
 - **FR9:** Users can target the `default` workspace implicitly (no flag) when running `ws init` or `ws pull`.
-- **FR10:** Users can target a specific named workspace with `--ws <name>` / `-w <name>` on any `ws` command.
+- **FR10:** Users can target a specific named workspace with `--name <name>` / `-n <name>` on any `ws` command.
 - **FR11:** Users can target all configured workspaces simultaneously with `--all` on any `ws` command.
-- **FR12:** The system requires an explicit `--ws <name>` or `--all` flag to execute `ws purge` — no implicit default.
+- **FR12:** The system requires an explicit `--name <name>` or `--all` flag to execute `ws purge` — no implicit default.
 
 ### Workspace Initialization
 

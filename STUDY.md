@@ -726,7 +726,7 @@ func DefaultWorkspace(cfg *Config) (*Workspace, error) {
             return ws, nil
         }
     }
-    return nil, fmt.Errorf("no default workspace found: add a workspace with name: default or use --ws")
+    return nil, fmt.Errorf("no default workspace found: add a workspace with name: default or use --name")
 }
 ```
 
@@ -1035,7 +1035,7 @@ A **value object** — carries options from the CLI layer down to domain functio
 ```go
 func Resolve(cfg *config.Config, wsName string, all bool) ([]config.Workspace, error) {
     if wsName != "" && all {
-        return nil, fmt.Errorf("--ws and --all are mutually exclusive")
+        return nil, fmt.Errorf("--name and --all are mutually exclusive")
     }
 
     if all {
@@ -1426,10 +1426,10 @@ func newInitCmd() *cobra.Command {
 
 ## 10. How Data Flows End-to-End
 
-Here is the complete call chain for `zgard ws init --ws myws --parallel`:
+Here is the complete call chain for `zgard ws init --name myws --parallel`:
 
 ```
-os.Args = ["zgard", "ws", "init", "--ws", "myws", "--parallel"]
+os.Args = ["zgard", "ws", "init", "--name", "myws", "--parallel"]
 
 main()
 └─ Execute()
@@ -1651,7 +1651,7 @@ The config file location is resolved in this order:
 ```yaml
 workspaces:
   # First workspace: the default
-  - name: default                        # unique identifier, used with --ws
+  - name: default                        # unique identifier, used with --name
     default: true                        # mark as default (or just name it "default")
     path: /home/jake/ws                  # workspace root directory
     clone_command_template: >            # YAML folded scalar — newlines become spaces

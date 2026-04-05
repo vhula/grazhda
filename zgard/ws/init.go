@@ -70,7 +70,7 @@ func newInitCmd() *cobra.Command {
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
 	cmd.Flags().BoolVar(&parallel, "parallel", false, "Clone repositories concurrently")
 	cmd.Flags().BoolVar(&noConfirm, "no-confirm", false, "Skip confirmation prompts")
-	cmd.Flags().StringVarP(&wsName, "ws", "w", "", "Target workspace name (default: default workspace)")
+	cmd.Flags().StringVarP(&wsName, "name", "n", "", "Target workspace name (default: default workspace)")
 	cmd.Flags().BoolVar(&all, "all", false, "Operate on all workspaces")
 
 	return cmd

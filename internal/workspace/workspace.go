@@ -237,7 +237,7 @@ func pullRepo(ws config.Workspace, proj config.Project, projPath string, repo co
 		return
 	}
 
-	cmd := fmt.Sprintf("git pull --rebase")
+	cmd := fmt.Sprintf("git pull --rebase origin %s", branch)
 
 	if opts.Verbose {
 		rep.PrintLine(fmt.Sprintf("  → %s", cmd))

@@ -11,7 +11,7 @@ import (
 // When both are empty/false, the default workspace is returned.
 func Resolve(cfg *config.Config, wsName string, all bool) ([]config.Workspace, error) {
 	if wsName != "" && all {
-		return nil, fmt.Errorf("--ws and --all are mutually exclusive")
+		return nil, fmt.Errorf("--name and --all are mutually exclusive")
 	}
 
 	if all {

@@ -29,9 +29,9 @@ This document provides the complete epic and story breakdown for **Grazhda — z
 - FR7: The system can resolve the implicit default workspace as the workspace with `name: default`.
 - FR8: The system can report a clear, actionable error when no `default` workspace exists and no targeting flag is provided.
 - FR9: Users can target the `default` workspace implicitly (no flag) when running `ws init` or `ws pull`.
-- FR10: Users can target a specific named workspace with `--ws <name>` / `-w <name>` on any `ws` command.
+- FR10: Users can target a specific named workspace with `--name <name>` / `-n <name>` on any `ws` command.
 - FR11: Users can target all configured workspaces simultaneously with `--all` on any `ws` command.
-- FR12: The system requires an explicit `--ws <name>` or `--all` flag to execute `ws purge` — no implicit default.
+- FR12: The system requires an explicit `--name <name>` or `--all` flag to execute `ws purge` — no implicit default.
 - FR13: Users can create a workspace's full directory structure (workspace root and all project subdirectories) from config with `ws init`.
 - FR14: Users can clone all configured repositories into their project directories using the workspace's `clone_command_template`.
 - FR15: The system can render clone command templates substituting `{{.Branch}}`, `{{.RepoName}}`, and `{{.DestDir}}` per repository.
@@ -403,7 +403,7 @@ So that `ws init`, `ws pull`, and `ws purge` all use a consistent, tested target
 
 **Acceptance Criteria:**
 
-**Given** no `--ws` or `--all` flag and a config with a `default` workspace
+**Given** no `--name` or `--all` flag and a config with a `default` workspace
 **When** `targeting.Resolve(cfg, "", false)` is called
 **Then** it returns `[]Workspace` containing only the default workspace
 
@@ -419,7 +419,7 @@ So that `ws init`, `ws pull`, and `ws purge` all use a consistent, tested target
 **When** `targeting.Resolve(cfg, "", true)` is called
 **Then** it returns all workspaces from the config
 
-**Given** both `--ws` and `--all` are provided
+**Given** both `--name` and `--all` are provided
 **When** `targeting.Resolve` is called
 **Then** it returns an error: `"--ws and --all are mutually exclusive"`
 
@@ -658,14 +658,14 @@ Users can safely remove a targeted workspace's directory structure. `ws purge` a
 ### Story 4.1: Purge Targeting — Explicit Flag Required
 
 As a developer using `zgard`,
-I want `ws purge` to require an explicit `--ws <name>` or `--all` flag,
+I want `ws purge` to require an explicit `--name <name>` or `--all` flag,
 So that I can never accidentally purge a workspace by running the command without thinking.
 
 **Acceptance Criteria:**
 
 **Given** `zgard ws purge` with no flags
 **When** the command runs
-**Then** it exits non-zero and prints to stderr: `"ws purge requires --ws <name> or --all"` (FR12)
+**Then** it exits non-zero and prints to stderr: `"ws purge requires --name <name> or --all"` (FR12)
 
 **Given** `--ws myws`
 **When** `zgard ws purge --ws myws`

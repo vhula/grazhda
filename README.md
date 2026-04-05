@@ -28,7 +28,7 @@ Grazhda uses a split design where `zgard` is the primary user-facing CLI for dir
 The full pipeline for any command is:
 
 1. Load and validate `config.yaml` – all errors are reported before any filesystem change
-2. Resolve target workspace(s) from flags (`--ws`, `--all`, or default)
+2. Resolve target workspace(s) from flags (`--name`, `--all`, or default)
 3. Execute the operation (`init` / `purge` / `pull`) with live per-repo progress output
 4. Print a run summary with counts and exit non-zero if any operation failed
 
@@ -126,14 +126,14 @@ zgard ws purge --ws myws --dry-run
 
 | Flag | Commands | Description |
 | :--- | :--- | :--- |
-| `--ws <name>` | init, pull, purge | Target a named workspace |
+| `--name <name>` | init, pull, purge | Target a named workspace |
 | `--all` | init, pull, purge | Target all workspaces |
 | `--dry-run` | init, pull, purge | Print what would happen without executing |
 | `--parallel` | init, pull | Run repository operations concurrently |
 | `--verbose` / `-v` | init, pull, purge | Print rendered commands before execution |
 | `--no-confirm` | purge | Skip the confirmation prompt (for CI/scripts) |
 
-> **Note:** `ws purge` always requires `--ws <name>` or `--all` – it will not run against the default workspace without an explicit flag.
+> **Note:** `ws purge` always requires `--name <name>` or `--all` – it will not run against the default workspace without an explicit flag.
 
 ## Configuration
 
@@ -177,7 +177,7 @@ workspaces:
 
 | Field | Required | Description |
 | :--- | :--- | :--- |
-| `name` | ✅ | Unique workspace identifier; used with `--ws` |
+| `name` | ✅ | Unique workspace identifier; used with `--name` |
 | `default` | – | Mark one workspace as the default (or name it `"default"`) |
 | `path` | ✅ | Absolute filesystem path for the workspace root |
 | `clone_command_template` | ✅ | Go template for clone commands (see below) |
