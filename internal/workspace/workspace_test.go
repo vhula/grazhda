@@ -441,3 +441,97 @@ func TestInit_ListStructure(t *testing.T) {
 		t.Errorf("list mode: expected DestDir to end in 'repo1', got %q", call)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// ResolveDestNamesForProject tests
+// ---------------------------------------------------------------------------
+
+func TestResolveDestNamesForProject_TreeMode(t *testing.T) {
+repos := []config.Repository{
+{Name: "org/pack/repo1"},
+{Name: "org/pack/repo2"},
+}
+got := workspace.ResolveDestNamesForProject(repos, config.StructureTree)
+want := []string{"org/pack/repo1", "org/pack/repo2"}
+for i, w := range want {
+if got[i] != w {
+t.Errorf("[%d] tree mode: want %q got %q", i, w, got[i])
+}
+}
+}
+
+func TestResolveDestNamesForProject_ListMode_NoCollision(t *testing.T) {
+repos := []config.Repository{
+{Name: "org/pack/repo1"},
+{Name: "other/pack/repo2"},
+}
+got := workspace.ResolveDestNamesForProject(repos, config.StructureList)
+want := []string{"repo1", "repo2"}
+for i, w := range want {
+if got[i] != w {
+t.Errorf("[%d] list no-collision: want %q got %q", i, w, got[i])
+}
+}
+}
+
+func TestResolveDestNamesForProject_ListMode_Collision(t *testing.T) {
+// Two repos with the same shortest suffix; second must get longer suffix.
+repos := []config.Repository{
+{Name: "org/pack/repo1"},
+{Name: "other-org/pack/repo1"},
+}
+got := workspace.ResolveDestNamesForProject(repos, config.StructureList)
+if got[0] != "repo1" {
+t.Errorf("[0] want %q got %q", "repo1", got[0])
+}
+// second repo must use the next suffix since "repo1" is already allocated
+if got[1] != filepath.Join("pack", "repo1") {
+t.Errorf("[1] want %q got %q", filepath.Join("pack", "repo1"), got[1])
+}
+}
+
+func TestResolveDestNamesForProject_ListMode_TripleCollision(t *testing.T) {
+repos := []config.Repository{
+{Name: "a/b/repo"},
+{Name: "c/b/repo"},
+{Name: "d/b/repo"},
+}
+got := workspace.ResolveDestNamesForProject(repos, config.StructureList)
+if got[0] != "repo" {
+t.Errorf("[0] want %q got %q", "repo", got[0])
+}
+if got[1] != filepath.Join("b", "repo") {
+t.Errorf("[1] want %q got %q", filepath.Join("b", "repo"), got[1])
+}
+// third must use full name as all shorter suffixes are allocated
+if got[2] != "d/b/repo" {
+t.Errorf("[2] want %q got %q", "d/b/repo", got[2])
+}
+}
+
+func TestResolveDestNamesForProject_LocalDirNameOverridesStructure(t *testing.T) {
+repos := []config.Repository{
+{Name: "org/pack/repo1", LocalDirName: "my-repo"},
+}
+got := workspace.ResolveDestNamesForProject(repos, config.StructureList)
+if got[0] != "my-repo" {
+t.Errorf("localDirName override: want %q got %q", "my-repo", got[0])
+}
+}
+
+func TestResolveDestNamesForProject_LocalDirNameDoesNotConsumeAllocation(t *testing.T) {
+// A repo with local_dir_name should not pollute the allocation set,
+// so the next repo with the same suffix can still take the shortest name.
+repos := []config.Repository{
+{Name: "org/pack/repo1", LocalDirName: "custom"},
+{Name: "other/pack/repo1"},
+}
+got := workspace.ResolveDestNamesForProject(repos, config.StructureList)
+if got[0] != "custom" {
+t.Errorf("[0] want %q got %q", "custom", got[0])
+}
+// "repo1" was never allocated by a list-mode resolution, so second repo gets it
+if got[1] != "repo1" {
+t.Errorf("[1] want %q got %q", "repo1", got[1])
+}
+}

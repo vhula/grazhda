@@ -10,6 +10,7 @@ import (
 
 	"github.com/charmbracelet/log"
 	"github.com/vhula/grazhda/internal/config"
+	"github.com/vhula/grazhda/internal/workspace"
 )
 
 // defaultPeriod is used when config.dukh.monitoring.period_mins is zero or missing.
@@ -162,11 +163,18 @@ func (m *Monitor) scan() {
 
 	result := make([]WorkspaceHealth, 0, len(cfg.Workspaces))
 	for _, ws := range cfg.Workspaces {
-		wh := WorkspaceHealth{Name: ws.Name, Path: ws.Path}
+		wsPath := workspace.ExpandHome(ws.Path)
+		wh := WorkspaceHealth{Name: ws.Name, Path: wsPath}
 		for _, proj := range ws.Projects {
 			ph := ProjectHealth{Name: proj.Name}
-			for _, repo := range proj.Repositories {
-				rh := m.checkRepo(ws.Path, proj, repo)
+			projPath := filepath.Join(wsPath, proj.Name)
+			// ResolveDestNamesForProject replicates the init-time allocation
+			// order so we find the correct path for each repo regardless of
+			// whether structure is "tree" or "list".
+			destNames := workspace.ResolveDestNamesForProject(proj.Repositories, ws.Structure)
+			for i, repo := range proj.Repositories {
+				repoPath := filepath.Join(projPath, destNames[i])
+				rh := m.checkRepo(repoPath, proj, repo)
 				ph.Repositories = append(ph.Repositories, rh)
 			}
 			wh.Projects = append(wh.Projects, ph)
@@ -180,14 +188,8 @@ func (m *Monitor) scan() {
 	m.logger.Info("monitor: scan complete", "workspaces", len(result))
 }
 
-// checkRepo inspects a single repository on disk.
-func (m *Monitor) checkRepo(wsPath string, proj config.Project, repo config.Repository) RepoHealth {
-	destName := repo.LocalDirName
-	if destName == "" {
-		destName = repo.Name
-	}
-	repoPath := filepath.Join(wsPath, proj.Name, destName)
-
+// checkRepo inspects a single repository on disk at the given repoPath.
+func (m *Monitor) checkRepo(repoPath string, proj config.Project, repo config.Repository) RepoHealth {
 	configuredBranch := repo.Branch
 	if configuredBranch == "" {
 		configuredBranch = proj.Branch

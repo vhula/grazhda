@@ -12,8 +12,8 @@ import (
 	"github.com/vhula/grazhda/internal/reporter"
 )
 
-// expandHome expands a leading ~ to the user's home directory.
-func expandHome(path string) string {
+// ExpandHome expands a leading ~ to the user's home directory.
+func ExpandHome(path string) string {
 	if len(path) == 0 || path[0] != '~' {
 		return path
 	}
@@ -57,10 +57,51 @@ func ResolveDestName(projPath, repoName, localDirName, structure string) string 
 	return repoName
 }
 
+// ResolveDestNamesForProject returns the destination directory name for each
+// repository in repos (in declaration order), using the same allocation logic
+// as Init.
+//
+// Unlike ResolveDestName (which uses os.Stat to detect taken directories),
+// this function tracks allocations in memory.  This makes it suitable for
+// callers that need to reconstruct where each repo was placed after the fact
+// (e.g. dukh scanning existing repos), where all directories already exist on
+// disk and os.Stat would always report "taken".
+func ResolveDestNamesForProject(repos []config.Repository, structure string) []string {
+	allocated := make(map[string]bool, len(repos))
+	names := make([]string, len(repos))
+	for i, repo := range repos {
+		name := resolveDestNameTracked(repo.Name, repo.LocalDirName, structure, allocated)
+		allocated[name] = true
+		names[i] = name
+	}
+	return names
+}
+
+// resolveDestNameTracked mirrors the shortest-unique-suffix logic of
+// ResolveDestName but checks an in-memory allocated set instead of os.Stat.
+// Calling it in project order replicates the exact allocation sequence used by
+// Init without being confused by directories that already exist on disk.
+func resolveDestNameTracked(repoName, localDirName, structure string, allocated map[string]bool) string {
+	if localDirName != "" {
+		return localDirName
+	}
+	if structure != config.StructureList {
+		return repoName
+	}
+	parts := strings.Split(repoName, "/")
+	for i := len(parts) - 1; i >= 0; i-- {
+		candidate := strings.Join(parts[i:], string(filepath.Separator))
+		if !allocated[candidate] {
+			return candidate
+		}
+	}
+	return repoName
+}
+
 // Init initializes the workspace by creating directory structure and cloning all repositories.
 func Init(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, opts RunOptions) error {
 	rep.PrintLine("Workspace: " + ws.Name)
-	wsPath := expandHome(ws.Path)
+	wsPath := ExpandHome(ws.Path)
 
 	for _, proj := range ws.Projects {
 		rep.PrintLine("  Project: " + proj.Name)
@@ -170,7 +211,7 @@ func cloneRepo(ws config.Workspace, proj config.Project, projPath string, repo c
 
 // Purge removes the workspace directory tree.
 func Purge(ws config.Workspace, rep *reporter.Reporter, opts RunOptions) error {
-	wsPath := expandHome(ws.Path)
+	wsPath := ExpandHome(ws.Path)
 
 	if opts.DryRun {
 		rep.PrintLine(fmt.Sprintf("[DRY RUN] would remove: %s", wsPath))
@@ -206,7 +247,7 @@ func Purge(ws config.Workspace, rep *reporter.Reporter, opts RunOptions) error {
 // Pull runs git pull --rebase for each repository in the workspace.
 func Pull(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, opts RunOptions) error {
 	rep.PrintLine("Workspace: " + ws.Name)
-	wsPath := expandHome(ws.Path)
+	wsPath := ExpandHome(ws.Path)
 
 	for _, proj := range ws.Projects {
 		rep.PrintLine("  Project: " + proj.Name)
