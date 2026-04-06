@@ -59,7 +59,27 @@ verify_requirements() {
     echo ""
 }
 
+install_protoc_plugins() {
+    echo -e "${BLUE}Installing protobuf Go plugins...${NC}"
+    # Ensure GOPATH/bin is on PATH so protoc can find the plugins.
+    export PATH="$(go env GOPATH)/bin:$PATH"
+
+    if ! command -v protoc-gen-go &> /dev/null; then
+        echo -e "${YELLOW}protoc-gen-go not found — installing via go install...${NC}"
+        go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+    fi
+
+    if ! command -v protoc-gen-go-grpc &> /dev/null; then
+        echo -e "${YELLOW}protoc-gen-go-grpc not found — installing via go install...${NC}"
+        go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+    fi
+
+    echo -e "${GREEN}✓ protobuf Go plugins ready${NC}"
+}
+
 install_from_sources() {
+    install_protoc_plugins
+
     echo -e "${BLUE}Generating protobuf code...${NC}"
     just generate
 
@@ -136,7 +156,7 @@ main() {
     echo -e "${BLUE}Installation Directory: $GRAZHDA_DIR_DISPLAY${NC}"
     echo ""
 
-    if [ -d "$GRAZHDA_DIR/bin" ]; then
+    if [ -d "$GRAZHDA_DIR" ]; then
         echo -e "${YELLOW}Existing Grazhda installation found at: $GRAZHDA_DIR${NC}"
         echo ""
         read -p "Do you want to reinstall? (y/n) " -r </dev/tty
