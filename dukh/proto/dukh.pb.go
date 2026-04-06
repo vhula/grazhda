@@ -184,9 +184,12 @@ func (x *ScanResponse) GetMessage() string {
 
 // StatusRequest optionally scopes the response to a single workspace.
 // An empty workspace_name returns all workspaces.
+// When rescan is true the server performs a synchronous workspace rescan
+// before building the response, so the data is never stale.
 type StatusRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	WorkspaceName string                 `protobuf:"bytes,1,opt,name=workspace_name,json=workspaceName,proto3" json:"workspace_name,omitempty"`
+	Rescan        bool                   `protobuf:"varint,2,opt,name=rescan,proto3" json:"rescan,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -226,6 +229,13 @@ func (x *StatusRequest) GetWorkspaceName() string {
 		return x.WorkspaceName
 	}
 	return ""
+}
+
+func (x *StatusRequest) GetRescan() bool {
+	if x != nil {
+		return x.Rescan
+	}
+	return false
 }
 
 type StatusResponse struct {
@@ -498,9 +508,10 @@ const file_dukh_proto_rawDesc = "" +
 	"\amessage\x18\x01 \x01(\tR\amessage\"\r\n" +
 	"\vScanRequest\"(\n" +
 	"\fScanResponse\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage\"6\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"N\n" +
 	"\rStatusRequest\x12%\n" +
-	"\x0eworkspace_name\x18\x01 \x01(\tR\rworkspaceName\"\x98\x01\n" +
+	"\x0eworkspace_name\x18\x01 \x01(\tR\rworkspaceName\x12\x16\n" +
+	"\x06rescan\x18\x02 \x01(\bR\x06rescan\"\x98\x01\n" +
 	"\x0eStatusResponse\x128\n" +
 	"\n" +
 	"workspaces\x18\x01 \x03(\v2\x18.dukh.v1.WorkspaceStatusR\n" +

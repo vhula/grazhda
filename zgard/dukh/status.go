@@ -18,11 +18,13 @@ func statusCmd() *cobra.Command {
 		RunE:  runStatus,
 	}
 	cmd.Flags().StringP("name", "n", "", "Workspace name (default: all)")
+	cmd.Flags().Bool("rescan", false, "Trigger a fresh workspace rescan before reporting (waits for completion)")
 	return cmd
 }
 
 func runStatus(cmd *cobra.Command, _ []string) error {
 	name, _ := cmd.Flags().GetString("name")
+	rescan, _ := cmd.Flags().GetBool("rescan")
 
 	conn, client, err := dial()
 	if err != nil {
@@ -31,7 +33,19 @@ func runStatus(cmd *cobra.Command, _ []string) error {
 	}
 	defer conn.Close()
 
-	resp, err := client.Status(context.Background(), &dukhpb.StatusRequest{WorkspaceName: name})
+	ctx := context.Background()
+	if rescan {
+		// Allow up to 60 s for the scan to complete on large workspaces.
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, 60*time.Second)
+		defer cancel()
+		fmt.Println(icolor.Blue("⟳ rescanning workspaces…"))
+	}
+
+	resp, err := client.Status(ctx, &dukhpb.StatusRequest{
+		WorkspaceName: name,
+		Rescan:        rescan,
+	})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, icolor.Red("✗ dukh status failed: "+err.Error()))
 		return err

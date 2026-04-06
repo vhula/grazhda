@@ -77,7 +77,15 @@ func (s *Server) Scan(_ context.Context, _ *dukhpb.ScanRequest) (*dukhpb.ScanRes
 }
 
 // Status implements DukhService.Status — returns current workspace health.
-func (s *Server) Status(_ context.Context, req *dukhpb.StatusRequest) (*dukhpb.StatusResponse, error) {
+// When req.Rescan is true a synchronous rescan is performed first so the
+// returned data reflects the current state of the filesystem.
+func (s *Server) Status(ctx context.Context, req *dukhpb.StatusRequest) (*dukhpb.StatusResponse, error) {
+	if req.Rescan {
+		s.logger.Info("dukh: Status with rescan=true — waiting for scan to complete")
+		if err := s.monitor.TriggerScanAndWait(ctx); err != nil {
+			return nil, err
+		}
+	}
 	snapshot := s.monitor.Snapshot()
 
 	var workspaces []*dukhpb.WorkspaceStatus

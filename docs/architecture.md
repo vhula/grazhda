@@ -777,7 +777,10 @@ service DukhService {
 message StopRequest   {}
 message StopResponse  { string message = 1; }
 
-message StatusRequest { string workspace_name = 1; }
+message StatusRequest {
+  string workspace_name = 1;
+  bool   rescan         = 2;  // when true: perform synchronous rescan before returning snapshot
+}
 message StatusResponse {
   repeated WorkspaceStatus workspaces    = 1;
   string                   server_version = 2;
@@ -883,6 +886,20 @@ dukh:
   host: localhost   # default: localhost
   port: 50501       # default: 50501
 ```
+
+### Synchronous Rescan Flow (`--rescan`)
+
+When `zgard dukh status --rescan` is called the following happens:
+
+1. zgard creates a 60-second `context.WithTimeout` and builds `StatusRequest{Rescan: true}`.
+2. dukh's `Status()` handler detects `req.Rescan == true` and calls `monitor.TriggerScanAndWait(ctx)`.
+3. `TriggerScanAndWait` creates a `reply chan struct{}` and sends it on `triggerScan chan chan struct{}` (capacity 1).
+4. The monitor loop receives the reply channel, calls `scan()`, then closes the reply channel.
+5. `TriggerScanAndWait` unblocks when the reply channel is closed and returns `nil`.
+6. The handler reads the (now fresh) snapshot and builds the `StatusResponse`.
+7. zgard receives the response and renders the health report.
+
+The gRPC context deadline propagates all the way into `TriggerScanAndWait`, so if the scan exceeds 60 seconds the call is cancelled and zgard prints an error — no hanging.
 
 ### Architectural Invariants
 

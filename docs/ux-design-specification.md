@@ -589,7 +589,14 @@ Exit code `1`; message written to stderr.
 
 **Purpose:** Query `dukh` for the current health snapshot and render a coloured report.
 
-#### Full Terminal Output Specification
+#### Flags
+
+| Flag | Description |
+|---|---|
+| `-n, --name <name>` | Show only the named workspace |
+| `--rescan` | Trigger a fresh workspace rescan, wait for completion, then render the report |
+
+#### Standard Output (cached snapshot)
 
 ```
 Dukh  running  •  uptime: 2h 34m
@@ -608,6 +615,27 @@ Workspace: secondary
 
 ✓ 3 aligned  ✗ 1 drifted  ✗ 1 missing
 ```
+
+#### Output with `--rescan`
+
+When `--rescan` is set, a blue informational line is printed while waiting, then the result follows:
+
+```
+⟳ rescanning workspaces…
+
+Dukh  running  •  uptime: 2h 34m
+
+Workspace: default
+  Project: backend
+    ✓ api          main → main
+    ✓ auth         main → main
+    ✗ gateway      (missing)
+  ...
+
+✓ 4 aligned  ⚠ 0 drifted  ✗ 1 missing
+```
+
+The `⟳ rescanning workspaces…` line is printed in blue immediately before the gRPC call so the user knows the CLI is waiting. The gRPC call uses a 60-second timeout; if the scan exceeds that, an error is printed.
 
 #### Layout Rules
 

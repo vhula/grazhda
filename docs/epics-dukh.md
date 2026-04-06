@@ -202,6 +202,23 @@ This document defines the implementation epics and stories for the `dukh` backgr
 - All existing `zgard ws` commands continue to pass their tests unmodified.
 - `zgard dukh` without a subcommand prints help and exits 0.
 
+---
+
+### Story D3.4: Add `--rescan` flag to `zgard dukh status`
+
+**Goal:** Allow users to request a synchronous workspace rescan before the health report is rendered.
+
+**Acceptance Criteria:**
+- `zgard dukh status --rescan` prints `⟳ rescanning workspaces…` in blue before calling the RPC.
+- The RPC is sent with `StatusRequest{Rescan: true}` and a 60-second context timeout.
+- dukh's `Status` handler calls `monitor.TriggerScanAndWait(ctx)` and waits for the scan to complete.
+- The health report that follows reflects the current state of the filesystem (not a cached snapshot).
+- If the scan exceeds 60 seconds the RPC returns a deadline error; zgard prints `✗ dukh status failed: <err>` to stderr and exits 1.
+- When `--rescan` is not set, behaviour is identical to pre-flag: a plain `StatusRequest{Rescan: false}` is sent with a default context.
+- `zgard dukh status --help` documents the `--rescan` flag.
+
 **Implementation Notes:**
-- Create a `cmd/dukh.go` (or `cmd/dukh/`) in the `zgard` module mirroring the `ws` command structure.
-- The dukh command group reads `dukh.host` / `dukh.port` from the same config used by `ws` commands — no separate config loading.
+- `triggerScan` channel type upgrades from `chan struct{}` to `chan chan struct{}` to carry an optional reply channel.
+- `TriggerScan()` sends `nil` (fire-and-forget); `TriggerScanAndWait(ctx)` sends a `make(chan struct{})` and waits for it to be closed.
+- Loop must check: `if reply != nil { close(reply) }` after each scan.
+

@@ -416,7 +416,8 @@ workspaces:
 
 - **FR-D6:** `dukh` implements a `DukhService` gRPC service with `Stop` and `Status` RPCs as defined in `proto/dukh.proto`.
 - **FR-D7:** `Stop(StopRequest) → StopResponse` initiates a graceful shutdown and returns a confirmation message before exiting.
-- **FR-D8:** `Status(StatusRequest) → StatusResponse` returns the current health snapshot for all workspaces (or a single named workspace when `workspace_name` is non-empty), plus `server_version` and `uptime_seconds`.
+- **FR-D8:** `Status(StatusRequest) → StatusResponse` returns the current health snapshot for all workspaces (or a single named workspace when `workspace_name` is non-empty), plus `server_version` and `uptime_seconds`. When `rescan = true` in the request the server performs a synchronous rescan and waits for it to complete before building the response.
+- **FR-D8a:** `StatusRequest.rescan` (bool, field 2) — when `true` the server calls `TriggerScanAndWait` before reading the snapshot; the RPC inherits the client's context deadline so the call will fail gracefully if the scan exceeds the client timeout.
 - **FR-D9:** The proto source of truth lives at `proto/dukh.proto` in the repo root; generated Go code is placed in `dukh/proto/` and must not be edited by hand.
 
 #### Workspace Monitoring
@@ -451,6 +452,7 @@ workspaces:
 
 - `dukh start` launches, writes PID, and begins polling without error.
 - `zgard dukh status` renders a correctly coloured health report reflecting the actual state of all repos.
+- `zgard dukh status --rescan` waits for a fresh scan to complete before rendering the report.
 - `zgard dukh stop` gracefully shuts down `dukh` and the PID file is removed.
 - Log file at `$GRAZHDA_DIR/logs/dukh.log` contains structured entries and rotates at 5 MiB.
 - A repo with the wrong branch checked out shows `✗` in `zgard dukh status` output.

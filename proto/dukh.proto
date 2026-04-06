@@ -31,8 +31,11 @@ message ScanResponse {
 
 // StatusRequest optionally scopes the response to a single workspace.
 // An empty workspace_name returns all workspaces.
+// When rescan is true the server performs a synchronous workspace rescan
+// before building the response, so the data is never stale.
 message StatusRequest {
   string workspace_name = 1;
+  bool   rescan         = 2;
 }
 
 message StatusResponse {

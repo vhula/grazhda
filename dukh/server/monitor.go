@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -47,7 +48,10 @@ type Monitor struct {
 	logger      *log.Logger
 	stopCh      chan struct{}
 	doneCh      chan struct{}
-	triggerScan chan struct{}
+	// triggerScan carries optional reply channels. A nil reply means
+	// fire-and-forget (used by TriggerScan). A non-nil reply channel is
+	// closed by the loop after the scan completes (used by TriggerScanAndWait).
+	triggerScan chan chan struct{}
 }
 
 // NewMonitor creates a Monitor that reads workspace health from configPath.
@@ -57,7 +61,7 @@ func NewMonitor(configPath string, logger *log.Logger) *Monitor {
 		logger:      logger,
 		stopCh:      make(chan struct{}),
 		doneCh:      make(chan struct{}),
-		triggerScan: make(chan struct{}, 1),
+		triggerScan: make(chan chan struct{}, 1),
 	}
 }
 
@@ -72,12 +76,31 @@ func (m *Monitor) Stop() {
 	<-m.doneCh
 }
 
-// TriggerScan sends a non-blocking signal to perform an immediate rescan.
-// If a scan is already queued, the signal is dropped (the channel has capacity 1).
+// TriggerScan sends a non-blocking fire-and-forget signal to perform an
+// immediate rescan. If a scan is already queued the signal is dropped.
 func (m *Monitor) TriggerScan() {
 	select {
-	case m.triggerScan <- struct{}{}:
+	case m.triggerScan <- nil: // nil reply = fire-and-forget
 	default:
+	}
+}
+
+// TriggerScanAndWait triggers an immediate rescan and blocks until it completes
+// or ctx is cancelled. Returns ctx.Err() on cancellation.
+func (m *Monitor) TriggerScanAndWait(ctx context.Context) error {
+	reply := make(chan struct{})
+	// Attempt to queue the request; wait if one is already in-flight.
+	select {
+	case m.triggerScan <- reply:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+	// Wait for the loop to close the reply channel after the scan finishes.
+	select {
+	case <-reply:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 }
 
@@ -105,10 +128,13 @@ func (m *Monitor) loop() {
 		case <-timer.C:
 			m.scan()
 
-		case <-m.triggerScan:
+		case reply := <-m.triggerScan:
 			timer.Stop()
 			m.logger.Info("monitor: manual scan triggered")
 			m.scan()
+			if reply != nil {
+				close(reply) // unblock any TriggerScanAndWait caller
+			}
 
 		case <-m.stopCh:
 			timer.Stop()

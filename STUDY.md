@@ -1942,12 +1942,12 @@ m.mu.Unlock()
 **Channels for lifecycle control:**
 
 ```go
-stopCh      chan struct{}  // closed by Stop() to signal the loop to exit
-doneCh      chan struct{}  // closed by the loop when it exits; Stop() waits on it
-triggerScan chan struct{}  // capacity-1 buffer; TriggerScan() sends a signal
+stopCh      chan struct{}      // closed by Stop() to signal the loop to exit
+doneCh      chan struct{}      // closed by the loop when it exits; Stop() waits on it
+triggerScan chan chan struct{}  // capacity-1 buffer; nil = fire-and-forget, non-nil = wait for completion
 ```
 
-`chan struct{}` is a channel carrying empty structs. The zero-byte `struct{}` is used because we only care that a signal was sent, not what it contains.
+`chan chan struct{}` is a channel that carries other channels as values. This lets callers optionally pass a "reply" channel so the loop can signal them when a scan finishes.
 
 **The polling loop uses `time.Timer`, not `time.Ticker`:**
 
@@ -1961,12 +1961,15 @@ func (m *Monitor) loop() {
         timer := time.NewTimer(period)
 
         select {
-        case <-timer.C:                  // normal tick
+        case <-timer.C:                   // normal tick
             m.scan()
-        case <-m.triggerScan:            // manual scan requested
+        case reply := <-m.triggerScan:    // manual scan requested
             timer.Stop()
             m.scan()
-        case <-m.stopCh:                 // shutdown requested
+            if reply != nil {
+                close(reply)              // unblock any TriggerScanAndWait caller
+            }
+        case <-m.stopCh:                  // shutdown requested
             timer.Stop()
             return
         }
@@ -1978,18 +1981,39 @@ func (m *Monitor) loop() {
 
 **`select`** waits on multiple channel operations simultaneously and executes whichever case is ready first. If multiple are ready, one is chosen at random. This is Go's core concurrency primitive for coordinating goroutines.
 
-**`TriggerScan` uses a non-blocking send:**
+**`TriggerScan` uses a non-blocking send (fire-and-forget):**
 
 ```go
 func (m *Monitor) TriggerScan() {
     select {
-    case m.triggerScan <- struct{}{}:  // send signal
-    default:                           // channel full — scan already queued, skip
+    case m.triggerScan <- nil:  // nil reply = fire-and-forget
+    default:                    // channel full — scan already queued, skip
     }
 }
 ```
 
 The channel has capacity 1. If a scan signal is already queued (channel full), `default` runs instead of blocking. This ensures `TriggerScan` is always instant regardless of server load.
+
+**`TriggerScanAndWait` blocks until the scan completes:**
+
+```go
+func (m *Monitor) TriggerScanAndWait(ctx context.Context) error {
+    reply := make(chan struct{})
+    select {
+    case m.triggerScan <- reply:  // send a non-nil reply channel
+    case <-ctx.Done():
+        return ctx.Err()
+    }
+    select {
+    case <-reply:   // loop closes this when the scan finishes
+        return nil
+    case <-ctx.Done():
+        return ctx.Err()
+    }
+}
+```
+
+This is the **done-channel pattern** — a common Go idiom for synchronous callbacks over channels. The caller creates a fresh `chan struct{}`, sends it as the payload, then waits for it to be closed. The loop closes the channel after `scan()` returns, which unblocks the caller. Used by `zgard dukh status --rescan` so the CLI waits for fresh data before printing.
 
 **`loadPeriod` reads the configured polling interval:**
 
@@ -2112,9 +2136,38 @@ The round-trip for a `Scan` RPC is:
 3. dukh returns `ScanResponse{Message: "rescan initiated"}`
 4. zgard prints the message
 
-The scan itself happens asynchronously in dukh's monitor goroutine. `zgard dukh scan` only guarantees the signal was delivered, not that the scan finished.
+The scan itself happens asynchronously in dukh's monitor goroutine. `zgard dukh scan` only guarantees the signal was delivered, not that the scan finished. If you need to wait for the scan to complete, use `zgard dukh status --rescan` instead.
 
-### 18.3 Configurable Monitoring Period
+### 18.4 zgard dukh status --rescan — Synchronous Scan Before Status
+
+`zgard dukh status --rescan` combines a scan trigger and a status report into one atomic operation. The user sees fresh data instead of the last cached snapshot.
+
+```bash
+zgard dukh status --rescan          # all workspaces
+zgard dukh status --rescan --name myws  # one workspace
+```
+
+**How it works end-to-end:**
+
+1. zgard builds `StatusRequest{Rescan: true}` and sends it over gRPC with a 60-second context
+2. dukh's `Status()` handler detects `req.Rescan == true`
+3. It calls `monitor.TriggerScanAndWait(ctx)` — sends a reply channel, then blocks
+4. The monitor loop picks up the trigger, calls `scan()`, then closes the reply channel
+5. `TriggerScanAndWait` returns `nil`; the handler then reads the (now fresh) snapshot
+6. dukh returns `StatusResponse` to zgard
+7. zgard prints `⟳ rescanning workspaces…` then renders the health report
+
+The gRPC client context timeout of 60 seconds propagates to `TriggerScanAndWait(ctx)`. If dukh takes longer than 60 seconds to finish scanning, the RPC is cancelled and zgard prints an error. This prevents the CLI from hanging indefinitely on large workspaces.
+
+**Key difference vs `zgard dukh scan`:**
+
+| | `zgard dukh scan` | `zgard dukh status --rescan` |
+|---|---|---|
+| Waits for scan to finish | ✗ (fire-and-forget) | ✓ (blocks until done) |
+| Returns health data | ✗ | ✓ |
+| Useful when | you want to trigger a background refresh | you need fresh data right now |
+
+### 18.5 Configurable Monitoring Period
 
 `config.yaml` controls how often dukh scans:
 

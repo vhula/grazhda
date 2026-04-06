@@ -131,11 +131,16 @@ zgard dukh scan
 Show current workspace health — branch alignment and missing repos — as tracked by dukh.
 
 ```bash
-zgard dukh status             # all workspaces
-zgard dukh status --name myws # one workspace
+zgard dukh status              # all workspaces (cached)
+zgard dukh status --name myws  # one workspace
+zgard dukh status --rescan     # trigger a fresh scan, wait, then report
 ```
 
+Use `--rescan` (`-r` is not available; use the long form) when you want up-to-the-moment results instead of the last cached snapshot.
+
 ```
+⟳ rescanning workspaces…
+
 Dukh  running  •  uptime: 2h 34m
 
 Workspace: default
