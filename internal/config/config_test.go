@@ -208,7 +208,8 @@ func TestRenderCloneCmd_Basic(t *testing.T) {
 	proj := config.Project{Name: "backend", Branch: "main"}
 	repo := config.Repository{Name: "api"}
 
-	cmd, err := config.RenderCloneCmd(tmpl, "/workspace/backend", proj, repo)
+	destDir := "/workspace/backend/api"
+	cmd, err := config.RenderCloneCmd(tmpl, proj, repo, destDir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -223,7 +224,7 @@ func TestRenderCloneCmd_RepoOverridesBranch(t *testing.T) {
 	proj := config.Project{Name: "backend", Branch: "main"}
 	repo := config.Repository{Name: "auth", Branch: "dev"}
 
-	cmd, err := config.RenderCloneCmd(tmpl, "/workspace/backend", proj, repo)
+	cmd, err := config.RenderCloneCmd(tmpl, proj, repo, "/workspace/backend/auth")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -233,19 +234,22 @@ func TestRenderCloneCmd_RepoOverridesBranch(t *testing.T) {
 }
 
 func TestRenderCloneCmd_LocalDirName(t *testing.T) {
+	// LocalDirName resolution is the workspace layer's responsibility;
+	// here we just verify the template uses whatever destDir is passed in.
 	tmpl := "git clone {{.RepoName}} {{.DestDir}}"
 	proj := config.Project{Name: "backend", Branch: "main"}
 	repo := config.Repository{Name: "api", LocalDirName: "api-service"}
 
-	cmd, err := config.RenderCloneCmd(tmpl, "/workspace/backend", proj, repo)
+	destDir := "/workspace/backend/api-service"
+	cmd, err := config.RenderCloneCmd(tmpl, proj, repo, destDir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if !strings.Contains(cmd, "api-service") {
-		t.Errorf("expected local_dir_name 'api-service' in cmd, got %q", cmd)
+		t.Errorf("expected 'api-service' in cmd, got %q", cmd)
 	}
 	if strings.Contains(cmd, "/api ") || strings.HasSuffix(cmd, "/api") {
-		t.Errorf("DestDir should use local_dir_name, not repo name, got %q", cmd)
+		t.Errorf("DestDir should be api-service, not api, got %q", cmd)
 	}
 }
 
@@ -254,7 +258,7 @@ func TestRenderCloneCmd_InvalidTemplate(t *testing.T) {
 	proj := config.Project{Name: "p", Branch: "main"}
 	repo := config.Repository{Name: "r"}
 
-	_, err := config.RenderCloneCmd(tmpl, "/ws", proj, repo)
+	_, err := config.RenderCloneCmd(tmpl, proj, repo, "/ws/r")
 	if err == nil {
 		t.Fatal("expected error for invalid template")
 	}

@@ -327,6 +327,7 @@ type Workspace struct {
     Name                 string    `yaml:"name"`
     Path                 string    `yaml:"path"`
     CloneCommandTemplate string    `yaml:"clone_command_template"`
+    Structure            string    `yaml:"structure"`  // "tree" (default) or "list"
     Projects             []Project `yaml:"projects"`
 }
 
@@ -343,8 +344,10 @@ type Repository struct {
 ```
 
 - All fields: value types (no pointers) — use zero-value checks in validation
-- Optional fields: `omitempty` YAML tag — `LocalDirName` only
+- Optional fields: `omitempty` YAML tag — `LocalDirName` only; `Structure` defaults to `"tree"` when empty
 - Each type is a named top-level type — no embedded structs
+- `StructureTree = "tree"` and `StructureList = "list"` constants defined in `internal/config`
+- `workspace.ResolveDestName(projPath, repoName, localDirName, structure)` computes the final local directory name: for `list` mode it tries the shortest unique trailing suffix of `repoName` (split on `/`), falling back to longer suffixes and then the full name
 
 ### Process Patterns
 

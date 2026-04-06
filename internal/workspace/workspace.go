@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/vhula/grazhda/internal/config"
@@ -21,6 +22,39 @@ func expandHome(path string) string {
 		return path
 	}
 	return filepath.Join(home, path[1:])
+}
+
+// ResolveDestName returns the local directory name for a repository inside
+// projPath, taking the workspace Structure setting into account.
+//
+// If localDirName is non-empty it is always used unchanged.
+//
+// For structure == "tree" (or empty / any unrecognised value): the full
+// repoName is returned (slashes become nested sub-directories).
+//
+// For structure == "list": the shortest trailing suffix of repoName (split on
+// "/") that does not already exist as a directory inside projPath is returned.
+// If all suffixes are taken the full repoName is returned as a fallback.
+//
+// Example with repoName = "org/pack/repo1" and structure = "list":
+//   - tries "repo1"       — returns if <projPath>/repo1 does not exist
+//   - tries "pack/repo1"  — returns if <projPath>/pack/repo1 does not exist
+//   - tries "org/pack/repo1" — always the final fallback
+func ResolveDestName(projPath, repoName, localDirName, structure string) string {
+	if localDirName != "" {
+		return localDirName
+	}
+	if structure != config.StructureList {
+		return repoName
+	}
+	parts := strings.Split(repoName, "/")
+	for i := len(parts) - 1; i >= 0; i-- {
+		candidate := strings.Join(parts[i:], string(filepath.Separator))
+		if _, err := os.Stat(filepath.Join(projPath, candidate)); os.IsNotExist(err) {
+			return candidate
+		}
+	}
+	return repoName
 }
 
 // Init initializes the workspace by creating directory structure and cloning all repositories.
@@ -62,10 +96,7 @@ func Init(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, o
 }
 
 func cloneRepo(ws config.Workspace, proj config.Project, projPath string, repo config.Repository, exec executor.Executor, rep *reporter.Reporter, opts RunOptions) {
-	destName := repo.LocalDirName
-	if destName == "" {
-		destName = repo.Name
-	}
+	destName := ResolveDestName(projPath, repo.Name, repo.LocalDirName, ws.Structure)
 	repoPath := filepath.Join(projPath, destName)
 
 	branch := repo.Branch
@@ -81,7 +112,7 @@ func cloneRepo(ws config.Workspace, proj config.Project, projPath string, repo c
 			})
 			return
 		}
-		cmd, err := config.RenderCloneCmd(ws.CloneCommandTemplate, projPath, proj, repo)
+		cmd, err := config.RenderCloneCmd(ws.CloneCommandTemplate, proj, repo, repoPath)
 		if err != nil {
 			rep.Record(reporter.OpResult{
 				Workspace: ws.Name, Project: proj.Name, Repo: repo.Name, Err: err,
@@ -104,7 +135,7 @@ func cloneRepo(ws config.Workspace, proj config.Project, projPath string, repo c
 		return
 	}
 
-	cmd, err := config.RenderCloneCmd(ws.CloneCommandTemplate, projPath, proj, repo)
+	cmd, err := config.RenderCloneCmd(ws.CloneCommandTemplate, proj, repo, repoPath)
 	if err != nil {
 		rep.Record(reporter.OpResult{
 			Workspace: ws.Name, Project: proj.Name, Repo: repo.Name, Err: err,
@@ -202,10 +233,7 @@ func Pull(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, o
 }
 
 func pullRepo(ws config.Workspace, proj config.Project, projPath string, repo config.Repository, exec executor.Executor, rep *reporter.Reporter, opts RunOptions) {
-	destName := repo.LocalDirName
-	if destName == "" {
-		destName = repo.Name
-	}
+	destName := ResolveDestName(projPath, repo.Name, repo.LocalDirName, ws.Structure)
 	repoPath := filepath.Join(projPath, destName)
 
 	branch := repo.Branch

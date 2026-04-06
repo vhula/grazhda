@@ -789,22 +789,18 @@ This function takes a Go template string like:
 git clone --branch {{.Branch}} https://github.com/org/{{.RepoName}} {{.DestDir}}
 ```
 
-and fills it in with real values for a specific repository:
+and fills it in with real values for a specific repository. The `destDir` (full filesystem path) is now computed by the workspace layer (see `ResolveDestName` below) and passed in directly:
 
 ```go
-func RenderCloneCmd(tmplStr, projectPath string, proj Project, repo Repository) (string, error) {
+func RenderCloneCmd(tmplStr string, proj Project, repo Repository, destDir string) (string, error) {
     branch := repo.Branch
     if branch == "" {
         branch = proj.Branch   // fall back to project-level branch
     }
-    destName := repo.LocalDirName
-    if destName == "" {
-        destName = repo.Name   // fall back to repo name as directory name
-    }
     data := CloneTemplateData{
         Branch:   branch,
         RepoName: repo.Name,
-        DestDir:  filepath.Join(projectPath, destName),
+        DestDir:  destDir,     // pre-computed by workspace.ResolveDestName
     }
     t, err := template.New("clone").Parse(tmplStr)
     if err != nil {
@@ -819,6 +815,39 @@ func RenderCloneCmd(tmplStr, projectPath string, proj Project, repo Repository) 
 ```
 
 `text/template` is a standard library package. `{{.Branch}}` refers to the `Branch` field of the data struct. `bytes.Buffer` is an in-memory byte buffer — `t.Execute` writes rendered output into it, and `buf.String()` converts it to a string.
+
+### ResolveDestName — Workspace Structure Modes
+
+Repository names sometimes contain slashes — e.g. `org/team/repo` for namespaced package registries. The `structure` field on a workspace controls how such names are mapped to local directories.
+
+```go
+// StructureTree: "org/team/repo" → <project>/org/team/repo  (nested dirs)
+// StructureList: "org/team/repo" → <project>/repo           (flat, shortest unique suffix)
+func ResolveDestName(projPath, repoName, localDirName, structure string) string {
+    if localDirName != "" {
+        return localDirName   // explicit override always wins
+    }
+    if structure != config.StructureList {
+        return repoName       // tree mode (default): use full name
+    }
+    // list mode: try shortest suffix first, fall back on collision
+    parts := strings.Split(repoName, "/")
+    for i := len(parts) - 1; i >= 0; i-- {
+        candidate := strings.Join(parts[i:], string(filepath.Separator))
+        if _, err := os.Stat(filepath.Join(projPath, candidate)); os.IsNotExist(err) {
+            return candidate
+        }
+    }
+    return repoName // all suffixes taken — fall back to full name
+}
+```
+
+**`list` fallback sequence** for `org/pack/repo`:
+1. Try `repo` — if `<project>/repo` does not exist → use it
+2. Try `pack/repo` — if `<project>/pack/repo` does not exist → use it
+3. Use `org/pack/repo` as final fallback (same as tree)
+
+This makes it safe to mix repos from multiple organisations in one project. `localDirName` always overrides `structure`.
 
 `filepath.Join` produces a platform-correct path: on Windows it uses `\`, on Unix it uses `/`.
 
@@ -1142,7 +1171,9 @@ func Init(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, o
 
 ```go
 func cloneRepo(ws config.Workspace, proj config.Project, projPath string, repo config.Repository, exec executor.Executor, rep *reporter.Reporter, opts RunOptions) {
-    // ... resolve destName, branch, repoPath ...
+    // Resolve dest directory using workspace structure mode
+    destName := workspace.ResolveDestName(projPath, repo.Name, repo.LocalDirName, ws.Structure)
+    repoPath := filepath.Join(projPath, destName)
 
     // Skip if already cloned
     if _, err := os.Stat(repoPath); err == nil {
@@ -1150,7 +1181,7 @@ func cloneRepo(ws config.Workspace, proj config.Project, projPath string, repo c
         return
     }
 
-    cmd, err := config.RenderCloneCmd(ws.CloneCommandTemplate, projPath, proj, repo)
+    cmd, err := config.RenderCloneCmd(ws.CloneCommandTemplate, proj, repo, repoPath)
     if err != nil { /* record error, return */ }
 
     if opts.Verbose {
@@ -1662,10 +1693,11 @@ The config file location is resolved in this order:
 
 ```yaml
 workspaces:
-  # First workspace: the default
+  # First workspace: the default — uses tree structure (nested dirs for slashed names)
   - name: default                        # unique identifier, used with --name
     default: true                        # mark as default (or just name it "default")
     path: /home/jake/ws                  # workspace root directory
+    structure: tree                      # "tree" (default) or "list" — see below
     clone_command_template: >            # YAML folded scalar — newlines become spaces
       git clone --branch {{.Branch}}
       https://github.com/myorg/{{.RepoName}}
@@ -1679,10 +1711,12 @@ workspaces:
             branch: dev                  # overrides project branch for this repo only
           - name: api
             local_dir_name: api-v2       # cloned to /home/jake/ws/backend/api-v2
+          - name: org/pack/repo          # tree mode → /home/jake/ws/backend/org/pack/repo
 
-  # Second workspace: personal projects
+  # Second workspace: personal projects, list structure (flat clone dirs)
   - name: personal
     path: /home/jake/personal
+    structure: list                      # shortest unique suffix used as dest dir
     clone_command_template: "git clone git@github.com:jake/{{.RepoName}} {{.DestDir}}"
     projects:
       - name: tools
@@ -1690,6 +1724,7 @@ workspaces:
         repositories:
           - name: dotfiles
           - name: scripts
+          - name: org/pack/repo          # list mode → /home/jake/personal/tools/repo
 ```
 
 ### Template Variables
@@ -1697,8 +1732,17 @@ workspaces:
 | Variable | Resolves to |
 | :--- | :--- |
 | `{{.Branch}}` | `repository.branch` if set, otherwise `project.branch` |
-| `{{.RepoName}}` | `repository.name` |
-| `{{.DestDir}}` | `<project_path>/<local_dir_name>` if set, otherwise `<project_path>/<name>` |
+| `{{.RepoName}}` | `repository.name` (full value, slashes included) |
+| `{{.DestDir}}` | Full filesystem path to the clone destination (computed by `ResolveDestName`) |
+
+### Workspace Structure Modes
+
+| `structure` value | Behaviour | Example: `org/pack/repo` |
+| :--- | :--- | :--- |
+| `tree` *(default)* | Full name as nested dirs | `<project>/org/pack/repo` |
+| `list` | Shortest unique trailing suffix | `<project>/repo` (falling back to `pack/repo`, then `org/pack/repo`) |
+
+`local_dir_name` on a repository always wins over `structure`.
 
 ---
 

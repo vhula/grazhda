@@ -187,6 +187,7 @@ workspaces:
     default: true
     path: ~/ws
     clone_command_template: "git clone --branch {{.Branch}} git@github.com:myorg/{{.RepoName}} {{.DestDir}}"
+    # structure: tree  # "tree" (default) or "list" — controls how "/" in repo names maps to dirs
     projects:
       - name: backend
         branch: main
@@ -196,10 +197,12 @@ workspaces:
             branch: dev            # overrides project branch
           - name: api
             local_dir_name: api-v2 # cloned into <project>/api-v2
+          - name: org/pack/repo    # with structure:list → cloned as <project>/repo
 
   - name: personal
     path: ~/personal
     clone_command_template: "git clone git@github.com:me/{{.RepoName}} {{.DestDir}}"
+    structure: list                # shortest unique suffix used as dest dir
     projects:
       - name: tools
         branch: main
@@ -213,8 +216,25 @@ workspaces:
 | Variable | Resolves to |
 | :--- | :--- |
 | `{{.Branch}}` | `repository.branch` if set, otherwise `project.branch` |
-| `{{.RepoName}}` | `repository.name` |
-| `{{.DestDir}}` | `<project_path>/<local_dir_name>` or `<project_path>/<name>` |
+| `{{.RepoName}}` | `repository.name` (full value, including any slashes) |
+| `{{.DestDir}}` | Full filesystem path to the clone destination (see `structure`) |
+
+### Workspace Structure Modes
+
+The optional `structure` field controls how repository names that contain **`/`** (common with namespaced registries like `org/team/repo`) are mapped to local directories inside each project folder.
+
+| Mode | Behaviour | Example `org/pack/repo` |
+| :--- | :--- | :--- |
+| `tree` *(default)* | Preserves the full name as nested subdirectories | `<project>/org/pack/repo` |
+| `list` | Uses the **shortest unique suffix** of the name | `<project>/repo` |
+
+**`list` fallback logic** — if the shortest suffix already exists as a directory, the resolver tries progressively longer suffixes until it finds an unused one:
+
+1. Try `repo` → if `<project>/repo` exists, try…
+2. `pack/repo` → if `<project>/pack/repo` exists, try…
+3. `org/pack/repo` (full name, same as `tree`)
+
+This makes it safe to mix repos from multiple organisations in one project without accidentally overwriting each other.
 
 ### Field Reference
 
@@ -227,6 +247,7 @@ workspaces:
 | `default` | — | Marks this workspace as the default target |
 | `path` | ✅ | Root directory for the workspace (`~` is expanded) |
 | `clone_command_template` | ✅ | Go template string for the clone command |
+| `structure` | — | `tree` (default) or `list` — controls dest dir for repo names with `/` |
 | `projects` | — | List of project subdirectories |
 
 </details>
@@ -247,9 +268,9 @@ workspaces:
 
 | Field | Required | Description |
 | :--- | :---: | :--- |
-| `name` | ✅ | Repository name; used as `{{.RepoName}}` |
+| `name` | ✅ | Repository name; used as `{{.RepoName}}` (may contain `/`) |
 | `branch` | — | Overrides the project-level branch |
-| `local_dir_name` | — | Clone destination name; overrides `name` |
+| `local_dir_name` | — | Explicit clone destination name; overrides both `name` and `structure` |
 
 </details>
 

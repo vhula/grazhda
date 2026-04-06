@@ -22,6 +22,12 @@ workspaces:
   - name: default
     path: /home/jake/ws
     clone_command_template: git clone --branch {{.Branch}} https://github.com/grazhda/{{.RepoName}} {{.DestDir}}
+    # structure controls how repository names containing "/" are mapped to local
+    # directories inside each project folder.
+    #   tree (default) — preserves full path:  org/pack/repo → <project>/org/pack/repo
+    #   list           — uses shortest unique suffix: org/pack/repo → <project>/repo
+    #                    (falls back to pack/repo, then org/pack/repo if shorter names exist)
+    structure: tree
     projects:
       - name: ws-project1
         branch: main
@@ -41,6 +47,7 @@ workspaces:
   - name: secondary
     path: /home/jake/secondary_ws
     clone_command_template: git clone --branch {{.Branch}} https://github.com/grazhda/{{.RepoName}} {{.DestDir}}
+    structure: tree
     projects:
       - name: secondary-project1
         branch: main

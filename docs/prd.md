@@ -281,12 +281,13 @@ workspaces:
   - name: <string>                        # required; unique identifier; "default" = implicit default workspace
     path: <string>                        # required; absolute path for workspace root
     clone_command_template: <string>      # required; Go template with {{.Branch}}, {{.RepoName}}, {{.DestDir}}
+    structure: tree | list                # optional; controls DestDir for repo names containing "/"; default: tree
     projects:
       - name: <string>                    # required; project directory name
         repositories:
-          - name: <string>               # required; repo name (used as {{.RepoName}})
+          - name: <string>               # required; repo name (used as {{.RepoName}}, may contain "/")
             branch: <string>             # required; branch to clone/pull
-            local_dir_name: <string>     # optional; overrides local directory name ({{.DestDir}})
+            local_dir_name: <string>     # optional; explicit clone destination; overrides name and structure
 ```
 
 **Validation rules** (enforced before any filesystem changes):
@@ -298,6 +299,7 @@ workspaces:
 - Project `name` must be unique within a workspace.
 - Repository `name` and `branch` are required on every repository entry.
 - `clone_command_template` must be a valid Go template containing at minimum `{{.RepoName}}` and `{{.DestDir}}`.
+- `structure` must be `tree` or `list` if provided; defaults to `tree`.
 
 ### Implementation Considerations
 
@@ -332,7 +334,8 @@ workspaces:
 - **FR13:** Users can create a workspace's full directory structure (workspace root and all project subdirectories) from config with `ws init`.
 - **FR14:** Users can clone all configured repositories into their project directories using the workspace's `clone_command_template`.
 - **FR15:** The system can render clone command templates substituting `{{.Branch}}`, `{{.RepoName}}`, and `{{.DestDir}}` per repository.
-- **FR16:** Users can override a repository's local directory name via the optional `local_dir_name` field, which becomes `{{.DestDir}}`.
+- **FR15a:** The `{{.DestDir}}` value is computed by `ResolveDestName` according to the workspace `structure` setting: `tree` (default) preserves the full repo name as nested subdirectories; `list` uses the shortest unique trailing suffix of the repo name (falling back to longer suffixes if shorter ones are already occupied).
+- **FR16:** Users can override a repository's local directory name via the optional `local_dir_name` field, which becomes `{{.DestDir}}`; `local_dir_name` takes precedence over `structure`.
 - **FR17:** The system can skip cloning a repository when a local directory already exists at the expected path (idempotent re-init).
 - **FR18:** The system can continue processing remaining repositories when a clone operation fails, rather than aborting.
 - **FR19:** Users can preview all directory creation and clone operations that `ws init` would perform, without executing them (`--dry-run`).

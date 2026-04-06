@@ -327,3 +327,117 @@ func callCount(calls []string, substr string) int {
 }
 
 var _ = fmt.Sprintf // suppress unused import
+
+// --- ResolveDestName ---
+
+func TestResolveDestName_TreeMode(t *testing.T) {
+	tmp := t.TempDir()
+	got := workspace.ResolveDestName(tmp, "org/pack/repo1", "", config.StructureTree)
+	if got != "org/pack/repo1" {
+		t.Errorf("tree mode: expected %q, got %q", "org/pack/repo1", got)
+	}
+}
+
+func TestResolveDestName_TreeModeDefault(t *testing.T) {
+	// Empty structure string defaults to tree behaviour.
+	tmp := t.TempDir()
+	got := workspace.ResolveDestName(tmp, "org/pack/repo1", "", "")
+	if got != "org/pack/repo1" {
+		t.Errorf("default (empty) structure: expected full name, got %q", got)
+	}
+}
+
+func TestResolveDestName_ListMode_ShortestSuffix(t *testing.T) {
+	tmp := t.TempDir()
+	// No existing directories — should return the shortest suffix ("repo1").
+	got := workspace.ResolveDestName(tmp, "org/pack/repo1", "", config.StructureList)
+	if got != "repo1" {
+		t.Errorf("list mode (nothing exists): expected %q, got %q", "repo1", got)
+	}
+}
+
+func TestResolveDestName_ListMode_FallbackOnCollision(t *testing.T) {
+	tmp := t.TempDir()
+	// Pre-create "repo1" so the resolver must fall back to "pack/repo1".
+	if err := os.MkdirAll(filepath.Join(tmp, "repo1"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	got := workspace.ResolveDestName(tmp, "org/pack/repo1", "", config.StructureList)
+	if got != filepath.Join("pack", "repo1") {
+		t.Errorf("list mode (repo1 taken): expected %q, got %q", filepath.Join("pack", "repo1"), got)
+	}
+}
+
+func TestResolveDestName_ListMode_FallbackFull(t *testing.T) {
+	tmp := t.TempDir()
+	// Pre-create both short suffixes — should fall back to full name.
+	if err := os.MkdirAll(filepath.Join(tmp, "repo1"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(tmp, "pack", "repo1"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	got := workspace.ResolveDestName(tmp, "org/pack/repo1", "", config.StructureList)
+	if got != "org/pack/repo1" {
+		t.Errorf("list mode (all suffixes taken): expected full name, got %q", got)
+	}
+}
+
+func TestResolveDestName_LocalDirNameOverridesStructure(t *testing.T) {
+	tmp := t.TempDir()
+	// localDirName always wins regardless of structure.
+	got := workspace.ResolveDestName(tmp, "org/pack/repo1", "myrepo", config.StructureList)
+	if got != "myrepo" {
+		t.Errorf("localDirName override: expected %q, got %q", "myrepo", got)
+	}
+}
+
+func TestResolveDestName_ListMode_PlainName(t *testing.T) {
+	// Repo name with no slashes behaves the same in both modes.
+	tmp := t.TempDir()
+	got := workspace.ResolveDestName(tmp, "repo1", "", config.StructureList)
+	if got != "repo1" {
+		t.Errorf("list mode plain name: expected %q, got %q", "repo1", got)
+	}
+}
+
+// TestInit_ListStructure verifies that Init uses only the last path segment
+// as the clone destination when structure == "list".
+func TestInit_ListStructure(t *testing.T) {
+	tmp := t.TempDir()
+	ws := config.Workspace{
+		Name:                 "test-ws",
+		Path:                 tmp,
+		Structure:            config.StructureList,
+		CloneCommandTemplate: "echo clone {{.RepoName}} {{.DestDir}}",
+		Projects: []config.Project{
+			{
+				Name:   "backend",
+				Branch: "main",
+				Repositories: []config.Repository{
+					{Name: "org/pack/repo1"},
+				},
+			},
+		},
+	}
+
+	var out, errOut strings.Builder
+	rep := reporter.NewReporter(&out, &errOut)
+	mock := &executor.MockExecutor{}
+
+	if err := workspace.Init(ws, mock, rep, workspace.RunOptions{}); err != nil {
+		t.Fatalf("Init error: %v", err)
+	}
+
+	// The clone command's DestDir should end in "repo1", not "org/pack/repo1".
+	if len(mock.Calls) != 1 {
+		t.Fatalf("expected 1 call, got %d", len(mock.Calls))
+	}
+	call := mock.Calls[0]
+	if strings.HasSuffix(call, filepath.Join("org", "pack", "repo1")) {
+		t.Errorf("list mode: DestDir should not include full path, got %q", call)
+	}
+	if !strings.HasSuffix(call, "repo1") {
+		t.Errorf("list mode: expected DestDir to end in 'repo1', got %q", call)
+	}
+}

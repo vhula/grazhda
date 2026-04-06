@@ -4,10 +4,22 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"path/filepath"
 	"text/template"
 
 	"gopkg.in/yaml.v3"
+)
+
+// Structure constants control how repository names with slashes are mapped to
+// local directories inside a project folder.
+const (
+	// StructureTree (default) preserves the full repo name as nested directories.
+	// e.g. "org/pack/repo" → <project>/org/pack/repo
+	StructureTree = "tree"
+
+	// StructureList uses only the shortest unique suffix of the repo name.
+	// e.g. "org/pack/repo" → <project>/repo  (falling back to pack/repo or
+	// org/pack/repo if shorter suffixes are already taken)
+	StructureList = "list"
 )
 
 // Config is the top-level Grazhda configuration.
@@ -35,6 +47,10 @@ type Workspace struct {
 	Default              bool      `yaml:"default"`
 	Path                 string    `yaml:"path"`
 	CloneCommandTemplate string    `yaml:"clone_command_template"`
+	// Structure controls how repo names containing slashes are mapped to local
+	// directories. Accepted values: "tree" (default) or "list".
+	// See StructureTree / StructureList constants for details.
+	Structure            string    `yaml:"structure"`
 	Projects             []Project `yaml:"projects"`
 }
 
@@ -132,21 +148,18 @@ func Validate(cfg *Config) []string {
 	return errs
 }
 
-// RenderCloneCmd renders the workspace clone command template for the given project and repo.
-// projectPath is the full filesystem path to the project directory.
-func RenderCloneCmd(tmplStr, projectPath string, proj Project, repo Repository) (string, error) {
+// RenderCloneCmd renders the workspace clone command template for the given
+// project and repo. destDir is the full filesystem path that {{.DestDir}} will
+// expand to; callers are responsible for computing it (see workspace.ResolveDestName).
+func RenderCloneCmd(tmplStr string, proj Project, repo Repository, destDir string) (string, error) {
 	branch := repo.Branch
 	if branch == "" {
 		branch = proj.Branch
 	}
-	destName := repo.LocalDirName
-	if destName == "" {
-		destName = repo.Name
-	}
 	data := CloneTemplateData{
 		Branch:   branch,
 		RepoName: repo.Name,
-		DestDir:  filepath.Join(projectPath, destName),
+		DestDir:  destDir,
 	}
 	t, err := template.New("clone").Parse(tmplStr)
 	if err != nil {
