@@ -866,3 +866,90 @@ So that it behaves consistently with `ws init` for targeting, output, exit codes
 **Given** `$GRAZHDA_DIR` is unset
 **When** `zgard ws pull` runs
 **Then** config is loaded from `$HOME/.grazhda/config.yaml`
+
+---
+
+## Epic G1 — grazhda upgrade
+
+**Goal:** Enable users to update their Grazhda installation to the latest version with a single command.
+
+**Acceptance Criteria:**
+- `grazhda upgrade` succeeds on a freshly installed machine with working internet access.
+- `grazhda upgrade` prints step-by-step progress and a success banner.
+- `grazhda upgrade` exits non-zero with a clear error on any failure.
+- Running `grazhda upgrade` twice produces no errors on the second run.
+
+### Story G1.1 — Implement `grazhda upgrade` command
+
+**As a** developer
+**I want to** run `grazhda upgrade`
+**So that** my local Grazhda installation is updated to the latest sources and binaries.
+
+**Acceptance Criteria:**
+
+**Given** `$GRAZHDA_DIR/sources` is a valid git repository
+**When** `grazhda upgrade` runs
+**Then** it pulls the latest sources, rebuilds all binaries with `just build`, and copies them to `$GRAZHDA_DIR/bin/`
+
+**Given** the sources are already up to date
+**When** `grazhda upgrade` runs
+**Then** it prints "✓ Sources are already up to date." and proceeds with the rebuild
+
+**Given** a missing build dependency (git, go, just, or protoc)
+**When** `grazhda upgrade` runs
+**Then** it exits with code 1 and names the missing binary
+
+**Given** `$GRAZHDA_DIR/sources` is not a git repository or does not exist
+**When** `grazhda upgrade` runs
+**Then** it exits with code 1 and advises the user to run the installer
+
+**Given** `just build` fails
+**When** `grazhda upgrade` runs
+**Then** it exits with code 1 and the build error is visible in the terminal
+
+---
+
+## Epic G2 — grazhda config management
+
+**Goal:** Allow users to open and edit their Grazhda config file without having to remember its location.
+
+**Acceptance Criteria:**
+- `grazhda config --edit` opens `config.yaml` in the configured or fallback editor.
+- Editor resolution follows the documented precedence chain.
+- A missing config file or missing editor produces a clear error.
+
+### Story G2.1 — Add `editor:` field to config template
+
+**As a** developer
+**I want** the `config.yaml` to include an `editor:` field
+**So that** `grazhda config --edit` uses my preferred editor.
+
+**Acceptance Criteria:**
+
+**Given** a fresh installation
+**When** `config.yaml` is created from `config.template.yaml`
+**Then** it contains an `editor: vim` field with a comment explaining the resolution order
+
+### Story G2.2 — Implement `grazhda config --edit` command
+
+**As a** developer
+**I want to** run `grazhda config --edit`
+**So that** my config file opens in my preferred editor immediately.
+
+**Acceptance Criteria:**
+
+**Given** `config.yaml` has `editor: vim`
+**When** `grazhda config --edit` runs
+**Then** vim opens `$GRAZHDA_DIR/config.yaml`
+
+**Given** `editor:` is not set in `config.yaml`
+**When** `grazhda config --edit` runs
+**Then** the editor is resolved from `$VISUAL`, then `$EDITOR`, then `vi`
+
+**Given** the resolved editor is not in `$PATH`
+**When** `grazhda config --edit` runs
+**Then** it exits with code 1 and suggests updating the `editor:` field
+
+**Given** `config.yaml` does not exist
+**When** `grazhda config --edit` runs
+**Then** it exits with code 1 and advises the user to run the installer

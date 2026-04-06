@@ -2314,3 +2314,116 @@ grazhda/
 | **daemon / background process** | A long-running process with no controlling terminal; started with `Setsid` |
 | **`grpc.NewServer()`** | Creates a gRPC server; `Serve(lis)` blocks accepting connections |
 | **`UnimplementedDukhServiceServer`** | Generated embedded struct; provides default "not implemented" for all RPCs |
+
+---
+
+## 21. grazhda Management Script
+
+The `grazhda` Bash script (installed to `$GRAZHDA_DIR/bin/grazhda`) provides self-management for your Grazhda installation.
+
+### File Origin
+
+```
+project root: grazhda          ← source file
+  ↓ just copy-scripts
+bin/grazhda                    ← compiled into bin/ during build
+  ↓ install_from_sources
+$GRAZHDA_DIR/bin/grazhda       ← active script on user's PATH
+```
+
+### Command Router Pattern
+
+The script uses a Bash `case` statement to dispatch subcommands — the same pattern used by tools like `git`, `docker`, and `kubectl`:
+
+```bash
+main() {
+    case "$1" in
+        upgrade) cmd_upgrade ;;
+        config)  cmd_config  ;;
+        *)       usage; exit 1 ;;
+    esac
+}
+main "$@"
+```
+
+`"$@"` forwards all positional parameters; quoting prevents word-splitting if a parameter contains spaces.
+
+### `grazhda upgrade` — How It Works
+
+```bash
+grazhda upgrade
+```
+
+1. Verifies `git`, `go`, `just`, `protoc` are all in `$PATH`
+2. `cd $GRAZHDA_DIR/sources` → `git pull`
+3. `export PATH="$(go env GOPATH)/bin:$PATH"` → ensures `protoc-gen-go` is reachable
+4. `just build` → runs generate + builds zgard + builds dukh + copies scripts
+5. `cp bin/* $GRAZHDA_DIR/bin/` → installs updated binaries
+
+**Self-update safety:** When the script replaces itself (`cp bin/grazhda $GRAZHDA_DIR/bin/grazhda`), the already-running Bash process is unaffected — it has the old file loaded. The new version is active on the next invocation.
+
+### `grazhda config --edit` — How It Works
+
+```bash
+grazhda config --edit
+```
+
+1. Checks `$GRAZHDA_DIR/config.yaml` exists
+2. Reads `editor:` from `config.yaml` using `grep` + `sed` (no YAML parser needed)
+3. Falls back through `$VISUAL` → `$EDITOR` → `vi`
+4. `exec "$editor" "$CONFIG_FILE"` — replaces the shell process with the editor
+
+**Why `exec`?** Using `exec` instead of just running the editor command means the shell process is replaced by the editor. Signals (Ctrl+C, window resize) go directly to the editor, not to a wrapper shell. The shell's return code is the editor's return code.
+
+### YAML Parsing in Bash
+
+A minimal helper extracts flat top-level scalar keys from YAML:
+
+```bash
+yaml_get() {
+    local key="$1" file="$2"
+    grep -E "^${key}:[[:space:]]*" "$file" \
+        | sed "s/^${key}:[[:space:]]*//" \
+        | tr -d '"'"'" \
+        | xargs
+}
+```
+
+- `grep -E "^key:\s*"` — finds the line starting with `key:`
+- `sed` strips the key prefix
+- `tr -d '"'"'"` — removes any surrounding quotes (single or double)
+- `xargs` trims leading/trailing whitespace
+
+This is intentionally limited. It only works for flat scalar keys. Nested YAML (like `dukh.host`) must be parsed in Go.
+
+### The `editor:` Config Field
+
+`config.yaml` gains a top-level `editor:` field:
+
+```yaml
+# Editor used by `grazhda config --edit`.
+# Resolved in order: this field → $VISUAL → $EDITOR → vi
+editor: vim
+```
+
+**Resolution chain** (first non-empty wins):
+
+| Priority | Source |
+|---|---|
+| 1 | `editor:` in `$GRAZHDA_DIR/config.yaml` |
+| 2 | `$VISUAL` environment variable |
+| 3 | `$EDITOR` environment variable |
+| 4 | `vi` (hardcoded fallback) |
+
+### New Shell Concepts in Phase 3
+
+| Concept | Explanation |
+|---|---|
+| **`exec cmd`** | Replaces the current shell process with `cmd`; no return |
+| **`command -v name`** | Checks if `name` is a reachable command; returns 0 if found, 1 if not |
+| **`xargs`** | Reads stdin and trims leading/trailing whitespace when used with no arguments |
+| **`tr -d chars`** | Deletes every character in `chars` from stdin |
+| **`grep -E`** | Extended regex grep; no need to escape `+`, `|`, `()`, `{}`  |
+| **`${var:-default}`** | Uses `default` if `var` is unset or empty |
+| **`set -e`** | Exit immediately if any command returns non-zero |
+| **`git pull` exit codes** | 0 = success (with or without changes); non-zero = network/merge error |

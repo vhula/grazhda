@@ -692,3 +692,115 @@ The `⟳ rescanning workspaces…` line is printed in blue immediately before th
 #### Column Alignment
 
 Repo name column width is computed as `max(len(repoName)) + 2` within each project block, not globally. This keeps short project lists compact while avoiding misaligned output across large workspaces.
+
+---
+
+## Phase 3 — grazhda Management Script UX
+
+### `grazhda upgrade`
+
+#### Progress Output
+
+The upgrade command prints step-by-step progress so the user can track a potentially long-running build:
+
+```
+╔═══════════════════════════════════════╗
+║         Grazhda Upgrader              ║
+╚═══════════════════════════════════════╝
+
+Pulling latest sources...
+✓ Sources updated.
+  3 files changed, 42 insertions(+), 5 deletions(-)
+
+Rebuilding binaries...
+  [just build output]
+  ✓ All modules built successfully
+
+Installing updated binaries...
+✓ Binaries installed to: /home/user/.grazhda/bin
+
+╔═══════════════════════════════════════╗
+║         Upgrade Successful!           ║
+╚═══════════════════════════════════════╝
+
+⚠ If you updated grazhda itself, open a new terminal or re-source your shell profile.
+```
+
+When sources are already current:
+
+```
+✓ Sources are already up to date.
+```
+
+The rebuild still proceeds to ensure installed binaries are consistent with sources.
+
+#### Error States
+
+| Condition | Output | Exit Code |
+|---|---|---|
+| `$GRAZHDA_DIR/sources` not a git repo | `✗ Sources directory not found or not a git repository: /…/sources` + hint to run installer | 1 |
+| Missing build dependency (git/go/just/protoc) | `✗ Required binary not found: <name>` + `Please install all missing dependencies and try again.` | 1 |
+| `git pull` fails (network, conflict) | `✗ git pull failed:` + raw git output | 1 |
+| `just build` fails | just exits non-zero; error output from just/go is forwarded to stderr | 1 |
+
+#### Color Scheme
+
+| Element | Color |
+|---|---|
+| Section headers | Blue |
+| Success messages (`✓`) | Green |
+| Warnings (`⚠`) | Yellow |
+| Errors (`✗`) | Red |
+
+---
+
+### `grazhda config --edit`
+
+#### Behaviour
+
+The command silently resolves the editor and opens `config.yaml`:
+
+```bash
+$ grazhda config --edit
+Opening config with: vim
+[vim opens config.yaml]
+```
+
+The editor launch message appears briefly before the editor takes over the terminal. When the user exits the editor, control returns to the shell with no further output.
+
+#### Error States
+
+| Condition | Output | Exit Code |
+|---|---|---|
+| `config.yaml` does not exist | `✗ Config file not found: /…/config.yaml` + hint to run installer | 1 |
+| Resolved editor binary not in PATH | `✗ Editor not found in PATH: <name>` + `Update the 'editor' field in config.yaml or set $EDITOR.` | 1 |
+
+#### Editor Resolution Display
+
+The resolved editor name is always shown before launching so the user knows what program opened their config:
+
+```
+Opening config with: vim
+```
+
+This is particularly useful when the user has not set `editor:` in their config and the fallback chain selects `$EDITOR` or `vi`.
+
+---
+
+### `grazhda help` / Unknown Command
+
+```
+Grazhda Management Script
+
+Usage: grazhda <command> [options]
+
+Commands:
+  upgrade          Pull latest sources and rebuild all binaries
+  config --edit    Open config.yaml in the configured editor
+  help             Show this help message
+
+Environment:
+  GRAZHDA_DIR      Installation directory (default: $HOME/.grazhda)
+```
+
+Unknown commands print `✗ Unknown command: <cmd>` in red followed by the usage block, then exit with code 1.

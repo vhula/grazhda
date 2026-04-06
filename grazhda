@@ -1,12 +1,208 @@
 #!/usr/bin/env bash
 
-echo "Grazhda called with args: $*"
+set -e
 
-if [ "$1" == "start" ]; then
-    echo "Starting Grazhda..."
-elif [ "$1" == "stop" ]; then
-    echo "Stopping Grazhda..."
-else
-    echo "Usage: $0 {start|stop}"
-    exit 1
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[1;34m'
+NC='\033[0m'
+
+if [ -z "$GRAZHDA_DIR" ]; then
+    GRAZHDA_DIR="$HOME/.grazhda"
 fi
+
+CONFIG_FILE="$GRAZHDA_DIR/config.yaml"
+SOURCES_DIR="$GRAZHDA_DIR/sources"
+BIN_DIR="$GRAZHDA_DIR/bin"
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+info()    { echo -e "${BLUE}$*${NC}"; }
+success() { echo -e "${GREEN}✓ $*${NC}"; }
+warn()    { echo -e "${YELLOW}⚠ $*${NC}"; }
+error()   { echo -e "${RED}✗ $*${NC}" >&2; }
+
+# Extract a top-level scalar YAML value using grep/sed (no external YAML parser needed).
+# Usage: yaml_get <key> <file>
+yaml_get() {
+    local key="$1"
+    local file="$2"
+    grep -E "^${key}:[[:space:]]*" "$file" 2>/dev/null \
+        | sed "s/^${key}:[[:space:]]*//" \
+        | tr -d '"'"'" \
+        | xargs  # trim whitespace
+}
+
+check_binary() {
+    local binary="$1"
+    if ! command -v "$binary" &>/dev/null; then
+        error "Required binary not found: $binary"
+        return 1
+    fi
+}
+
+# ---------------------------------------------------------------------------
+# Commands
+# ---------------------------------------------------------------------------
+
+usage() {
+    echo ""
+    echo -e "${BLUE}Grazhda Management Script${NC}"
+    echo ""
+    echo "Usage: grazhda <command> [options]"
+    echo ""
+    echo "Commands:"
+    echo "  upgrade          Pull latest sources and rebuild all binaries"
+    echo "  config --edit    Open config.yaml in the configured editor"
+    echo "  help             Show this help message"
+    echo ""
+    echo "Environment:"
+    echo "  GRAZHDA_DIR      Installation directory (default: \$HOME/.grazhda)"
+    echo ""
+}
+
+# grazhda upgrade — pull latest sources, rebuild, and replace installed binaries atomically.
+cmd_upgrade() {
+    echo ""
+    info "╔═══════════════════════════════════════╗"
+    info "║         Grazhda Upgrader              ║"
+    info "╚═══════════════════════════════════════╝"
+    echo ""
+
+    if [ ! -d "$SOURCES_DIR/.git" ]; then
+        error "Sources directory not found or not a git repository: $SOURCES_DIR"
+        warn  "Run the Grazhda installer first."
+        exit 1
+    fi
+
+    # Verify build dependencies
+    local failed=0
+    check_binary "git"    || failed=1
+    check_binary "go"     || failed=1
+    check_binary "just"   || failed=1
+    check_binary "protoc" || failed=1
+    if [ "$failed" -eq 1 ]; then
+        error "Please install all missing dependencies and try again."
+        exit 1
+    fi
+
+    info "Pulling latest sources..."
+    cd "$SOURCES_DIR"
+
+    pull_output=$(git pull 2>&1)
+    pull_exit=$?
+    if [ "$pull_exit" -ne 0 ]; then
+        error "git pull failed:"
+        echo "$pull_output"
+        exit 1
+    fi
+
+    if echo "$pull_output" | grep -q "Already up to date"; then
+        success "Sources are already up to date."
+    else
+        success "Sources updated."
+        echo "$pull_output" | grep -v "^$" | sed 's/^/  /'
+    fi
+
+    echo ""
+    info "Rebuilding binaries..."
+    # Ensure protoc Go plugins installed by just generate are reachable
+    export PATH="$(go env GOPATH)/bin:$PATH"
+    just build
+
+    echo ""
+    info "Installing updated binaries..."
+    mkdir -p "$BIN_DIR"
+
+    # Atomic copy — each cp is the OS-level rename on the same filesystem, so
+    # running binaries are not interrupted.
+    cp bin/zgard        "$BIN_DIR/zgard"
+    cp bin/dukh         "$BIN_DIR/dukh"
+    cp bin/grazhda      "$BIN_DIR/grazhda"
+    cp bin/grazhda-init.sh "$BIN_DIR/grazhda-init.sh"
+
+    echo ""
+    success "Binaries installed to: $BIN_DIR"
+    echo ""
+    info "╔═══════════════════════════════════════╗"
+    info "║         Upgrade Successful!           ║"
+    info "╚═══════════════════════════════════════╝"
+    echo ""
+    warn "If you updated grazhda itself, open a new terminal or re-source your shell profile."
+    echo ""
+}
+
+# grazhda config --edit — open config.yaml with the configured editor.
+cmd_config() {
+    local subcmd="${1:-}"
+    shift || true
+
+    case "$subcmd" in
+        --edit)
+            if [ ! -f "$CONFIG_FILE" ]; then
+                error "Config file not found: $CONFIG_FILE"
+                warn  "Run the Grazhda installer to create it."
+                exit 1
+            fi
+
+            # Editor resolution: config.yaml `editor:` → $VISUAL → $EDITOR → vi
+            local editor
+            editor=$(yaml_get "editor" "$CONFIG_FILE")
+            editor="${editor:-${VISUAL:-${EDITOR:-vi}}}"
+
+            if ! command -v "$editor" &>/dev/null; then
+                error "Editor not found in PATH: $editor"
+                warn  "Update the 'editor' field in $CONFIG_FILE or set \$EDITOR."
+                exit 1
+            fi
+
+            exec "$editor" "$CONFIG_FILE"
+            ;;
+        "")
+            error "config requires a sub-command."
+            echo "Usage: grazhda config --edit"
+            exit 1
+            ;;
+        *)
+            error "Unknown config option: $subcmd"
+            echo "Usage: grazhda config --edit"
+            exit 1
+            ;;
+    esac
+}
+
+# ---------------------------------------------------------------------------
+# Main router
+# ---------------------------------------------------------------------------
+
+main() {
+    local cmd="${1:-}"
+
+    case "$cmd" in
+        upgrade)
+            shift
+            cmd_upgrade "$@"
+            ;;
+        config)
+            shift
+            cmd_config "$@"
+            ;;
+        help|--help|-h)
+            usage
+            ;;
+        "")
+            usage
+            exit 0
+            ;;
+        *)
+            error "Unknown command: $cmd"
+            usage
+            exit 1
+            ;;
+    esac
+}
+
+main "$@"

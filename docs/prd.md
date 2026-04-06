@@ -460,3 +460,46 @@ workspaces:
 - Log file at `$GRAZHDA_DIR/logs/dukh.log` contains structured entries and rotates at 5 MiB.
 - A repo with the wrong branch checked out shows `✗` in `zgard dukh status` output.
 - A missing repo directory shows `✗ (missing)` in `zgard dukh status` output.
+
+
+## Phase 3 — grazhda Management Script
+
+### Executive Summary
+
+The `grazhda` management script provides self-management capabilities for the Grazhda installation. Users can update their installation to the latest version and conveniently edit their configuration file without needing to know where files are located.
+
+### Functional Requirements
+
+#### Upgrade Command
+
+- **FR-G1:** `grazhda upgrade` must execute `git pull` in `$GRAZHDA_DIR/sources` to fetch the latest sources.
+- **FR-G2:** After pulling, `grazhda upgrade` must run `just build` (from `$GRAZHDA_DIR/sources`) to regenerate proto code and rebuild all binaries.
+- **FR-G3:** After a successful build, `grazhda upgrade` must copy `bin/zgard`, `bin/dukh`, `bin/grazhda`, and `bin/grazhda-init.sh` into `$GRAZHDA_DIR/bin/`.
+- **FR-G4:** The upgrade must verify that `git`, `go`, `just`, and `protoc` are available before starting; it must exit with a clear error message if any are missing.
+- **FR-G5:** If `git pull` reports "Already up to date", the upgrade proceeds with the rebuild step (ensuring local binaries always match sources).
+- **FR-G6:** `grazhda upgrade` must print step-by-step progress so the user can track which phase is running.
+- **FR-G7:** If any step fails, `grazhda upgrade` must exit immediately with a non-zero code and a descriptive error message.
+
+#### Config Command
+
+- **FR-G8:** `grazhda config --edit` must open `$GRAZHDA_DIR/config.yaml` in the user's preferred editor.
+- **FR-G9:** Editor resolution order: `editor:` field in `config.yaml` → `$VISUAL` environment variable → `$EDITOR` environment variable → `vi` fallback.
+- **FR-G10:** If the resolved editor binary is not found in `$PATH`, `grazhda config --edit` must exit with a clear error message that suggests fixing the `editor:` field in `config.yaml`.
+- **FR-G11:** If `$GRAZHDA_DIR/config.yaml` does not exist, `grazhda config --edit` must exit with an error directing the user to run the installer.
+
+#### Config Schema
+
+- **FR-G12:** `config.template.yaml` must include a top-level `editor:` field (default: `vim`) with a comment explaining the resolution order.
+
+### Non-Functional Requirements
+
+- **NFR-G1:** `grazhda upgrade` must be idempotent — running it multiple times must produce the same installed state.
+- **NFR-G2:** Binary replacement during upgrade must use atomic file copy (`cp` on the same filesystem) to avoid corrupting binaries that may currently be running.
+- **NFR-G3:** The `grazhda` management script itself must be a self-contained Bash script with no external dependencies beyond core POSIX utilities, `git`, `go`, and `just`.
+
+### Success Criteria
+
+- `grazhda upgrade` on a machine with a working installation pulls the latest code, rebuilds, and replaces all binaries without manual steps.
+- `grazhda config --edit` opens `config.yaml` in the editor specified in the config, falling back gracefully through the resolution chain.
+- Running `grazhda upgrade` twice in a row produces no errors on the second run.
+- The `editor:` field is present in every new installation's `config.yaml` via the template.

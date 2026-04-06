@@ -910,3 +910,102 @@ The gRPC context deadline propagates all the way into `TriggerScanAndWait`, so i
 - No business logic in `cmd/main.go`; it only wires cobra → `server.Start()`.
 - `monitor.go` does not import `server.go`; the server struct owns the monitor goroutine via a channel or `context.Context` for cancellation.
 - `internal/config` is the single source of truth for workspace structure; `dukh` does not duplicate config parsing logic.
+
+## Phase 3 — grazhda Management Script Architecture
+
+### Overview
+
+The `grazhda` management script is a Bash shell script located at `$GRAZHDA_DIR/bin/grazhda` (installed from the project root `grazhda` file via `just copy-scripts`). It acts as the self-management CLI for a Grazhda installation: upgrading binaries and editing configuration.
+
+### File Locations
+
+| Path | Purpose |
+|---|---|
+| `grazhda` (project root) | Source file, copied to `bin/grazhda` by `just copy-scripts` |
+| `$GRAZHDA_DIR/bin/grazhda` | Installed management script on PATH |
+| `$GRAZHDA_DIR/sources/` | Git clone of the Grazhda repo used for upgrades |
+| `$GRAZHDA_DIR/config.yaml` | Edited by `grazhda config --edit` |
+
+### Command Router
+
+The script uses a Bash `case` statement as a command router:
+
+```
+main() {
+  case "$1" in
+    upgrade) cmd_upgrade ;;
+    config)  cmd_config  ;;
+    help)    usage       ;;
+  esac
+}
+```
+
+No external frameworks; only POSIX `bash`, `git`, `go`, and `just`.
+
+### Upgrade Flow
+
+```
+grazhda upgrade
+  │
+  ├─ verify git, go, just, protoc are on PATH
+  ├─ cd $GRAZHDA_DIR/sources
+  ├─ git pull
+  │    └─ log: "Already up to date" or delta summary
+  ├─ export PATH="$(go env GOPATH)/bin:$PATH"   # protoc plugins
+  ├─ just build
+  │    ├─ generate (installs protoc-gen-go, protoc-gen-go-grpc, runs protoc)
+  │    ├─ build-zgard
+  │    ├─ build-dukh
+  │    └─ copy-scripts  (copies grazhda + grazhda-init.sh to bin/)
+  └─ cp bin/* $GRAZHDA_DIR/bin/
+```
+
+**Self-update safety:** The running `grazhda` script is already loaded into the Bash interpreter's memory. Overwriting `$GRAZHDA_DIR/bin/grazhda` via `cp` during the upgrade is safe — the OS creates a new inode, leaving the running process unaffected. The new script is active on the next invocation.
+
+### YAML Parsing Strategy
+
+`config.yaml` contains a top-level `editor:` scalar. Rather than shipping a YAML parser in Bash, the script uses a one-liner:
+
+```bash
+yaml_get() {
+    grep -E "^${key}:[[:space:]]*" "$file" \
+      | sed "s/^${key}:[[:space:]]*//" \
+      | tr -d '"'"'" \
+      | xargs
+}
+```
+
+This is intentionally limited to **flat top-level scalar keys** only. It is not a general YAML parser. The `editor:` key is the only value read this way; all other config consumption (workspace paths, dukh settings) is handled by `zgard` and `dukh` in Go.
+
+### Editor Resolution
+
+```
+grazhda config --edit
+  │
+  ├─ yaml_get "editor" $GRAZHDA_DIR/config.yaml   → e.g. "vim"
+  ├─ fallback to $VISUAL if empty
+  ├─ fallback to $EDITOR if still empty
+  ├─ fallback to "vi" as last resort
+  ├─ check editor is in PATH (command -v)
+  └─ exec "$editor" $GRAZHDA_DIR/config.yaml
+```
+
+Using `exec` replaces the shell process with the editor, making the session feel native (signals go directly to the editor, no shell wrapper).
+
+### Config Schema Addition
+
+`config.template.yaml` gains a top-level `editor:` field:
+
+```yaml
+# Editor used by `grazhda config --edit`.
+# Resolved in order: this field → $VISUAL → $EDITOR → vi
+editor: vim
+```
+
+This field is the only config key consumed by the Bash management script.
+
+### Architectural Invariants
+
+- The `grazhda` Bash script must remain self-contained; it must not source other scripts or call helper binaries from `$GRAZHDA_DIR/bin/`.
+- YAML parsing is limited to top-level scalar keys; the script must never attempt to parse nested YAML structures.
+- The `just build` invocation during upgrade is the single source of truth for the build process — no duplicate build logic in the Bash script.

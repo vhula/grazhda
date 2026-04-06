@@ -167,6 +167,45 @@ Workspace: default
 
 ---
 
+## 🔧 Management
+
+The `grazhda` script manages your installation — upgrading to the latest version and editing your config.
+
+### `grazhda upgrade`
+Pull the latest sources and rebuild all binaries in one command.
+
+```bash
+grazhda upgrade
+```
+
+What it does:
+1. `git pull` in `$GRAZHDA_DIR/sources`
+2. `just build` (regenerates proto code, recompiles `zgard` and `dukh`)
+3. Copies all binaries to `$GRAZHDA_DIR/bin/`
+
+The upgrade is safe to run while `dukh` is running — binaries are replaced atomically.
+
+### `grazhda config --edit`
+Open `$GRAZHDA_DIR/config.yaml` in your preferred editor.
+
+```bash
+grazhda config --edit
+```
+
+Editor resolution order:
+1. `editor:` field in `config.yaml`
+2. `$VISUAL` environment variable
+3. `$EDITOR` environment variable
+4. `vi` (fallback)
+
+To change your default editor, update `config.yaml`:
+
+```yaml
+editor: nano   # or code, hx, emacs, etc.
+```
+
+---
+
 ## ⚙️ Configuration
 
 `zgard` resolves `config.yaml` from:
@@ -176,6 +215,8 @@ Workspace: default
 ### Example
 
 ```yaml
+editor: vim      # used by `grazhda config --edit`; fallback: $VISUAL → $EDITOR → vi
+
 dukh:
   host: localhost
   port: 50501
@@ -283,8 +324,9 @@ This makes it safe to mix repos from multiple organisations in one project witho
 | **zgard** | Workspace lifecycle CLI | ✅ Phase 1 |
 | **dukh** | Background gRPC workspace monitor | ✅ Phase 2 |
 | **Grazhda installer** | Source-build installer script | ✅ |
-| **Molfar** | Orchestration server | 📅 Phase 3 |
-| **Molf** | Orchestrator CLI | 📅 Phase 3 |
+| **grazhda management** | `upgrade` and `config --edit` commands | ✅ Phase 3 |
+| **Molfar** | Orchestration server | 📅 Phase 4 |
+| **Molf** | Orchestrator CLI | 📅 Phase 4 |
 
 ---
 

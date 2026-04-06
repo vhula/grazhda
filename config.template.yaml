@@ -2,6 +2,10 @@
 # This file is auto-generated during installation
 # Modify as needed for your environment
 
+# Editor used by `grazhda config --edit`.
+# Resolved in order: this field → $VISUAL → $EDITOR → vi
+editor: vim
+
 # Dukh gRPC Server Configuration
 dukh:
   host: localhost

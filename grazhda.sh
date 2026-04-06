@@ -60,18 +60,12 @@ verify_requirements() {
 }
 
 install_from_sources() {
-    # Ensure GOPATH/bin is on PATH so protoc can find the plugins installed by just generate.
+    # Ensure GOPATH/bin is on PATH so protoc plugins installed by just generate are reachable.
     export PATH="$(go env GOPATH)/bin:$PATH"
 
-    echo -e "${BLUE}Building from sources (generating protobuf + compiling binaries)...${NC}"
-    just generate
-
-    echo -e "${BLUE}Building binaries...${NC}"
-    mkdir -p bin
-    cd zgard && go build -o ../bin/zgard . && cd ..
-    cd dukh && go build -o ../bin/dukh ./cmd && cd ..
-    cp grazhda ./bin/
-    cp grazhda-init.sh ./bin/
+    echo -e "${BLUE}Building from sources...${NC}"
+    # just build: installs protoc plugins, generates proto, compiles zgard + dukh, copies scripts.
+    just build
 
     mkdir -p "$GRAZHDA_DIR/bin"
     cp bin/* "$GRAZHDA_DIR/bin/"
