@@ -29,8 +29,8 @@ workspaces:
     # structure controls how repository names containing "/" are mapped to local
     # directories inside each project folder.
     #   tree (default) — preserves full path:  org/pack/repo → <project>/org/pack/repo
-    #   list           — uses shortest unique suffix: org/pack/repo → <project>/repo
-    #                    (falls back to pack/repo, then org/pack/repo if shorter names exist)
+    #   list           — uses last URL segment: org/pack/repo → <project>/repo
+    #                    (.git suffix is stripped; use local_dir_name to resolve conflicts)
     structure: tree
     projects:
       - name: ws-project1

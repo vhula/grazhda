@@ -347,39 +347,42 @@ func TestResolveDestName_TreeModeDefault(t *testing.T) {
 	}
 }
 
-func TestResolveDestName_ListMode_ShortestSuffix(t *testing.T) {
+func TestResolveDestName_ListMode_LastSegment(t *testing.T) {
 	tmp := t.TempDir()
-	// No existing directories — should return the shortest suffix ("repo1").
 	got := workspace.ResolveDestName(tmp, "org/pack/repo1", "", config.StructureList)
 	if got != "repo1" {
-		t.Errorf("list mode (nothing exists): expected %q, got %q", "repo1", got)
+		t.Errorf("list mode: expected last segment %q, got %q", "repo1", got)
 	}
 }
 
-func TestResolveDestName_ListMode_FallbackOnCollision(t *testing.T) {
+// TestResolveDestName_ListMode_AlwaysLastSegmentEvenIfExists verifies that
+// list mode always returns the last segment regardless of what is on disk.
+// Conflict resolution (skipping) is delegated to the caller (cloneRepo/pullRepo).
+func TestResolveDestName_ListMode_AlwaysLastSegmentEvenIfExists(t *testing.T) {
 	tmp := t.TempDir()
-	// Pre-create "repo1" so the resolver must fall back to "pack/repo1".
+	// Pre-create "repo1" — the resolver must still return "repo1", not fall back.
 	if err := os.MkdirAll(filepath.Join(tmp, "repo1"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	got := workspace.ResolveDestName(tmp, "org/pack/repo1", "", config.StructureList)
-	if got != filepath.Join("pack", "repo1") {
-		t.Errorf("list mode (repo1 taken): expected %q, got %q", filepath.Join("pack", "repo1"), got)
+	if got != "repo1" {
+		t.Errorf("list mode (dir exists): expected %q (caller skips), got %q", "repo1", got)
 	}
 }
 
-func TestResolveDestName_ListMode_FallbackFull(t *testing.T) {
+func TestResolveDestName_ListMode_GitSuffixStripped(t *testing.T) {
 	tmp := t.TempDir()
-	// Pre-create both short suffixes — should fall back to full name.
-	if err := os.MkdirAll(filepath.Join(tmp, "repo1"), 0o755); err != nil {
-		t.Fatal(err)
+	got := workspace.ResolveDestName(tmp, "org/pack/repo1.git", "", config.StructureList)
+	if got != "repo1" {
+		t.Errorf("list mode .git strip: expected %q, got %q", "repo1", got)
 	}
-	if err := os.MkdirAll(filepath.Join(tmp, "pack", "repo1"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	got := workspace.ResolveDestName(tmp, "org/pack/repo1", "", config.StructureList)
-	if got != "org/pack/repo1" {
-		t.Errorf("list mode (all suffixes taken): expected full name, got %q", got)
+}
+
+func TestResolveDestName_ListMode_GitSuffixStripped_NoSlash(t *testing.T) {
+	tmp := t.TempDir()
+	got := workspace.ResolveDestName(tmp, "myrepo.git", "", config.StructureList)
+	if got != "myrepo" {
+		t.Errorf("list mode .git strip (no slash): expected %q, got %q", "myrepo", got)
 	}
 }
 
@@ -475,38 +478,35 @@ t.Errorf("[%d] list no-collision: want %q got %q", i, w, got[i])
 }
 
 func TestResolveDestNamesForProject_ListMode_Collision(t *testing.T) {
-// Two repos with the same shortest suffix; second must get longer suffix.
-repos := []config.Repository{
-{Name: "org/pack/repo1"},
-{Name: "other-org/pack/repo1"},
-}
-got := workspace.ResolveDestNamesForProject(repos, config.StructureList)
-if got[0] != "repo1" {
-t.Errorf("[0] want %q got %q", "repo1", got[0])
-}
-// second repo must use the next suffix since "repo1" is already allocated
-if got[1] != filepath.Join("pack", "repo1") {
-t.Errorf("[1] want %q got %q", filepath.Join("pack", "repo1"), got[1])
-}
+	// Two repos with the same last segment both resolve to that segment.
+	// The second clone will be skipped as "already exists" by cloneRepo.
+	repos := []config.Repository{
+		{Name: "org/pack/repo1"},
+		{Name: "other-org/pack/repo1"},
+	}
+	got := workspace.ResolveDestNamesForProject(repos, config.StructureList)
+	if got[0] != "repo1" {
+		t.Errorf("[0] want %q got %q", "repo1", got[0])
+	}
+	// Both resolve to the same last segment; caller handles skip.
+	if got[1] != "repo1" {
+		t.Errorf("[1] want %q got %q", "repo1", got[1])
+	}
 }
 
-func TestResolveDestNamesForProject_ListMode_TripleCollision(t *testing.T) {
-repos := []config.Repository{
-{Name: "a/b/repo"},
-{Name: "c/b/repo"},
-{Name: "d/b/repo"},
-}
-got := workspace.ResolveDestNamesForProject(repos, config.StructureList)
-if got[0] != "repo" {
-t.Errorf("[0] want %q got %q", "repo", got[0])
-}
-if got[1] != filepath.Join("b", "repo") {
-t.Errorf("[1] want %q got %q", filepath.Join("b", "repo"), got[1])
-}
-// third must use full name as all shorter suffixes are allocated
-if got[2] != "d/b/repo" {
-t.Errorf("[2] want %q got %q", "d/b/repo", got[2])
-}
+func TestResolveDestNamesForProject_ListMode_AllReturnLastSegment(t *testing.T) {
+	repos := []config.Repository{
+		{Name: "a/b/repo"},
+		{Name: "c/b/repo"},
+		{Name: "d/b/different"},
+	}
+	got := workspace.ResolveDestNamesForProject(repos, config.StructureList)
+	want := []string{"repo", "repo", "different"}
+	for i, w := range want {
+		if got[i] != w {
+			t.Errorf("[%d] want %q got %q", i, w, got[i])
+		}
+	}
 }
 
 func TestResolveDestNamesForProject_LocalDirNameOverridesStructure(t *testing.T) {
@@ -519,19 +519,17 @@ t.Errorf("localDirName override: want %q got %q", "my-repo", got[0])
 }
 }
 
-func TestResolveDestNamesForProject_LocalDirNameDoesNotConsumeAllocation(t *testing.T) {
-// A repo with local_dir_name should not pollute the allocation set,
-// so the next repo with the same suffix can still take the shortest name.
-repos := []config.Repository{
-{Name: "org/pack/repo1", LocalDirName: "custom"},
-{Name: "other/pack/repo1"},
-}
-got := workspace.ResolveDestNamesForProject(repos, config.StructureList)
-if got[0] != "custom" {
-t.Errorf("[0] want %q got %q", "custom", got[0])
-}
-// "repo1" was never allocated by a list-mode resolution, so second repo gets it
-if got[1] != "repo1" {
-t.Errorf("[1] want %q got %q", "repo1", got[1])
-}
+func TestResolveDestNamesForProject_LocalDirName_AndListSegment(t *testing.T) {
+	// local_dir_name always wins; following repo resolves to its own last segment.
+	repos := []config.Repository{
+		{Name: "org/pack/repo1", LocalDirName: "custom"},
+		{Name: "other/pack/repo1"},
+	}
+	got := workspace.ResolveDestNamesForProject(repos, config.StructureList)
+	if got[0] != "custom" {
+		t.Errorf("[0] want %q got %q", "custom", got[0])
+	}
+	if got[1] != "repo1" {
+		t.Errorf("[1] want %q got %q", "repo1", got[1])
+	}
 }

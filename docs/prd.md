@@ -334,7 +334,7 @@ workspaces:
 - **FR13:** Users can create a workspace's full directory structure (workspace root and all project subdirectories) from config with `ws init`.
 - **FR14:** Users can clone all configured repositories into their project directories using the workspace's `clone_command_template`.
 - **FR15:** The system can render clone command templates substituting `{{.Branch}}`, `{{.RepoName}}`, and `{{.DestDir}}` per repository.
-- **FR15a:** The `{{.DestDir}}` value is computed by `ResolveDestName` according to the workspace `structure` setting: `tree` (default) preserves the full repo name as nested subdirectories; `list` uses the shortest unique trailing suffix of the repo name (falling back to longer suffixes if shorter ones are already occupied).
+- **FR15a:** The `{{.DestDir}}` value is computed by `ResolveDestName` according to the workspace `structure` setting: `tree` (default) preserves the full repo name as nested subdirectories; `list` returns the last `/`-delimited segment of the repo name (stripping any `.git` suffix). If two repos in the same project share the same last segment, the second is skipped as "already exists". Use `local_dir_name` to resolve naming conflicts.
 - **FR16:** Users can override a repository's local directory name via the optional `local_dir_name` field, which becomes `{{.DestDir}}`; `local_dir_name` takes precedence over `structure`.
 - **FR17:** The system can skip cloning a repository when a local directory already exists at the expected path (idempotent re-init).
 - **FR18:** The system can continue processing remaining repositories when a clone operation fails, rather than aborting.

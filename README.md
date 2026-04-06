@@ -243,7 +243,7 @@ workspaces:
   - name: personal
     path: ~/personal
     clone_command_template: "git clone git@github.com:me/{{.RepoName}} {{.DestDir}}"
-    structure: list                # shortest unique suffix used as dest dir
+    structure: list                # last URL segment used as dest dir
     projects:
       - name: tools
         branch: main
@@ -267,15 +267,16 @@ The optional `structure` field controls how repository names that contain **`/`*
 | Mode | Behaviour | Example `org/pack/repo` |
 | :--- | :--- | :--- |
 | `tree` *(default)* | Preserves the full name as nested subdirectories | `<project>/org/pack/repo` |
-| `list` | Uses the **shortest unique suffix** of the name | `<project>/repo` |
+| `list` | Uses the **last `/`-delimited segment** of the name (`.git` stripped) | `<project>/repo` |
 
-**`list` fallback logic** — if the shortest suffix already exists as a directory, the resolver tries progressively longer suffixes until it finds an unused one:
+**Conflict handling in `list` mode** — if two repos share the same last segment (e.g. `org/api` and `other/api`), the second clone will be skipped as "already exists". Use `local_dir_name` to resolve such conflicts:
 
-1. Try `repo` → if `<project>/repo` exists, try…
-2. `pack/repo` → if `<project>/pack/repo` exists, try…
-3. `org/pack/repo` (full name, same as `tree`)
-
-This makes it safe to mix repos from multiple organisations in one project without accidentally overwriting each other.
+```yaml
+repositories:
+  - name: org/api
+  - name: other/api
+    local_dir_name: other-api   # cloned as <project>/other-api
+```
 
 ### Field Reference
 

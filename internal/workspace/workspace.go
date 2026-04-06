@@ -24,78 +24,63 @@ func ExpandHome(path string) string {
 	return filepath.Join(home, path[1:])
 }
 
-// ResolveDestName returns the local directory name for a repository inside
-// projPath, taking the workspace Structure setting into account.
+// lastSegment returns the portion of name that follows the last "/", with any
+// trailing ".git" suffix stripped.  Used by the "list" structure mode.
+//
+// Examples:
+//
+//	"org/pack/repo"     → "repo"
+//	"org/repo.git"      → "repo"
+//	"repo"              → "repo"
+func lastSegment(name string) string {
+	name = strings.TrimSuffix(name, ".git")
+	if idx := strings.LastIndex(name, "/"); idx >= 0 {
+		return name[idx+1:]
+	}
+	return name
+}
+
+// ResolveDestName returns the local directory name for a repository.
 //
 // If localDirName is non-empty it is always used unchanged.
 //
-// For structure == "tree" (or empty / any unrecognised value): the full
-// repoName is returned (slashes become nested sub-directories).
+// For structure == "tree" (default, or any unrecognised value): the full
+// repoName is returned as-is, so slashes in the name become nested
+// sub-directories (e.g. "org/pack/repo" → <project>/org/pack/repo).
 //
-// For structure == "list": the shortest trailing suffix of repoName (split on
-// "/") that does not already exist as a directory inside projPath is returned.
-// If all suffixes are taken the full repoName is returned as a fallback.
+// For structure == "list": only the last "/"-delimited segment of repoName
+// is used, after stripping any ".git" suffix
+// (e.g. "org/pack/repo.git" → <project>/repo).
+// If two repositories in the same project share the same last segment the
+// second one will be skipped as "already exists" during ws init/pull.
+// Use local_dir_name to resolve such naming conflicts explicitly.
 //
-// Example with repoName = "org/pack/repo1" and structure = "list":
-//   - tries "repo1"       — returns if <projPath>/repo1 does not exist
-//   - tries "pack/repo1"  — returns if <projPath>/pack/repo1 does not exist
-//   - tries "org/pack/repo1" — always the final fallback
-func ResolveDestName(projPath, repoName, localDirName, structure string) string {
+// projPath is accepted for API compatibility but is not consulted.
+func ResolveDestName(_ /*projPath*/ string, repoName, localDirName, structure string) string {
 	if localDirName != "" {
 		return localDirName
 	}
-	if structure != config.StructureList {
-		return repoName
-	}
-	parts := strings.Split(repoName, "/")
-	for i := len(parts) - 1; i >= 0; i-- {
-		candidate := strings.Join(parts[i:], string(filepath.Separator))
-		if _, err := os.Stat(filepath.Join(projPath, candidate)); os.IsNotExist(err) {
-			return candidate
-		}
+	if structure == config.StructureList {
+		return lastSegment(repoName)
 	}
 	return repoName
 }
 
 // ResolveDestNamesForProject returns the destination directory name for each
-// repository in repos (in declaration order), using the same allocation logic
-// as Init.
+// repository in repos, using the workspace structure setting.
 //
-// Unlike ResolveDestName (which uses os.Stat to detect taken directories),
-// this function tracks allocations in memory.  This makes it suitable for
-// callers that need to reconstruct where each repo was placed after the fact
-// (e.g. dukh scanning existing repos), where all directories already exist on
-// disk and os.Stat would always report "taken".
+// For structure == "list" every entry is the last "/"-delimited segment of
+// its repo name (with ".git" stripped).  Duplicates are possible; the caller
+// (cloneRepo / pullRepo) already handles the "skip if directory exists" case.
+//
+// This function is used by dukh's monitoring loop to determine where repos
+// were placed on disk without touching the filesystem.
 func ResolveDestNamesForProject(repos []config.Repository, structure string) []string {
-	allocated := make(map[string]bool, len(repos))
 	names := make([]string, len(repos))
 	for i, repo := range repos {
-		name := resolveDestNameTracked(repo.Name, repo.LocalDirName, structure, allocated)
-		allocated[name] = true
-		names[i] = name
+		names[i] = ResolveDestName("", repo.Name, repo.LocalDirName, structure)
 	}
 	return names
-}
-
-// resolveDestNameTracked mirrors the shortest-unique-suffix logic of
-// ResolveDestName but checks an in-memory allocated set instead of os.Stat.
-// Calling it in project order replicates the exact allocation sequence used by
-// Init without being confused by directories that already exist on disk.
-func resolveDestNameTracked(repoName, localDirName, structure string, allocated map[string]bool) string {
-	if localDirName != "" {
-		return localDirName
-	}
-	if structure != config.StructureList {
-		return repoName
-	}
-	parts := strings.Split(repoName, "/")
-	for i := len(parts) - 1; i >= 0; i-- {
-		candidate := strings.Join(parts[i:], string(filepath.Separator))
-		if !allocated[candidate] {
-			return candidate
-		}
-	}
-	return repoName
 }
 
 // Init initializes the workspace by creating directory structure and cloning all repositories.

@@ -347,7 +347,7 @@ type Repository struct {
 - Optional fields: `omitempty` YAML tag — `LocalDirName` only; `Structure` defaults to `"tree"` when empty
 - Each type is a named top-level type — no embedded structs
 - `StructureTree = "tree"` and `StructureList = "list"` constants defined in `internal/config`
-- `workspace.ResolveDestName(projPath, repoName, localDirName, structure)` computes the final local directory name: for `list` mode it tries the shortest unique trailing suffix of `repoName` (split on `/`), falling back to longer suffixes and then the full name
+- `workspace.ResolveDestName(_ /*projPath*/, repoName, localDirName, structure)` computes the final local directory name: for `list` mode it returns the last `/`-delimited segment of `repoName` (stripping `.git`); for `tree` mode (default) it returns the full `repoName`
 
 ### Process Patterns
 

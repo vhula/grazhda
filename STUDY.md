@@ -822,34 +822,37 @@ Repository names sometimes contain slashes — e.g. `org/team/repo` for namespac
 
 ```go
 // StructureTree: "org/team/repo" → <project>/org/team/repo  (nested dirs)
-// StructureList: "org/team/repo" → <project>/repo           (flat, shortest unique suffix)
-func ResolveDestName(projPath, repoName, localDirName, structure string) string {
+// StructureList: "org/team/repo" → <project>/repo           (last segment, .git stripped)
+func ResolveDestName(_ /*projPath*/ string, repoName, localDirName, structure string) string {
     if localDirName != "" {
         return localDirName   // explicit override always wins
     }
-    if structure != config.StructureList {
-        return repoName       // tree mode (default): use full name
+    if structure == config.StructureList {
+        return lastSegment(repoName)  // strips .git, returns after last "/"
     }
-    // list mode: try shortest suffix first, fall back on collision
-    parts := strings.Split(repoName, "/")
-    for i := len(parts) - 1; i >= 0; i-- {
-        candidate := strings.Join(parts[i:], string(filepath.Separator))
-        if _, err := os.Stat(filepath.Join(projPath, candidate)); os.IsNotExist(err) {
-            return candidate
-        }
+    return repoName           // tree mode (default): use full name as-is
+}
+
+func lastSegment(name string) string {
+    name = strings.TrimSuffix(name, ".git")
+    if idx := strings.LastIndex(name, "/"); idx >= 0 {
+        return name[idx+1:]
     }
-    return repoName // all suffixes taken — fall back to full name
+    return name
 }
 ```
 
-**`list` fallback sequence** for `org/pack/repo`:
-1. Try `repo` — if `<project>/repo` does not exist → use it
-2. Try `pack/repo` — if `<project>/pack/repo` does not exist → use it
-3. Use `org/pack/repo` as final fallback (same as tree)
+**`list` mode** always returns the last `/`-delimited segment, stripping any `.git` suffix:
 
-This makes it safe to mix repos from multiple organisations in one project. `localDirName` always overrides `structure`.
+| Input `repo.Name` | Result |
+|---|---|
+| `"org/pack/repo"` | `"repo"` |
+| `"org/pack/repo.git"` | `"repo"` |
+| `"repo"` (no slash) | `"repo"` |
 
-`filepath.Join` produces a platform-correct path: on Windows it uses `\`, on Unix it uses `/`.
+If two repos share the same last segment (e.g. `org/api` and `other/api`), both resolve to `api`. The second clone will be **skipped** as "already exists" by `cloneRepo`. Use `local_dir_name` to resolve naming conflicts explicitly.
+
+`localDirName` always overrides `structure`.
 
 ---
 
@@ -1716,7 +1719,7 @@ workspaces:
   # Second workspace: personal projects, list structure (flat clone dirs)
   - name: personal
     path: /home/jake/personal
-    structure: list                      # shortest unique suffix used as dest dir
+    structure: list                      # last URL segment used as dest dir
     clone_command_template: "git clone git@github.com:jake/{{.RepoName}} {{.DestDir}}"
     projects:
       - name: tools
@@ -1737,12 +1740,12 @@ workspaces:
 
 ### Workspace Structure Modes
 
-| `structure` value | Behaviour | Example: `org/pack/repo` |
+| `structure` value | Behaviour | Example: `org/pack/repo.git` |
 | :--- | :--- | :--- |
-| `tree` *(default)* | Full name as nested dirs | `<project>/org/pack/repo` |
-| `list` | Shortest unique trailing suffix | `<project>/repo` (falling back to `pack/repo`, then `org/pack/repo`) |
+| `tree` *(default)* | Full name as nested dirs | `<project>/org/pack/repo.git` |
+| `list` | Last `/`-delimited segment, `.git` stripped | `<project>/repo` |
 
-`local_dir_name` on a repository always wins over `structure`.
+`local_dir_name` on a repository always wins over `structure`. In `list` mode, two repos with the same last segment resolve to the same path; the second will be skipped as "already exists". Use `local_dir_name` to disambiguate.
 
 ---
 
