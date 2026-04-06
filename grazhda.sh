@@ -69,6 +69,7 @@ install_from_sources() {
 
     mkdir -p "$GRAZHDA_DIR/bin"
     cp bin/* "$GRAZHDA_DIR/bin/"
+    chmod +x "$GRAZHDA_DIR/bin/grazhda" "$GRAZHDA_DIR/bin/grazhda-init.sh"
 
     echo -e "${GREEN}✓ Grazhda built successfully${NC}"
     echo "Binaries are located in: $GRAZHDA_DIR/bin/"

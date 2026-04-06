@@ -117,12 +117,11 @@ cmd_upgrade() {
     info "Installing updated binaries..."
     mkdir -p "$BIN_DIR"
 
-    # Atomic copy — each cp is the OS-level rename on the same filesystem, so
-    # running binaries are not interrupted.
     cp bin/zgard        "$BIN_DIR/zgard"
     cp bin/dukh         "$BIN_DIR/dukh"
     cp bin/grazhda      "$BIN_DIR/grazhda"
     cp bin/grazhda-init.sh "$BIN_DIR/grazhda-init.sh"
+    chmod +x "$BIN_DIR/zgard" "$BIN_DIR/dukh" "$BIN_DIR/grazhda" "$BIN_DIR/grazhda-init.sh"
 
     echo ""
     success "Binaries installed to: $BIN_DIR"

@@ -50,6 +50,7 @@ copy-scripts:
     echo "Copying bash scripts..."
     cp grazhda ./bin/
     cp grazhda-init.sh ./bin/
+    chmod +x ./bin/grazhda ./bin/grazhda-init.sh
     echo "✓ Scripts copied to bin/"
 
 clean:
