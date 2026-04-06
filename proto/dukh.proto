@@ -11,11 +11,21 @@ service DukhService {
 
   // Status returns the current health snapshot of all monitored workspaces.
   rpc Status(StatusRequest) returns (StatusResponse);
+
+  // Scan triggers an immediate out-of-cycle workspace rescan.
+  rpc Scan(ScanRequest) returns (ScanResponse);
 }
 
 message StopRequest {}
 
 message StopResponse {
+  string message = 1;
+}
+
+message ScanRequest {}
+
+message ScanResponse {
+  // message describes what was triggered, e.g. "rescan initiated".
   string message = 1;
 }
 

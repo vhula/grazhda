@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -12,8 +11,8 @@ import (
 	"github.com/vhula/grazhda/internal/config"
 )
 
-// pollInterval is how often the monitor re-scans all workspaces.
-const pollInterval = 30 * time.Second
+// defaultPeriod is used when config.dukh.monitoring.period_mins is zero or missing.
+const defaultPeriod = 5 * time.Minute
 
 // RepoHealth holds the last known health state of a single repository.
 type RepoHealth struct {
@@ -39,22 +38,26 @@ type WorkspaceHealth struct {
 }
 
 // Monitor polls workspace health and maintains an in-memory snapshot.
+// The polling period is read from config on every cycle so changes to
+// dukh.monitoring.period_mins take effect at the next tick without restart.
 type Monitor struct {
-	mu         sync.RWMutex
-	snapshot   []WorkspaceHealth
-	configPath string
-	logger     *log.Logger
-	stop       chan struct{}
-	done       chan struct{}
+	mu          sync.RWMutex
+	snapshot    []WorkspaceHealth
+	configPath  string
+	logger      *log.Logger
+	stopCh      chan struct{}
+	doneCh      chan struct{}
+	triggerScan chan struct{}
 }
 
-// NewMonitor creates a Monitor that will read from configPath.
+// NewMonitor creates a Monitor that reads workspace health from configPath.
 func NewMonitor(configPath string, logger *log.Logger) *Monitor {
 	return &Monitor{
-		configPath: configPath,
-		logger:     logger,
-		stop:       make(chan struct{}),
-		done:       make(chan struct{}),
+		configPath:  configPath,
+		logger:      logger,
+		stopCh:      make(chan struct{}),
+		doneCh:      make(chan struct{}),
+		triggerScan: make(chan struct{}, 1),
 	}
 }
 
@@ -63,10 +66,19 @@ func (m *Monitor) Start() {
 	go m.loop()
 }
 
-// Stop signals the polling loop to exit and waits for it to finish.
+// Stop signals the polling loop to exit and blocks until it has finished.
 func (m *Monitor) Stop() {
-	close(m.stop)
-	<-m.done
+	close(m.stopCh)
+	<-m.doneCh
+}
+
+// TriggerScan sends a non-blocking signal to perform an immediate rescan.
+// If a scan is already queued, the signal is dropped (the channel has capacity 1).
+func (m *Monitor) TriggerScan() {
+	select {
+	case m.triggerScan <- struct{}{}:
+	default:
+	}
 }
 
 // Snapshot returns a copy of the most recent workspace health data.
@@ -78,23 +90,41 @@ func (m *Monitor) Snapshot() []WorkspaceHealth {
 	return cp
 }
 
+// loop is the main polling goroutine. It uses time.Timer (not time.Ticker) so
+// the period can be re-read from config after every scan.
 func (m *Monitor) loop() {
-	defer close(m.done)
+	defer close(m.doneCh)
 
-	// Run an initial scan immediately, then poll on the interval.
 	m.scan()
-	ticker := time.NewTicker(pollInterval)
-	defer ticker.Stop()
 
 	for {
+		period := m.loadPeriod()
+		timer := time.NewTimer(period)
+
 		select {
-		case <-ticker.C:
+		case <-timer.C:
 			m.scan()
-		case <-m.stop:
+
+		case <-m.triggerScan:
+			timer.Stop()
+			m.logger.Info("monitor: manual scan triggered")
+			m.scan()
+
+		case <-m.stopCh:
+			timer.Stop()
 			m.logger.Info("monitor: stopping")
 			return
 		}
 	}
+}
+
+// loadPeriod reads the monitoring period from config, falling back to defaultPeriod.
+func (m *Monitor) loadPeriod() time.Duration {
+	cfg, err := config.Load(m.configPath)
+	if err != nil || cfg.Dukh.Monitoring.PeriodMins <= 0 {
+		return defaultPeriod
+	}
+	return time.Duration(cfg.Dukh.Monitoring.PeriodMins) * time.Minute
 }
 
 func (m *Monitor) scan() {
@@ -145,7 +175,6 @@ func (m *Monitor) checkRepo(wsPath string, proj config.Project, repo config.Repo
 
 	actualBranch, err := currentBranch(repoPath)
 	if err != nil {
-		// Directory doesn't exist or is not a git repo.
 		rh.Exists = false
 		rh.BranchAligned = false
 		return rh
@@ -164,9 +193,4 @@ func currentBranch(repoPath string) (string, error) {
 		return "", err
 	}
 	return strings.TrimSpace(string(out)), nil
-}
-
-// resolveContext is a helper — wraps context to make the monitor stoppable.
-func resolveContext(ctx context.Context) context.Context {
-	return ctx
 }

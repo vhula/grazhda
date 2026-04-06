@@ -2,10 +2,12 @@
 # This file is auto-generated during installation
 # Modify as needed for your environment
 
-# Dukh Web Server Configuration
+# Dukh gRPC Server Configuration
 dukh:
   host: localhost
   port: 50501
+  monitoring:
+    period_mins: 5
 
 # Zgard Configuration
 zgard:

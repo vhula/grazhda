@@ -5,8 +5,8 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/vhula/grazhda/internal/config"
 	clr "github.com/vhula/grazhda/internal/color"
+	"github.com/vhula/grazhda/internal/config"
 	"github.com/vhula/grazhda/internal/executor"
 	"github.com/vhula/grazhda/internal/reporter"
 	"github.com/vhula/grazhda/internal/workspace"

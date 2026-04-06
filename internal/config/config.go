@@ -12,7 +12,21 @@ import (
 
 // Config is the top-level Grazhda configuration.
 type Config struct {
+	Dukh       DukhConfig  `yaml:"dukh"`
 	Workspaces []Workspace `yaml:"workspaces"`
+}
+
+// DukhConfig holds connection and monitoring settings for the dukh server.
+type DukhConfig struct {
+	Host       string           `yaml:"host"`
+	Port       int              `yaml:"port"`
+	Monitoring MonitoringConfig `yaml:"monitoring"`
+}
+
+// MonitoringConfig controls how often dukh polls workspace health.
+type MonitoringConfig struct {
+	// PeriodMins is the polling interval in minutes. Defaults to 5 if zero.
+	PeriodMins int `yaml:"period_mins"`
 }
 
 // Workspace represents a named collection of projects.

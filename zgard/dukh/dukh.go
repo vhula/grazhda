@@ -19,8 +19,10 @@ func New() *cobra.Command {
 		Use:   "dukh",
 		Short: "Manage and inspect the dukh workspace monitor",
 	}
+	cmd.AddCommand(startCmd())
 	cmd.AddCommand(stopCmd())
 	cmd.AddCommand(statusCmd())
+	cmd.AddCommand(scanCmd())
 	return cmd
 }
 

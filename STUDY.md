@@ -36,6 +36,18 @@ This guide explains the Grazhda project from first principles. You do not need t
 12. [Build System (Justfile)](#12-build-system-justfile)
 13. [Configuration Reference](#13-configuration-reference)
 14. [Go Concepts Glossary](#14-go-concepts-glossary)
+15. [dukh — The Background Workspace Monitor](#15-dukh--the-background-workspace-monitor)
+16. [gRPC and Protocol Buffers](#16-grpc-and-protocol-buffers)
+17. [dukh/server — Server Packages](#17-dukhserver--server-packages)
+    - [server.go — gRPC Lifecycle](#171-servergo--grpc-lifecycle)
+    - [monitor.go — Configurable Background Polling](#172-monitorrgo--configurable-background-polling)
+    - [log.go — Structured Logging with Rotation](#173-loggo--structured-logging-with-rotation)
+18. [zgard dukh — CLI Commands for dukh](#18-zgard-dukh--cli-commands-for-dukh)
+    - [zgard dukh start](#181-zgard-dukh-start--spawning-a-background-process)
+    - [zgard dukh scan](#182-zgard-dukh-scan--triggering-an-immediate-rescan)
+    - [Configurable Monitoring Period](#183-configurable-monitoring-period)
+19. [Updated Project Layout](#19-updated-project-layout)
+20. [New Go Concepts Introduced in Phase 2](#20-new-go-concepts-introduced-in-phase-2)
 
 ---
 
@@ -1732,3 +1744,476 @@ workspaces:
 | **octal literal** | `0o755` — integer written in base 8; used for Unix file permission bits |
 | **`t.TempDir()`** | Creates a unique temp directory in tests that is cleaned up automatically after the test |
 | **`t.Helper()`** | Marks a function as a test helper so error messages point to the calling test, not the helper |
+
+
+---
+
+## 15. dukh — The Background Workspace Monitor
+
+### 15.1 What dukh Does
+
+`dukh` is the second binary in the Grazhda ecosystem. While `zgard` performs workspace operations on demand (clone, pull, purge), `dukh` runs continuously in the background and answers one question: **is my workspace in the state I declared in config.yaml?**
+
+Every few minutes dukh walks through every workspace, project, and repository in `config.yaml` and checks:
+
+1. Does the repository directory exist on disk?
+2. If it does, what git branch is currently checked out?
+3. Does that branch match what `config.yaml` says?
+
+This health snapshot is held in memory and served instantly over gRPC when `zgard dukh status` asks for it.
+
+### 15.2 Why a Separate Process?
+
+`dukh` is a **long-running daemon** — a background process that never exits on its own. Daemons cannot be implemented as a simple command (like `zgard ws init`) because they need to keep running after the terminal is closed. Instead:
+
+- `zgard dukh start` spawns `dukh start` as a **detached child process**
+- The child runs independently, logs to a file, and exposes a gRPC port
+- `zgard dukh stop/status/scan` connect to that port to communicate with the running server
+
+---
+
+## 16. gRPC and Protocol Buffers
+
+### 16.1 What is gRPC?
+
+**gRPC** (Google Remote Procedure Call) is a framework for making function calls across process boundaries — even across a network. Instead of a REST API where you send JSON over HTTP, gRPC:
+
+- Defines services and message types in a `.proto` file (the *contract*)
+- Generates Go code from that contract (`protoc` tool)
+- Uses HTTP/2 and binary encoding — faster and more type-safe than JSON
+
+For Grazhda, gRPC means `zgard` can call functions on the running `dukh` process as if they were local Go functions.
+
+### 16.2 The proto File
+
+`proto/dukh.proto` is the single source of truth for dukh's API:
+
+```proto
+service DukhService {
+  rpc Stop(StopRequest)     returns (StopResponse);
+  rpc Status(StatusRequest) returns (StatusResponse);
+  rpc Scan(ScanRequest)     returns (ScanResponse);
+}
+```
+
+- `service` defines the server and its callable methods
+- `rpc` means "remote procedure call" — a method that can be called from another process
+- `message` types define what data is sent and received (like Go structs)
+
+**Key message types:**
+
+```proto
+message StatusResponse {
+  repeated WorkspaceStatus workspaces = 1;  // a slice of WorkspaceStatus
+  string server_version                = 2;  // e.g. "0.1.0"
+  int64  uptime_seconds                = 3;  // seconds since dukh started
+}
+```
+
+The numbers (`= 1`, `= 2`, …) are *field tags* — unique identifiers used in the binary encoding. They never change once defined, which allows adding new fields without breaking older clients.
+
+### 16.3 Code Generation
+
+`just generate` runs:
+
+```bash
+protoc \
+  --go_out=dukh/proto --go_opt=paths=source_relative \
+  --go-grpc_out=dukh/proto --go-grpc_opt=paths=source_relative \
+  --proto_path=proto \
+  proto/dukh.proto
+```
+
+This produces two files in `dukh/proto/`:
+
+| File | Contents |
+|---|---|
+| `dukh.pb.go` | Go structs for every `message` type; marshal/unmarshal logic |
+| `dukh_grpc.pb.go` | `DukhServiceServer` interface (implement in the server); `DukhServiceClient` (used by zgard) |
+
+**Never edit these files by hand.** They are regenerated every time `just generate` runs.
+
+### 16.4 The Client–Server Pattern
+
+```
+zgard dukh status            dukh start
+       |                           |
+  dial("localhost:50501")     grpc.NewServer()
+       |                           |
+  client.Status(req)  ──RPC──>  server.Status(req)
+       |                           |
+  resp <──────────────────────  return resp
+       |
+  renderStatus(resp)
+```
+
+`zgard` is the **client** — it connects, makes one call, disconnects.
+`dukh` is the **server** — it listens forever, handles calls, returns responses.
+
+---
+
+## 17. dukh/server — Server Packages
+
+### 17.1 server.go — gRPC Lifecycle
+
+`server.go` contains the `Server` struct:
+
+```go
+type Server struct {
+    dukhpb.UnimplementedDukhServiceServer  // satisfies the interface
+    grpcServer *grpc.Server
+    monitor    *Monitor
+    logger     *log.Logger
+    startedAt  time.Time
+    stopped    atomic.Bool
+}
+```
+
+**`UnimplementedDukhServiceServer`** is an embedded struct generated by protoc. It implements every RPC method with a "not implemented" error. By embedding it, `Server` automatically satisfies the `DukhServiceServer` interface even if you only override some methods. This is a common Go pattern for forward-compatibility.
+
+**`atomic.Bool`** is a boolean that is safe to read and write from multiple goroutines simultaneously without a mutex. The `sync/atomic` package provides a small set of lock-free operations for simple types.
+
+The `ListenAndServe` method starts the gRPC server:
+
+```go
+func (s *Server) ListenAndServe(addr string) error {
+    lis, err := net.Listen("tcp", addr)   // open a TCP port
+    s.grpcServer = grpc.NewServer()
+    dukhpb.RegisterDukhServiceServer(s.grpcServer, s)  // wire up our handler
+    return s.grpcServer.Serve(lis)        // blocks until GracefulStop is called
+}
+```
+
+`grpc.NewServer()` creates a gRPC server. `Serve()` blocks, accepting incoming connections and dispatching RPCs to the registered handler (`s`). When `GracefulStop()` is called (e.g. from the `Stop` RPC), `Serve()` returns.
+
+**RPC handlers** are plain Go methods that satisfy the generated interface:
+
+```go
+func (s *Server) Stop(_ context.Context, _ *dukhpb.StopRequest) (*dukhpb.StopResponse, error) {
+    go func() {
+        time.Sleep(100 * time.Millisecond)
+        s.GracefulStop()
+    }()
+    return &dukhpb.StopResponse{Message: "dukh shutting down"}, nil
+}
+```
+
+The goroutine trick (`go func() { ... }()`) lets us return the response *before* the server shuts down. Without it, the client would never receive the response because the server would close the connection first.
+
+```go
+func (s *Server) Scan(_ context.Context, _ *dukhpb.ScanRequest) (*dukhpb.ScanResponse, error) {
+    s.monitor.TriggerScan()
+    return &dukhpb.ScanResponse{Message: "rescan initiated"}, nil
+}
+```
+
+`Scan` just calls `TriggerScan()` on the monitor and returns immediately. The actual rescan happens in the monitor's goroutine — `Scan` does not wait for it to complete.
+
+### 17.2 monitor.go — Configurable Background Polling
+
+The `Monitor` struct manages the polling loop:
+
+```go
+type Monitor struct {
+    mu          sync.RWMutex
+    snapshot    []WorkspaceHealth
+    configPath  string
+    logger      *log.Logger
+    stopCh      chan struct{}
+    doneCh      chan struct{}
+    triggerScan chan struct{}
+}
+```
+
+**`sync.RWMutex`** is a reader/writer mutex. Multiple goroutines can read the snapshot simultaneously (shared read lock) but only one can write at a time (exclusive write lock). This is more efficient than a plain `sync.Mutex` when reads are frequent and writes are rare.
+
+```go
+// Reading (many readers can hold this simultaneously):
+m.mu.RLock()
+defer m.mu.RUnlock()
+return m.snapshot
+
+// Writing (exclusive — blocks all readers and other writers):
+m.mu.Lock()
+m.snapshot = result
+m.mu.Unlock()
+```
+
+**Channels for lifecycle control:**
+
+```go
+stopCh      chan struct{}  // closed by Stop() to signal the loop to exit
+doneCh      chan struct{}  // closed by the loop when it exits; Stop() waits on it
+triggerScan chan struct{}  // capacity-1 buffer; TriggerScan() sends a signal
+```
+
+`chan struct{}` is a channel carrying empty structs. The zero-byte `struct{}` is used because we only care that a signal was sent, not what it contains.
+
+**The polling loop uses `time.Timer`, not `time.Ticker`:**
+
+```go
+func (m *Monitor) loop() {
+    defer close(m.doneCh)
+    m.scan()
+
+    for {
+        period := m.loadPeriod()         // re-read from config every cycle
+        timer := time.NewTimer(period)
+
+        select {
+        case <-timer.C:                  // normal tick
+            m.scan()
+        case <-m.triggerScan:            // manual scan requested
+            timer.Stop()
+            m.scan()
+        case <-m.stopCh:                 // shutdown requested
+            timer.Stop()
+            return
+        }
+    }
+}
+```
+
+`time.Ticker` fires at a fixed interval set at creation. `time.Timer` fires once, after a duration set at creation. By creating a new `Timer` every iteration, the period is re-read from `config.yaml` on every cycle — so changing `dukh.monitoring.period_mins` takes effect at the next tick with no restart needed.
+
+**`select`** waits on multiple channel operations simultaneously and executes whichever case is ready first. If multiple are ready, one is chosen at random. This is Go's core concurrency primitive for coordinating goroutines.
+
+**`TriggerScan` uses a non-blocking send:**
+
+```go
+func (m *Monitor) TriggerScan() {
+    select {
+    case m.triggerScan <- struct{}{}:  // send signal
+    default:                           // channel full — scan already queued, skip
+    }
+}
+```
+
+The channel has capacity 1. If a scan signal is already queued (channel full), `default` runs instead of blocking. This ensures `TriggerScan` is always instant regardless of server load.
+
+**`loadPeriod` reads the configured polling interval:**
+
+```go
+func (m *Monitor) loadPeriod() time.Duration {
+    cfg, err := config.Load(m.configPath)
+    if err != nil || cfg.Dukh.Monitoring.PeriodMins <= 0 {
+        return defaultPeriod  // 5 minutes
+    }
+    return time.Duration(cfg.Dukh.Monitoring.PeriodMins) * time.Minute
+}
+```
+
+`time.Duration` is an `int64` counting nanoseconds. `time.Minute` is a constant equal to `60 * time.Second`. Multiplying an integer by `time.Minute` gives a `time.Duration`.
+
+### 17.3 log.go — Structured Logging with Rotation
+
+```go
+func InitLogger(grazhdaDir string) (*log.Logger, func(), error) {
+    rotator := &lumberjack.Logger{
+        Filename:   filepath.Join(logDir, "dukh.log"),
+        MaxSize:    5,     // MiB before rotation
+        MaxBackups: 3,     // keep 3 old files
+        Compress:   true,  // gzip old files
+    }
+    multi := io.MultiWriter(rotator, os.Stderr)
+    logger := log.New(multi)
+    logger.SetLevel(log.InfoLevel)
+    return logger, func() { _ = rotator.Close() }, nil
+}
+```
+
+**`lumberjack.Logger`** is a writer that automatically rotates log files. When `dukh.log` reaches 5 MiB it is renamed to `dukh-2026-04-06T09:00:00.log.gz` and a new `dukh.log` is started. Up to 3 old files are kept.
+
+**`io.MultiWriter`** returns a writer that mirrors every write to multiple destinations simultaneously — both the rotating file and `os.Stderr`. This means log lines appear both in the log file and in the terminal if you run `dukh start` directly.
+
+**`charmbracelet/log`** is a structured logger. "Structured" means log entries carry typed key-value pairs alongside the message:
+
+```go
+logger.Info("monitor: scan complete", "workspaces", 3)
+// Output: INFO monitor: scan complete workspaces=3
+```
+
+The return value includes a `cleanup` function (the `func()` return type). The caller defers it:
+
+```go
+logger, cleanup, _ := server.InitLogger(grazhdaDir)
+defer cleanup()
+```
+
+This is a common Go pattern for resource cleanup: return a function the caller can defer, so cleanup happens automatically when the function returns.
+
+---
+
+## 18. zgard dukh — CLI Commands for dukh
+
+### 18.1 zgard dukh start — Spawning a Background Process
+
+```go
+func runDukhStart(_ *cobra.Command, _ []string) error {
+    dukhBin, err := resolveDukhBinary()   // find the dukh binary
+    cmd := exec.Command(dukhBin, "start") // prepare the command
+    cmd.Stdin, cmd.Stdout, cmd.Stderr = nil, nil, nil  // detach I/O
+    setDetach(cmd)                         // set Setsid=true (Unix)
+    cmd.Start()                            // launch without waiting
+    fmt.Printf("✓ dukh started (pid %d)\n", cmd.Process.Pid)
+}
+```
+
+`exec.Command` creates a command but does not run it. `cmd.Start()` launches it and returns immediately — unlike `cmd.Run()` which would wait for it to finish.
+
+**`setDetach(cmd)`** is in `detach_unix.go`:
+
+```go
+//go:build !windows
+
+func setDetach(cmd *exec.Cmd) {
+    cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+}
+```
+
+`Setsid: true` calls the `setsid` Unix system call, which starts the process in a new session with no controlling terminal. This makes the child process fully independent: it survives when zgard exits and is not killed by Ctrl-C in the terminal.
+
+`//go:build !windows` is a **build constraint** — this file is only compiled on non-Windows platforms. You can have `detach_windows.go` with a no-op `setDetach` for Windows, letting the same codebase compile on all platforms.
+
+**`resolveDukhBinary`** uses a priority search:
+
+```go
+func resolveDukhBinary() (string, error) {
+    if dir := os.Getenv("GRAZHDA_DIR"); dir != "" {
+        candidate := filepath.Join(dir, "bin", "dukh")
+        if _, err := os.Stat(candidate); err == nil {
+            return candidate, nil  // found in $GRAZHDA_DIR/bin
+        }
+    }
+    return exec.LookPath("dukh")   // fall back to $PATH
+}
+```
+
+`os.Stat` returns `(FileInfo, error)`. If `err == nil`, the file exists. The `_` discards the `FileInfo` since we only care about existence.
+
+`exec.LookPath("dukh")` searches the directories listed in the `$PATH` environment variable for an executable named `dukh` — exactly what the shell does when you type a command.
+
+### 18.2 zgard dukh scan — Triggering an Immediate Rescan
+
+```go
+func runScan(_ *cobra.Command, _ []string) error {
+    conn, client, err := dial()
+    defer conn.Close()
+    resp, err := client.Scan(context.Background(), &dukhpb.ScanRequest{})
+    fmt.Println(icolor.Green("✓ " + resp.Message))
+}
+```
+
+`context.Background()` creates a context with no deadline or cancellation. For simple one-shot RPC calls it is the right choice. Use `context.WithTimeout` (as in `dial()`) when you want automatic failure after a time limit.
+
+The round-trip for a `Scan` RPC is:
+1. zgard sends `ScanRequest{}` over gRPC
+2. dukh calls `monitor.TriggerScan()` — non-blocking
+3. dukh returns `ScanResponse{Message: "rescan initiated"}`
+4. zgard prints the message
+
+The scan itself happens asynchronously in dukh's monitor goroutine. `zgard dukh scan` only guarantees the signal was delivered, not that the scan finished.
+
+### 18.3 Configurable Monitoring Period
+
+`config.yaml` controls how often dukh scans:
+
+```yaml
+dukh:
+  host: localhost
+  port: 50501
+  monitoring:
+    period_mins: 5
+```
+
+The Go struct that maps to this YAML is in `internal/config/config.go`:
+
+```go
+type DukhConfig struct {
+    Host       string           `yaml:"host"`
+    Port       int              `yaml:"port"`
+    Monitoring MonitoringConfig `yaml:"monitoring"`
+}
+
+type MonitoringConfig struct {
+    PeriodMins int `yaml:"period_mins"`
+}
+```
+
+Each struct field has a **struct tag** — the backtick string after the type. `yaml:"period_mins"` tells the YAML parser to map the key `period_mins` in the YAML file to the `PeriodMins` field. Without the tag, the parser would look for a key named `PeriodMins` (case-insensitive match, but explicit tags are clearer).
+
+The monitor reads this on every cycle so you can tune the interval without restarting dukh.
+
+---
+
+## 19. Updated Project Layout
+
+```
+grazhda/
+├── go.work                 top-level workspace — links all three modules
+├── Justfile                build recipes: generate, build-zgard, build-dukh, test, fmt, tidy
+├── proto/
+│   └── dukh.proto          source of truth for the gRPC contract (edit this, not the generated files)
+├── config.template.yaml    template copied to $GRAZHDA_DIR/config.yaml on install
+├── internal/               shared Go module (imported by both zgard and dukh)
+│   ├── color/              Green/Red/Yellow/Blue helpers wrapping fatih/color
+│   ├── config/             Load(), Validate(), DukhConfig, MonitoringConfig, Workspace hierarchy
+│   ├── executor/           Executor interface + OsExecutor (captures stderr for good error messages)
+│   ├── reporter/           Record(), Summary(), ExitCode() — progress output for ws commands
+│   └── workspace/          Init, Purge, Pull domain logic + targeting resolver
+├── zgard/                  zgard CLI module
+│   ├── main.go             entry point: calls Execute()
+│   ├── root.go             root Cobra command; wires ws and dukh subcommand groups
+│   ├── dukh/               zgard dukh command group
+│   │   ├── dukh.go         New() — creates the group; dial() helper for gRPC connection
+│   │   ├── start.go        zgard dukh start — spawns dukh as a detached background process
+│   │   ├── stop.go         zgard dukh stop  — sends Stop RPC
+│   │   ├── status.go       zgard dukh status — sends Status RPC; renders coloured health report
+│   │   ├── scan.go         zgard dukh scan  — sends Scan RPC (immediate rescan)
+│   │   └── detach_unix.go  setDetach() — sets Setsid=true; only compiled on non-Windows
+│   └── ws/                 zgard ws command group
+│       ├── ws.go           NewCmd() — creates the group
+│       ├── init.go         zgard ws init
+│       ├── pull.go         zgard ws pull
+│       ├── purge.go        zgard ws purge
+│       ├── config.go       shared config loading for ws commands
+│       └── confirm.go      interactive confirmation prompt
+└── dukh/                   dukh gRPC server module
+    ├── cmd/
+    │   └── main.go         entry point for dukh binary; Cobra CLI with 'dukh start'
+    ├── proto/              generated protobuf Go code — DO NOT EDIT
+    │   ├── dukh.pb.go      message structs (StopRequest, StatusResponse, RepoStatus, …)
+    │   └── dukh_grpc.pb.go DukhServiceServer interface + DukhServiceClient
+    └── server/
+        ├── server.go       Server struct; ListenAndServe; Stop/Status/Scan handlers; PID file
+        ├── monitor.go      Monitor struct; configurable polling loop; TriggerScan; health snapshot
+        └── log.go          InitLogger: charmbracelet/log + lumberjack 5 MiB rotation
+```
+
+---
+
+## 20. New Go Concepts Introduced in Phase 2
+
+| Concept | Explanation |
+|---|---|
+| **gRPC** | Remote procedure call framework; methods defined in `.proto` files, called across processes |
+| **protobuf** | Protocol Buffers — binary serialisation format used by gRPC; more compact than JSON |
+| **`protoc`** | The Protocol Buffer compiler; generates Go code from `.proto` files |
+| **`//go:build`** | Build constraint; controls which files are compiled based on OS, architecture, or tags |
+| **`time.Timer`** | Fires once after a duration; create a new one each loop to support variable intervals |
+| **`time.Ticker`** | Fires repeatedly at a fixed interval; less flexible than Timer for variable periods |
+| **`sync.RWMutex`** | Reader/writer mutex; many readers OR one writer, not both simultaneously |
+| **`io.MultiWriter`** | Fan-out writer; copies every write to multiple destinations at once |
+| **`exec.Command`** | Prepares an OS command; `Start()` launches it without waiting; `Run()` waits |
+| **`syscall.SysProcAttr`** | Low-level process attributes; `Setsid: true` starts a new session (detaches from terminal) |
+| **`atomic.Bool`** | A boolean safe for concurrent read/write without a mutex |
+| **buffered channel** | `make(chan T, n)` — holds up to n items without blocking the sender |
+| **non-blocking send** | `select { case ch <- v: default: }` — sends only if channel has space, otherwise skips |
+| **struct tag** | Backtick annotation on a field: `` `yaml:"field_name"` `` — controls marshalling behaviour |
+| **`context.Background()`** | Root context with no deadline; used for operations that should not time out |
+| **`context.WithTimeout`** | Creates a context that is cancelled after a duration; good for network calls |
+| **lumberjack** | Third-party library for log rotation by file size |
+| **`charmbracelet/log`** | Structured logger with key-value pairs; outputs to any `io.Writer` |
+| **daemon / background process** | A long-running process with no controlling terminal; started with `Setsid` |
+| **`grpc.NewServer()`** | Creates a gRPC server; `Serve(lis)` blocks accepting connections |
+| **`UnimplementedDukhServiceServer`** | Generated embedded struct; provides default "not implemented" for all RPCs |

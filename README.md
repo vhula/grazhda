@@ -106,11 +106,25 @@ zgard ws purge --all --no-confirm     # remove all, no prompt (for CI)
 zgard ws purge --name myws --dry-run  # preview what would be removed
 ```
 
+### `zgard dukh start`
+Start dukh as a detached background process. Logs go to `$GRAZHDA_DIR/logs/dukh.log`.
+
+```bash
+zgard dukh start
+```
+
 ### `zgard dukh stop`
 Stop the running dukh monitor server gracefully.
 
 ```bash
 zgard dukh stop
+```
+
+### `zgard dukh scan`
+Trigger an immediate out-of-cycle workspace rescan without waiting for the next polling interval.
+
+```bash
+zgard dukh scan
 ```
 
 ### `zgard dukh status`
@@ -157,6 +171,12 @@ Workspace: default
 ### Example
 
 ```yaml
+dukh:
+  host: localhost
+  port: 50501
+  monitoring:
+    period_mins: 5       # how often dukh polls workspace health (default: 5)
+
 workspaces:
   - name: default
     default: true

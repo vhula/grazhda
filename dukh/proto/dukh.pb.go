@@ -101,6 +101,87 @@ func (x *StopResponse) GetMessage() string {
 	return ""
 }
 
+type ScanRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ScanRequest) Reset() {
+	*x = ScanRequest{}
+	mi := &file_dukh_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ScanRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ScanRequest) ProtoMessage() {}
+
+func (x *ScanRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_dukh_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ScanRequest.ProtoReflect.Descriptor instead.
+func (*ScanRequest) Descriptor() ([]byte, []int) {
+	return file_dukh_proto_rawDescGZIP(), []int{2}
+}
+
+type ScanResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// message describes what was triggered, e.g. "rescan initiated".
+	Message       string `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ScanResponse) Reset() {
+	*x = ScanResponse{}
+	mi := &file_dukh_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ScanResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ScanResponse) ProtoMessage() {}
+
+func (x *ScanResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_dukh_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ScanResponse.ProtoReflect.Descriptor instead.
+func (*ScanResponse) Descriptor() ([]byte, []int) {
+	return file_dukh_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *ScanResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
 // StatusRequest optionally scopes the response to a single workspace.
 // An empty workspace_name returns all workspaces.
 type StatusRequest struct {
@@ -112,7 +193,7 @@ type StatusRequest struct {
 
 func (x *StatusRequest) Reset() {
 	*x = StatusRequest{}
-	mi := &file_dukh_proto_msgTypes[2]
+	mi := &file_dukh_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -124,7 +205,7 @@ func (x *StatusRequest) String() string {
 func (*StatusRequest) ProtoMessage() {}
 
 func (x *StatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_dukh_proto_msgTypes[2]
+	mi := &file_dukh_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -137,7 +218,7 @@ func (x *StatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StatusRequest.ProtoReflect.Descriptor instead.
 func (*StatusRequest) Descriptor() ([]byte, []int) {
-	return file_dukh_proto_rawDescGZIP(), []int{2}
+	return file_dukh_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *StatusRequest) GetWorkspaceName() string {
@@ -158,7 +239,7 @@ type StatusResponse struct {
 
 func (x *StatusResponse) Reset() {
 	*x = StatusResponse{}
-	mi := &file_dukh_proto_msgTypes[3]
+	mi := &file_dukh_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -170,7 +251,7 @@ func (x *StatusResponse) String() string {
 func (*StatusResponse) ProtoMessage() {}
 
 func (x *StatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_dukh_proto_msgTypes[3]
+	mi := &file_dukh_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -183,7 +264,7 @@ func (x *StatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StatusResponse.ProtoReflect.Descriptor instead.
 func (*StatusResponse) Descriptor() ([]byte, []int) {
-	return file_dukh_proto_rawDescGZIP(), []int{3}
+	return file_dukh_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *StatusResponse) GetWorkspaces() []*WorkspaceStatus {
@@ -219,7 +300,7 @@ type WorkspaceStatus struct {
 
 func (x *WorkspaceStatus) Reset() {
 	*x = WorkspaceStatus{}
-	mi := &file_dukh_proto_msgTypes[4]
+	mi := &file_dukh_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -231,7 +312,7 @@ func (x *WorkspaceStatus) String() string {
 func (*WorkspaceStatus) ProtoMessage() {}
 
 func (x *WorkspaceStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_dukh_proto_msgTypes[4]
+	mi := &file_dukh_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -244,7 +325,7 @@ func (x *WorkspaceStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkspaceStatus.ProtoReflect.Descriptor instead.
 func (*WorkspaceStatus) Descriptor() ([]byte, []int) {
-	return file_dukh_proto_rawDescGZIP(), []int{4}
+	return file_dukh_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *WorkspaceStatus) GetName() string {
@@ -279,7 +360,7 @@ type ProjectStatus struct {
 
 func (x *ProjectStatus) Reset() {
 	*x = ProjectStatus{}
-	mi := &file_dukh_proto_msgTypes[5]
+	mi := &file_dukh_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -291,7 +372,7 @@ func (x *ProjectStatus) String() string {
 func (*ProjectStatus) ProtoMessage() {}
 
 func (x *ProjectStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_dukh_proto_msgTypes[5]
+	mi := &file_dukh_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -304,7 +385,7 @@ func (x *ProjectStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProjectStatus.ProtoReflect.Descriptor instead.
 func (*ProjectStatus) Descriptor() ([]byte, []int) {
-	return file_dukh_proto_rawDescGZIP(), []int{5}
+	return file_dukh_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *ProjectStatus) GetName() string {
@@ -336,7 +417,7 @@ type RepoStatus struct {
 
 func (x *RepoStatus) Reset() {
 	*x = RepoStatus{}
-	mi := &file_dukh_proto_msgTypes[6]
+	mi := &file_dukh_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -348,7 +429,7 @@ func (x *RepoStatus) String() string {
 func (*RepoStatus) ProtoMessage() {}
 
 func (x *RepoStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_dukh_proto_msgTypes[6]
+	mi := &file_dukh_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -361,7 +442,7 @@ func (x *RepoStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RepoStatus.ProtoReflect.Descriptor instead.
 func (*RepoStatus) Descriptor() ([]byte, []int) {
-	return file_dukh_proto_rawDescGZIP(), []int{6}
+	return file_dukh_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *RepoStatus) GetName() string {
@@ -414,6 +495,9 @@ const file_dukh_proto_rawDesc = "" +
 	"dukh.proto\x12\adukh.v1\"\r\n" +
 	"\vStopRequest\"(\n" +
 	"\fStopResponse\x12\x18\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"\r\n" +
+	"\vScanRequest\"(\n" +
+	"\fScanResponse\x12\x18\n" +
 	"\amessage\x18\x01 \x01(\tR\amessage\"6\n" +
 	"\rStatusRequest\x12%\n" +
 	"\x0eworkspace_name\x18\x01 \x01(\tR\rworkspaceName\"\x98\x01\n" +
@@ -437,10 +521,11 @@ const file_dukh_proto_rawDesc = "" +
 	"\x11configured_branch\x18\x03 \x01(\tR\x10configuredBranch\x12#\n" +
 	"\ractual_branch\x18\x04 \x01(\tR\factualBranch\x12\x16\n" +
 	"\x06exists\x18\x05 \x01(\bR\x06exists\x12%\n" +
-	"\x0ebranch_aligned\x18\x06 \x01(\bR\rbranchAligned2}\n" +
+	"\x0ebranch_aligned\x18\x06 \x01(\bR\rbranchAligned2\xb2\x01\n" +
 	"\vDukhService\x123\n" +
 	"\x04Stop\x12\x14.dukh.v1.StopRequest\x1a\x15.dukh.v1.StopResponse\x129\n" +
-	"\x06Status\x12\x16.dukh.v1.StatusRequest\x1a\x17.dukh.v1.StatusResponseB,Z*github.com/vhula/grazhda/dukh/proto;dukhpbb\x06proto3"
+	"\x06Status\x12\x16.dukh.v1.StatusRequest\x1a\x17.dukh.v1.StatusResponse\x123\n" +
+	"\x04Scan\x12\x14.dukh.v1.ScanRequest\x1a\x15.dukh.v1.ScanResponseB,Z*github.com/vhula/grazhda/dukh/proto;dukhpbb\x06proto3"
 
 var (
 	file_dukh_proto_rawDescOnce sync.Once
@@ -454,26 +539,30 @@ func file_dukh_proto_rawDescGZIP() []byte {
 	return file_dukh_proto_rawDescData
 }
 
-var file_dukh_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_dukh_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_dukh_proto_goTypes = []any{
 	(*StopRequest)(nil),     // 0: dukh.v1.StopRequest
 	(*StopResponse)(nil),    // 1: dukh.v1.StopResponse
-	(*StatusRequest)(nil),   // 2: dukh.v1.StatusRequest
-	(*StatusResponse)(nil),  // 3: dukh.v1.StatusResponse
-	(*WorkspaceStatus)(nil), // 4: dukh.v1.WorkspaceStatus
-	(*ProjectStatus)(nil),   // 5: dukh.v1.ProjectStatus
-	(*RepoStatus)(nil),      // 6: dukh.v1.RepoStatus
+	(*ScanRequest)(nil),     // 2: dukh.v1.ScanRequest
+	(*ScanResponse)(nil),    // 3: dukh.v1.ScanResponse
+	(*StatusRequest)(nil),   // 4: dukh.v1.StatusRequest
+	(*StatusResponse)(nil),  // 5: dukh.v1.StatusResponse
+	(*WorkspaceStatus)(nil), // 6: dukh.v1.WorkspaceStatus
+	(*ProjectStatus)(nil),   // 7: dukh.v1.ProjectStatus
+	(*RepoStatus)(nil),      // 8: dukh.v1.RepoStatus
 }
 var file_dukh_proto_depIdxs = []int32{
-	4, // 0: dukh.v1.StatusResponse.workspaces:type_name -> dukh.v1.WorkspaceStatus
-	5, // 1: dukh.v1.WorkspaceStatus.projects:type_name -> dukh.v1.ProjectStatus
-	6, // 2: dukh.v1.ProjectStatus.repositories:type_name -> dukh.v1.RepoStatus
+	6, // 0: dukh.v1.StatusResponse.workspaces:type_name -> dukh.v1.WorkspaceStatus
+	7, // 1: dukh.v1.WorkspaceStatus.projects:type_name -> dukh.v1.ProjectStatus
+	8, // 2: dukh.v1.ProjectStatus.repositories:type_name -> dukh.v1.RepoStatus
 	0, // 3: dukh.v1.DukhService.Stop:input_type -> dukh.v1.StopRequest
-	2, // 4: dukh.v1.DukhService.Status:input_type -> dukh.v1.StatusRequest
-	1, // 5: dukh.v1.DukhService.Stop:output_type -> dukh.v1.StopResponse
-	3, // 6: dukh.v1.DukhService.Status:output_type -> dukh.v1.StatusResponse
-	5, // [5:7] is the sub-list for method output_type
-	3, // [3:5] is the sub-list for method input_type
+	4, // 4: dukh.v1.DukhService.Status:input_type -> dukh.v1.StatusRequest
+	2, // 5: dukh.v1.DukhService.Scan:input_type -> dukh.v1.ScanRequest
+	1, // 6: dukh.v1.DukhService.Stop:output_type -> dukh.v1.StopResponse
+	5, // 7: dukh.v1.DukhService.Status:output_type -> dukh.v1.StatusResponse
+	3, // 8: dukh.v1.DukhService.Scan:output_type -> dukh.v1.ScanResponse
+	6, // [6:9] is the sub-list for method output_type
+	3, // [3:6] is the sub-list for method input_type
 	3, // [3:3] is the sub-list for extension type_name
 	3, // [3:3] is the sub-list for extension extendee
 	0, // [0:3] is the sub-list for field type_name
@@ -490,7 +579,7 @@ func file_dukh_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_dukh_proto_rawDesc), len(file_dukh_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   7,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -21,6 +21,7 @@ const _ = grpc.SupportPackageIsVersion9
 const (
 	DukhService_Stop_FullMethodName   = "/dukh.v1.DukhService/Stop"
 	DukhService_Status_FullMethodName = "/dukh.v1.DukhService/Status"
+	DukhService_Scan_FullMethodName   = "/dukh.v1.DukhService/Scan"
 )
 
 // DukhServiceClient is the client API for DukhService service.
@@ -33,6 +34,8 @@ type DukhServiceClient interface {
 	Stop(ctx context.Context, in *StopRequest, opts ...grpc.CallOption) (*StopResponse, error)
 	// Status returns the current health snapshot of all monitored workspaces.
 	Status(ctx context.Context, in *StatusRequest, opts ...grpc.CallOption) (*StatusResponse, error)
+	// Scan triggers an immediate out-of-cycle workspace rescan.
+	Scan(ctx context.Context, in *ScanRequest, opts ...grpc.CallOption) (*ScanResponse, error)
 }
 
 type dukhServiceClient struct {
@@ -63,6 +66,16 @@ func (c *dukhServiceClient) Status(ctx context.Context, in *StatusRequest, opts 
 	return out, nil
 }
 
+func (c *dukhServiceClient) Scan(ctx context.Context, in *ScanRequest, opts ...grpc.CallOption) (*ScanResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ScanResponse)
+	err := c.cc.Invoke(ctx, DukhService_Scan_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // DukhServiceServer is the server API for DukhService service.
 // All implementations must embed UnimplementedDukhServiceServer
 // for forward compatibility.
@@ -73,6 +86,8 @@ type DukhServiceServer interface {
 	Stop(context.Context, *StopRequest) (*StopResponse, error)
 	// Status returns the current health snapshot of all monitored workspaces.
 	Status(context.Context, *StatusRequest) (*StatusResponse, error)
+	// Scan triggers an immediate out-of-cycle workspace rescan.
+	Scan(context.Context, *ScanRequest) (*ScanResponse, error)
 	mustEmbedUnimplementedDukhServiceServer()
 }
 
@@ -88,6 +103,9 @@ func (UnimplementedDukhServiceServer) Stop(context.Context, *StopRequest) (*Stop
 }
 func (UnimplementedDukhServiceServer) Status(context.Context, *StatusRequest) (*StatusResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Status not implemented")
+}
+func (UnimplementedDukhServiceServer) Scan(context.Context, *ScanRequest) (*ScanResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Scan not implemented")
 }
 func (UnimplementedDukhServiceServer) mustEmbedUnimplementedDukhServiceServer() {}
 func (UnimplementedDukhServiceServer) testEmbeddedByValue()                     {}
@@ -146,6 +164,24 @@ func _DukhService_Status_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _DukhService_Scan_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ScanRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DukhServiceServer).Scan(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DukhService_Scan_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DukhServiceServer).Scan(ctx, req.(*ScanRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // DukhService_ServiceDesc is the grpc.ServiceDesc for DukhService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -160,6 +196,10 @@ var DukhService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Status",
 			Handler:    _DukhService_Status_Handler,
+		},
+		{
+			MethodName: "Scan",
+			Handler:    _DukhService_Scan_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

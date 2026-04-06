@@ -69,6 +69,13 @@ func (s *Server) Stop(_ context.Context, _ *dukhpb.StopRequest) (*dukhpb.StopRes
 	return &dukhpb.StopResponse{Message: "dukh shutting down"}, nil
 }
 
+// Scan implements DukhService.Scan — triggers an immediate workspace rescan.
+func (s *Server) Scan(_ context.Context, _ *dukhpb.ScanRequest) (*dukhpb.ScanResponse, error) {
+	s.logger.Info("dukh: Scan RPC received — triggering immediate rescan")
+	s.monitor.TriggerScan()
+	return &dukhpb.ScanResponse{Message: "rescan initiated"}, nil
+}
+
 // Status implements DukhService.Status — returns current workspace health.
 func (s *Server) Status(_ context.Context, req *dukhpb.StatusRequest) (*dukhpb.StatusResponse, error) {
 	snapshot := s.monitor.Snapshot()
