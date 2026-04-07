@@ -445,6 +445,7 @@ workspaces:
 - **FR-D21:** `dukh status` reads `$GRAZHDA_DIR/run/dukh.pid` and checks process liveness; prints `●  dukh: running (pid N, uptime: X)` or `○  dukh: not running`. This reports **process** health only.
 - **FR-D22:** `zgard ws status` is the workspace health command; it calls the dukh gRPC `Status` RPC and renders the coloured per-repo report. It replaces the former `zgard dukh status` command.
 - **FR-D23:** `zgard ws status --rescan` sets `StatusRequest.rescan=true` on the RPC, waits up to 60 seconds, and prints `⟳ rescanning workspaces…` before the report.
+- **FR-D24:** If `dukh` is not running when `zgard ws status` is invoked, the CLI must automatically start `dukh` in the background, wait for it to become ready (up to 10 seconds), and then proceed with the Status RPC. The user sees `⟳ dukh is not running — starting…` followed by `✓ dukh started` before the health report.
 
 ### Non-Functional Requirements
 

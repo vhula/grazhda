@@ -587,7 +587,26 @@ Exit code `1`; message written to stderr.
 
 ### `zgard ws status`
 
-**Purpose:** Query `dukh` for the current health snapshot and render a colored report.
+**Purpose:** Query `dukh` for the current health snapshot and render a colored report. If `dukh` is not running, it is automatically started before querying.
+
+#### Auto-Start Behavior
+
+When the initial gRPC call fails (dukh not running), zgard:
+1. Prints `⟳ dukh is not running — starting…` in blue.
+2. Runs `dukh start` as a subprocess.
+3. Polls the gRPC endpoint for up to 10 seconds.
+4. Prints `✓ dukh started` in green, then proceeds with the status report.
+
+```
+⟳ dukh is not running — starting…
+✓ dukh started (pid 12345)
+✓ dukh started
+
+Dukh  running  •  uptime: 0s
+...
+```
+
+If `dukh start` fails or the server does not become ready within 10 seconds, an error is printed and the command exits with code 1.
 
 #### Flags
 
@@ -679,7 +698,9 @@ The `⟳ rescanning workspaces…` line is printed in blue immediately before th
 
 | Condition | Output | Exit Code |
 |---|---|---|
-| dukh not running / not reachable | `✗ dukh not running — start with: dukh start` (stderr) | 1 |
+| dukh not running → auto-start succeeds | `⟳ dukh is not running — starting…` + `✓ dukh started` then normal report | 0 |
+| dukh not running → auto-start fails | `✗ auto-start dukh: <reason>` (stderr) | 1 |
+| dukh not running → ready timeout | `✗ dukh did not become ready: timeout after 10s` (stderr) | 1 |
 | Named workspace not found | `✗ workspace "foo" not found` (stderr) | 1 |
 | dukh returns empty snapshot (no workspaces configured) | `(no workspaces configured)` (stdout) | 0 |
 

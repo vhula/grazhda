@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -50,12 +51,85 @@ func runWsStatus(cmd *cobra.Command, _ []string) error {
 		Rescan:        rescan,
 	})
 	if err != nil {
-		fmt.Fprintln(os.Stderr, icolor.Red("✗ dukh status failed: "+err.Error()))
-		return err
+		// dukh is not running — attempt to auto-start it.
+		resp, err = tryAutoStartAndRetry(client, name, rescan)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, icolor.Red("✗ dukh status failed: "+err.Error()))
+			return err
+		}
 	}
 
 	renderWsStatus(resp)
 	return nil
+}
+
+// tryAutoStartAndRetry launches `dukh start`, waits for the server to become
+// ready, then retries the Status RPC. Returns the response or an error if
+// dukh could not be started or did not become ready within the timeout.
+func tryAutoStartAndRetry(client dukhpb.DukhServiceClient, wsName string, rescan bool) (*dukhpb.StatusResponse, error) {
+	fmt.Println(icolor.Blue("⟳ dukh is not running — starting…"))
+
+	if err := startDukh(); err != nil {
+		return nil, fmt.Errorf("auto-start dukh: %w", err)
+	}
+
+	if err := waitForDukh(client, 10*time.Second); err != nil {
+		return nil, fmt.Errorf("dukh did not become ready: %w", err)
+	}
+
+	fmt.Println(icolor.Green("✓") + " dukh started")
+	fmt.Println()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	return client.Status(ctx, &dukhpb.StatusRequest{
+		WorkspaceName: wsName,
+		Rescan:        rescan,
+	})
+}
+
+// startDukh executes `dukh start` as a subprocess, reusing the existing
+// daemonization logic in the dukh binary.
+func startDukh() error {
+	dukhBin := resolveDukhBin()
+	cmd := exec.Command(dukhBin, "start")
+	cmd.Env = os.Environ()
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+// resolveDukhBin returns the path to the dukh binary. It checks
+// $GRAZHDA_DIR/bin/dukh first, then falls back to PATH lookup.
+func resolveDukhBin() string {
+	grazhdaDir := os.Getenv("GRAZHDA_DIR")
+	if grazhdaDir != "" {
+		candidate := grazhdaDir + "/bin/dukh"
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
+	}
+	if p, err := exec.LookPath("dukh"); err == nil {
+		return p
+	}
+	return "dukh"
+}
+
+// waitForDukh polls the gRPC server until a Status RPC succeeds or the
+// timeout elapses.
+func waitForDukh(client dukhpb.DukhServiceClient, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		_, err := client.Status(ctx, &dukhpb.StatusRequest{})
+		cancel()
+		if err == nil {
+			return nil
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	return fmt.Errorf("timeout after %s", timeout)
 }
 
 // dialDukh opens a gRPC connection to the dukh server.

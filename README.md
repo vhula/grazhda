@@ -198,10 +198,11 @@ zgard ws purge --name myws --dry-run  # preview what would be removed
 ```
 
 #### `zgard ws status`
-Show workspace health as tracked by `dukh`. Requires `dukh` to be running.
+Show workspace health as tracked by `dukh`. If `dukh` is not running, it is
+automatically started before querying status.
 
 ```bash
-zgard ws status              # all workspaces (cached)
+zgard ws status              # all workspaces (cached); starts dukh if needed
 zgard ws status --name myws  # one workspace
 zgard ws status --rescan     # trigger a fresh scan, wait, then report
 ```

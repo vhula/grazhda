@@ -904,6 +904,19 @@ When `zgard ws status --rescan` is called the following happens:
 
 The gRPC context deadline propagates all the way into `TriggerScanAndWait`, so if the scan exceeds 60 seconds the call is cancelled and zgard prints an error — no hanging.
 
+### Auto-Start Flow
+
+If `dukh` is not running when `zgard ws status` is invoked:
+
+1. zgard creates a lazy gRPC connection via `grpc.NewClient` and attempts the `Status` RPC.
+2. The RPC fails because no server is listening.
+3. zgard prints `⟳ dukh is not running — starting…` and invokes `dukh start` as a subprocess (resolved from `$GRAZHDA_DIR/bin/dukh` or `$PATH`).
+4. `dukh start` launches the daemon in detached mode via the standard self-re-exec pattern.
+5. zgard polls the gRPC endpoint with 500 ms intervals, up to a 10-second timeout.
+6. Once the `Status` RPC succeeds, zgard prints `✓ dukh started` and renders the health report.
+
+The auto-start is transparent — subsequent calls use the already-running daemon.
+
 ### Architectural Invariants
 
 - `dukh/proto/` is generated code — never edited by hand.

@@ -47,7 +47,8 @@ This guide explains the Grazhda project from first principles. You do not need t
     - [dukh scan](#182-dukh-scan--triggering-an-immediate-rescan)
     - [dukh status — Process Health](#183-dukh-status--process-health)
     - [zgard ws status --rescan](#184-zgard-ws-status---rescan--synchronous-scan-before-status)
-    - [Configurable Monitoring Period](#185-configurable-monitoring-period)
+    - [Auto-Start — Transparent dukh Bootstrapping](#185-auto-start--transparent-dukh-bootstrapping)
+    - [Configurable Monitoring Period](#186-configurable-monitoring-period)
 19. [Updated Project Layout](#19-updated-project-layout)
 20. [New Go Concepts Introduced in Phase 2](#20-new-go-concepts-introduced-in-phase-2)
 
@@ -2223,7 +2224,34 @@ The gRPC client context timeout of 60 seconds propagates to `TriggerScanAndWait(
 | Returns health data | ✗ | ✓ |
 | Useful when | you want to trigger a background refresh | you need fresh data right now |
 
-### 18.5 Configurable Monitoring Period
+### 18.5 Auto-Start — Transparent dukh Bootstrapping
+
+`zgard ws status` transparently starts `dukh` when it is not already running. This eliminates the need for users to manually run `dukh start` before checking workspace health.
+
+**How it works:**
+
+1. zgard creates a lazy gRPC client via `grpc.NewClient` (no immediate connection).
+2. The first `Status` RPC call fails because no server is listening.
+3. zgard catches the error and prints `⟳ dukh is not running — starting…`.
+4. It resolves the `dukh` binary — first checking `$GRAZHDA_DIR/bin/dukh`, then falling back to `$PATH`.
+5. It runs `dukh start` as a subprocess, which handles its own daemonization (see §18.6).
+6. zgard polls the gRPC endpoint at 500 ms intervals for up to 10 seconds.
+7. Once the `Status` RPC succeeds, it prints `✓ dukh started` and renders the health report.
+
+```
+⟳ dukh is not running — starting…
+✓ dukh started (pid 12345)
+✓ dukh started
+
+Dukh  running  •  uptime: 0s
+...
+```
+
+**Why retry instead of one-shot?** The `dukh start` subprocess returns as soon as the daemon process is forked, but the gRPC listener may take a moment to bind. Polling with a short interval and reasonable timeout ensures zgard waits just long enough.
+
+**Why resolve the binary?** In a standard Grazhda installation, `dukh` lives in `$GRAZHDA_DIR/bin/`. If `$GRAZHDA_DIR` is set, zgard checks there first. This ensures the auto-start uses the same version of dukh that was installed, even if another version exists on `$PATH`.
+
+### 18.6 Configurable Monitoring Period
 
 `config.yaml` controls how often dukh scans:
 
