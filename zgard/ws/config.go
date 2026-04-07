@@ -10,7 +10,10 @@ import (
 func resolveConfigPath() string {
 	dir := os.Getenv("GRAZHDA_DIR")
 	if dir == "" {
-		home, _ := os.UserHomeDir()
+		home, err := os.UserHomeDir()
+		if err != nil {
+			home = "."
+		}
 		dir = filepath.Join(home, ".grazhda")
 	}
 	return filepath.Join(dir, "config.yaml")

@@ -59,17 +59,13 @@ func runWsStatus(cmd *cobra.Command, _ []string) error {
 }
 
 // dialDukh opens a gRPC connection to the dukh server.
+// The connection is lazy — it will fail on the first RPC if dukh is not running.
 func dialDukh() (*grpc.ClientConn, dukhpb.DukhServiceClient, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
-	//nolint:staticcheck // DialContext is the correct API for this grpc version
-	conn, err := grpc.DialContext(ctx, dukhAddr,
+	conn, err := grpc.NewClient(dukhAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(),
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("cannot reach dukh at %s — is it running? (%w)", dukhAddr, err)
+		return nil, nil, fmt.Errorf("cannot create dukh client for %s: %w", dukhAddr, err)
 	}
 	return conn, dukhpb.NewDukhServiceClient(conn), nil
 }

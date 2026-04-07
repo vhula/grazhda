@@ -69,7 +69,7 @@ install_from_sources() {
 
     mkdir -p "$GRAZHDA_DIR/bin"
     cp bin/* "$GRAZHDA_DIR/bin/"
-    chmod +x "$GRAZHDA_DIR/bin/grazhda" "$GRAZHDA_DIR/bin/grazhda-init.sh"
+    chmod +x "$GRAZHDA_DIR/bin/"*
 
     echo -e "${GREEN}✓ Grazhda built successfully${NC}"
     echo "Binaries are located in: $GRAZHDA_DIR/bin/"
@@ -117,7 +117,11 @@ create_config() {
 
     cp "$GRAZHDA_DIR"/sources/config.template.yaml "$config_file"
 
-    sed -i "s|\${GRAZHDA_DIR}|$GRAZHDA_DIR|g" "$config_file"
+    if [[ "$(uname)" == "Darwin" ]]; then
+        sed -i '' "s|\${GRAZHDA_DIR}|$GRAZHDA_DIR|g" "$config_file"
+    else
+        sed -i "s|\${GRAZHDA_DIR}|$GRAZHDA_DIR|g" "$config_file"
+    fi
 
     echo -e "${GREEN}✓ Configuration file created: $config_file${NC}"
 }
@@ -155,8 +159,8 @@ main() {
 
     create_config
 
-    if [[ -z $(grep 'grazhda-init.sh' "$bashrc_path") ]]; then
-      echo -e "\n$grazhda_init_snippet" >> "$bashrc_path"
+    if ! grep -q 'grazhda-init.sh' "$bashrc_path"; then
+      printf '\n%s\n' "$grazhda_init_snippet" >> "$bashrc_path"
       echo "Added grazhda init snippet to $bashrc_path"
     fi
 

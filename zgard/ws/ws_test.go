@@ -1,13 +1,34 @@
-package ws_test
+package ws
 
 import (
+	"bytes"
 	"strings"
 	"testing"
 )
 
-// confirm is tested indirectly via the ws package.
-// Since confirm is unexported (package-private), it is exercised via purge
-// using strings.NewReader for TTY injection.
 func TestConfirm_Approve(t *testing.T) {
-	_ = strings.NewReader("y\n") // would return true
+	var buf bytes.Buffer
+	reader := strings.NewReader("y\n")
+	result := confirm(&buf, reader, "Delete?", []string{"/tmp/a"})
+	if !result {
+		t.Error("expected confirm to return true for 'y' input")
+	}
+}
+
+func TestConfirm_Reject(t *testing.T) {
+	var buf bytes.Buffer
+	reader := strings.NewReader("n\n")
+	result := confirm(&buf, reader, "Delete?", []string{"/tmp/a"})
+	if result {
+		t.Error("expected confirm to return false for 'n' input")
+	}
+}
+
+func TestConfirm_DefaultReject(t *testing.T) {
+	var buf bytes.Buffer
+	reader := strings.NewReader("\n")
+	result := confirm(&buf, reader, "Delete?", []string{"/tmp/a"})
+	if result {
+		t.Error("expected confirm to return false for empty input")
+	}
 }

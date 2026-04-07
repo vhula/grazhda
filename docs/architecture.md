@@ -892,7 +892,7 @@ dukh:
 
 ### Synchronous Rescan Flow (`--rescan`)
 
-When `zgard dukh status --rescan` is called the following happens:
+When `zgard ws status --rescan` is called the following happens:
 
 1. zgard creates a 60-second `context.WithTimeout` and builds `StatusRequest{Rescan: true}`.
 2. dukh's `Status()` handler detects `req.Rescan == true` and calls `monitor.TriggerScanAndWait(ctx)`.

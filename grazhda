@@ -33,7 +33,7 @@ yaml_get() {
     grep -E "^${key}:[[:space:]]*" "$file" 2>/dev/null \
         | sed "s/^${key}:[[:space:]]*//" \
         | tr -d '"'"'" \
-        | xargs  # trim whitespace
+        | sed 's/^[[:space:]]*//; s/[[:space:]]*$//'
 }
 
 check_binary() {

@@ -65,6 +65,6 @@ grazhda/
 │   ├── main.go
 │   ├── root.go
 │   └── ws/              # ws init / purge / pull commands
-├── dukh/                # Placeholder (Phase 2)
+├── dukh/                # gRPC server for workspace monitoring
 └── bin/                 # Built outputs (created by just build)
 ```

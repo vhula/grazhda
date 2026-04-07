@@ -548,15 +548,15 @@ When `--verbose` is active:
 
 ---
 
-## Phase 2 — zgard dukh Commands
+## Phase 2 — dukh Server Commands & zgard ws status
 
 ### Overview
 
-`zgard dukh` is a subcommand group with two sub-subcommands: `stop` and `status`. Both connect to the running `dukh` gRPC server on `localhost:50501` (or the configured address). All dukh command output follows the same terminal conventions as `zgard ws` — symbols over colour alone, stderr for errors.
+Server lifecycle is managed directly by the `dukh` binary (`dukh start`, `dukh stop`, `dukh status`). Workspace health is queried via `zgard ws status`, which connects to the running `dukh` gRPC server on `localhost:50501` (or the configured address). All output follows the same terminal conventions as `zgard ws` — symbols over color alone, stderr for errors.
 
 ---
 
-### `zgard dukh stop`
+### `dukh stop`
 
 **Purpose:** Send a Stop RPC to `dukh`, triggering graceful shutdown.
 
@@ -574,9 +574,9 @@ When `--verbose` is active:
 
 Exit code `1`; message written to stderr.
 
-#### Colour Scheme
+#### Color Scheme
 
-| Element | Colour |
+| Element | Color |
 |---|---|
 | `✓` prefix | Green |
 | `✗` prefix | Red |
@@ -585,9 +585,9 @@ Exit code `1`; message written to stderr.
 
 ---
 
-### `zgard dukh status`
+### `zgard ws status`
 
-**Purpose:** Query `dukh` for the current health snapshot and render a coloured report.
+**Purpose:** Query `dukh` for the current health snapshot and render a colored report.
 
 #### Flags
 

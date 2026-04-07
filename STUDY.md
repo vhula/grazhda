@@ -1887,7 +1887,7 @@ This produces two files in `dukh/proto/`:
 ### 16.4 The Client–Server Pattern
 
 ```
-zgard dukh status            dukh start
+zgard ws status               dukh start
        |                           |
   dial("localhost:50501")     grpc.NewServer()
        |                           |
@@ -2064,7 +2064,7 @@ func (m *Monitor) TriggerScanAndWait(ctx context.Context) error {
 }
 ```
 
-This is the **done-channel pattern** — a common Go idiom for synchronous callbacks over channels. The caller creates a fresh `chan struct{}`, sends it as the payload, then waits for it to be closed. The loop closes the channel after `scan()` returns, which unblocks the caller. Used by `zgard dukh status --rescan` so the CLI waits for fresh data before printing.
+This is the **done-channel pattern** — a common Go idiom for synchronous callbacks over channels. The caller creates a fresh `chan struct{}`, sends it as the payload, then waits for it to be closed. The loop closes the channel after `scan()` returns, which unblocks the caller. Used by `zgard ws status --rescan` so the CLI waits for fresh data before printing.
 
 **`loadPeriod` reads the configured polling interval:**
 

@@ -1,7 +1,7 @@
 ---
 phase: 2
 component: dukh
-status: planned
+status: complete
 ---
 
 # Epics & Stories — dukh gRPC Monitor (Phase 2)
@@ -98,7 +98,7 @@ This document defines the implementation epics and stories for the `dukh` backgr
 - `SIGTERM` and `SIGINT` trigger the same shutdown path via `signal.NotifyContext`.
 - PID is written to `$GRAZHDA_DIR/run/dukh.pid` on start; removed on stop.
 - If a PID file exists and the process is alive, startup aborts with `"dukh already running (pid N)"`.
-- Integration smoke test: `dukh start &` then `zgard dukh stop` exits 0 and PID file is gone.
+- Integration smoke test: `dukh start &` then `dukh stop` exits 0 and PID file is gone.
 
 **Implementation Notes:**
 - Use `google.golang.org/grpc.NewServer()` with no interceptors in Phase 2.
@@ -146,18 +146,18 @@ This document defines the implementation epics and stories for the `dukh` backgr
 
 ---
 
-## Epic D3: zgard dukh CLI
+## Epic D3: dukh & zgard ws status CLI
 
-**Goal:** Add `zgard dukh stop` and `zgard dukh status` commands that connect to the running `dukh` server and render results.
+**Goal:** Add `dukh stop` and `zgard ws status` commands that connect to the running `dukh` server and render results.
 
 ---
 
-### Story D3.1: Implement `zgard dukh stop` command
+### Story D3.1: Implement `dukh stop` command
 
 **Goal:** Let users stop `dukh` from the `zgard` CLI.
 
 **Acceptance Criteria:**
-- `zgard dukh stop` creates a gRPC client, calls `Stop`, prints the response message, and exits 0.
+- `dukh stop` creates a gRPC client, calls `Stop`, prints the response message, and exits 0.
 - If connection fails (refused / timeout), prints `✗ dukh not reachable — connection refused (<addr>)` to stderr and exits 1.
 - gRPC dial uses a 3-second connection timeout.
 - Target address resolved from config (`dukh.host:dukh.port`), defaulting to `localhost:50501`.
@@ -169,12 +169,12 @@ This document defines the implementation epics and stories for the `dukh` backgr
 
 ---
 
-### Story D3.2: Implement `zgard dukh status` command with colored output
+### Story D3.2: Implement `zgard ws status` command with colored output
 
 **Goal:** Render the full workspace health report from dukh's Status RPC.
 
 **Acceptance Criteria:**
-- `zgard dukh status` calls `Status(StatusRequest{})` and renders output matching the UX spec exactly.
+- `zgard ws status` calls `Status(StatusRequest{})` and renders output matching the UX spec exactly.
 - Header line: `Dukh  running  •  uptime: <formatted>` — `running` in green bold.
 - Workspace headers in blue bold; project headers in default colour with 2-space indent.
 - Aligned repos: `✓` in green, branch arrow in green; mismatched repos: `✗` in red, actual branch in red with `(branch mismatch)` annotation.
@@ -197,25 +197,25 @@ This document defines the implementation epics and stories for the `dukh` backgr
 **Goal:** Register the `dukh` command group in the `zgard` Cobra command tree.
 
 **Acceptance Criteria:**
-- `zgard dukh --help` lists `stop` and `status` subcommands.
+- `dukh --help` lists `stop` and `status` subcommands.
 - `zgard --help` lists `dukh` as a top-level command alongside `ws`.
 - All existing `zgard ws` commands continue to pass their tests unmodified.
-- `zgard dukh` without a subcommand prints help and exits 0.
+- `dukh` without a subcommand prints help and exits 0.
 
 ---
 
-### Story D3.4: Add `--rescan` flag to `zgard dukh status`
+### Story D3.4: Add `--rescan` flag to `zgard ws status`
 
 **Goal:** Allow users to request a synchronous workspace rescan before the health report is rendered.
 
 **Acceptance Criteria:**
-- `zgard dukh status --rescan` prints `⟳ rescanning workspaces…` in blue before calling the RPC.
+- `zgard ws status --rescan` prints `⟳ rescanning workspaces…` in blue before calling the RPC.
 - The RPC is sent with `StatusRequest{Rescan: true}` and a 60-second context timeout.
 - dukh's `Status` handler calls `monitor.TriggerScanAndWait(ctx)` and waits for the scan to complete.
 - The health report that follows reflects the current state of the filesystem (not a cached snapshot).
 - If the scan exceeds 60 seconds the RPC returns a deadline error; zgard prints `✗ dukh status failed: <err>` to stderr and exits 1.
 - When `--rescan` is not set, behaviour is identical to pre-flag: a plain `StatusRequest{Rescan: false}` is sent with a default context.
-- `zgard dukh status --help` documents the `--rescan` flag.
+- `zgard ws status --help` documents the `--rescan` flag.
 
 **Implementation Notes:**
 - `triggerScan` channel type upgrades from `chan struct{}` to `chan chan struct{}` to carry an optional reply channel.

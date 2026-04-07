@@ -420,6 +420,20 @@ repositories:
 
 ---
 
+## 📚 Documentation
+
+Detailed design and planning documents live in the [`docs/`](docs/) directory:
+
+| Document | Description |
+| :--- | :--- |
+| [Product Requirements](docs/prd.md) | Functional requirements and acceptance criteria |
+| [Architecture](docs/architecture.md) | System design, gRPC contracts, and data flow |
+| [UX Design Specification](docs/ux-design-specification.md) | CLI output formatting, colors, and layout rules |
+| [Epics — Workspace](docs/epics.md) | User stories for zgard workspace features |
+| [Epics — Dukh](docs/epics-dukh.md) | User stories for dukh server features |
+
+---
+
 ## 🛠️ Development
 
 ```bash

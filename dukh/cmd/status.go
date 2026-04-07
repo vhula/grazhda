@@ -25,12 +25,19 @@ func statusCmd() *cobra.Command {
 func runDukhStatus(_ *cobra.Command, _ []string) error {
 	grazhdaDir := os.Getenv("GRAZHDA_DIR")
 	if grazhdaDir == "" {
-		home, _ := os.UserHomeDir()
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return fmt.Errorf("cannot determine home directory: %w", err)
+		}
 		grazhdaDir = filepath.Join(home, ".grazhda")
 	}
 
 	pid, err := readPIDFile(grazhdaDir)
-	if err != nil || pid == 0 {
+	if err != nil {
+		fmt.Println(icolor.Yellow("○") + "  dukh: not running")
+		return nil
+	}
+	if pid == 0 {
 		fmt.Println(icolor.Yellow("○") + "  dukh: not running")
 		return nil
 	}
