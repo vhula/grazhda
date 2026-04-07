@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/vhula/grazhda/dukh/server"
+	icolor "github.com/vhula/grazhda/internal/color"
 )
 
 // daemonEnv is set to "1" in the environment of the re-exec'd daemon process.
@@ -60,7 +61,7 @@ func launchDaemon() error {
 	// Brief pause so the daemon has time to write its PID file.
 	time.Sleep(300 * time.Millisecond)
 
-	fmt.Printf("✓ dukh started (pid %d)\n", cmd.Process.Pid)
+	fmt.Printf("%s dukh started (pid %d)\n", icolor.Green("✓"), cmd.Process.Pid)
 	return nil
 }
 

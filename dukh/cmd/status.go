@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 	dukhpb "github.com/vhula/grazhda/dukh/proto"
+	icolor "github.com/vhula/grazhda/internal/color"
 )
 
 func statusCmd() *cobra.Command {
@@ -30,12 +31,15 @@ func runDukhStatus(_ *cobra.Command, _ []string) error {
 
 	pid, err := readPIDFile(grazhdaDir)
 	if err != nil || pid == 0 {
-		fmt.Println("○  dukh: not running")
+		fmt.Println(icolor.Yellow("○") + "  dukh: not running")
 		return nil
 	}
 
 	if !isProcessAlive(pid) {
-		fmt.Printf("○  dukh: not running  (stale pid %d — removing pid file)\n", pid)
+		fmt.Printf("%s  dukh: not running  %s\n",
+			icolor.Yellow("○"),
+			icolor.Yellow(fmt.Sprintf("(stale pid %d — removing pid file)", pid)),
+		)
 		_ = os.Remove(filepath.Join(grazhdaDir, "run", "dukh.pid"))
 		return nil
 	}
@@ -43,9 +47,18 @@ func runDukhStatus(_ *cobra.Command, _ []string) error {
 	// Try gRPC with a short timeout to get uptime from the live server.
 	uptime := tryGetUptime()
 	if uptime != "" {
-		fmt.Printf("●  dukh: running  (pid %d, uptime: %s)\n", pid, uptime)
+		fmt.Printf("%s  dukh: %s  (pid %d, uptime: %s)\n",
+			icolor.Green("●"),
+			icolor.Green("running"),
+			pid,
+			icolor.Blue(uptime),
+		)
 	} else {
-		fmt.Printf("●  dukh: running  (pid %d)\n", pid)
+		fmt.Printf("%s  dukh: %s  (pid %d)\n",
+			icolor.Green("●"),
+			icolor.Green("running"),
+			pid,
+		)
 	}
 	return nil
 }
