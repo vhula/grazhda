@@ -192,9 +192,10 @@ zgard ws init --dry-run                  # preview without executing
 Run `git pull --rebase` for every repo in a workspace. Skips repos that haven't been cloned yet.
 
 ```bash
-zgard ws pull                    # default workspace
-zgard ws pull --all --parallel   # all workspaces, concurrently
-zgard ws pull --dry-run          # preview without executing
+zgard ws pull                            # default workspace
+zgard ws pull --all --parallel-all       # all workspaces, all repos concurrently
+zgard ws pull --all --parallel           # all workspaces, per-project concurrency
+zgard ws pull --dry-run                  # preview without executing
 ```
 
 #### `zgard ws purge`
@@ -242,7 +243,7 @@ Common flags for `zgard ws` commands:
 | `--all` | init, pull, purge | Target all workspaces |
 | `--dry-run` | init, pull, purge | Print actions without executing |
 | `--parallel` | init, pull | Clone/pull repos within each project concurrently |
-| `--parallel-all` | init | Clone all repos across all projects concurrently |
+| `--parallel-all` | init, pull | Clone/pull all repos across all projects concurrently |
 | `--clone-delay-seconds=N` | init | Sleep N seconds after each clone command |
 | `-v, --verbose` | init, pull, purge | Print the rendered git command before each operation |
 | `--no-confirm` | purge | Skip the confirmation prompt |

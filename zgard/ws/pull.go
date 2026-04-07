@@ -16,6 +16,7 @@ func newPullCmd() *cobra.Command {
 	var dryRun bool
 	var verbose bool
 	var parallel bool
+	var parallelAll bool
 	var wsName string
 	var all bool
 
@@ -43,9 +44,10 @@ func newPullCmd() *cobra.Command {
 			exec := executor.OsExecutor{}
 			rep := reporter.NewReporter(os.Stdout, os.Stderr)
 			opts := workspace.RunOptions{
-				DryRun:   dryRun,
-				Verbose:  verbose,
-				Parallel: parallel,
+				DryRun:      dryRun,
+				Verbose:     verbose,
+				Parallel:    parallel,
+				ParallelAll: parallelAll,
 			}
 
 			for _, ws := range workspaces {
@@ -66,7 +68,8 @@ func newPullCmd() *cobra.Command {
 
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print actions without executing them")
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
-	cmd.Flags().BoolVar(&parallel, "parallel", false, "Pull repositories concurrently")
+	cmd.Flags().BoolVar(&parallel, "parallel", false, "Pull repositories within each project concurrently")
+	cmd.Flags().BoolVar(&parallelAll, "parallel-all", false, "Pull all repositories across all projects concurrently")
 	cmd.Flags().StringVarP(&wsName, "name", "n", "", "Target workspace name (default: default workspace)")
 	cmd.Flags().BoolVar(&all, "all", false, "Operate on all workspaces")
 

@@ -368,7 +368,7 @@ workspaces:
 - **FR34:** Users can suppress all interactive prompts for non-interactive scripts and CI pipelines (`--no-confirm`).
 - **FR35:** The system writes error and failure messages to stderr and progress/info messages to stdout.
 - **FR36:** Users can enable parallel repository operations for `ws init` and `ws pull` via `--parallel` (per-project concurrency) to reduce total execution time.
-- **FR37:** Users can enable full concurrency across all repos in all projects via `--parallel-all` on `ws init`, running every clone as a goroutine in a single flat pool.
+- **FR37:** Users can enable full concurrency across all repos in all projects via `--parallel-all` on `ws init` and `ws pull`, running every operation as a goroutine in a single flat pool.
 - **FR38:** Users can introduce a delay between sequential clone commands via `--clone-delay-seconds=N` on `ws init` to throttle connections to git hosts with rate limits.
 
 ## Non-Functional Requirements

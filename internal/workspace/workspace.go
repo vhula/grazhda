@@ -268,9 +268,33 @@ func Purge(ws config.Workspace, rep *reporter.Reporter, opts RunOptions) error {
 }
 
 // Pull runs git pull --rebase for each repository in the workspace.
+//
+// When opts.ParallelAll is true, all repositories across every project are
+// pulled concurrently in a single goroutine pool. When opts.Parallel is true
+// (and ParallelAll is false), repositories within each project are pulled
+// concurrently.
 func Pull(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, opts RunOptions) error {
 	rep.PrintLine("Workspace: " + ws.Name)
 	wsPath := ExpandHome(ws.Path)
+
+	if opts.ParallelAll {
+		var wg sync.WaitGroup
+		for _, proj := range ws.Projects {
+			proj := proj
+			rep.PrintLine("  Project: " + proj.Name)
+			projPath := filepath.Join(wsPath, proj.Name)
+			for _, repo := range proj.Repositories {
+				repo := repo
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					pullRepo(ws, proj, projPath, repo, exec, rep, opts)
+				}()
+			}
+		}
+		wg.Wait()
+		return nil
+	}
 
 	for _, proj := range ws.Projects {
 		rep.PrintLine("  Project: " + proj.Name)
@@ -279,8 +303,8 @@ func Pull(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, o
 		if opts.Parallel {
 			var wg sync.WaitGroup
 			for _, repo := range proj.Repositories {
-				wg.Add(1)
 				repo := repo
+				wg.Add(1)
 				go func() {
 					defer wg.Done()
 					pullRepo(ws, proj, projPath, repo, exec, rep, opts)

@@ -303,6 +303,54 @@ func TestPull_DryRun(t *testing.T) {
 	}
 }
 
+func TestPull_ParallelAll(t *testing.T) {
+	tmp := t.TempDir()
+	ws := config.Workspace{
+		Name:                 "test-ws",
+		Path:                 tmp,
+		CloneCommandTemplate: "echo clone {{.RepoName}} {{.DestDir}}",
+		Projects: []config.Project{
+			{
+				Name:   "frontend",
+				Branch: "main",
+				Repositories: []config.Repository{
+					{Name: "web"},
+					{Name: "mobile"},
+				},
+			},
+			{
+				Name:   "backend",
+				Branch: "main",
+				Repositories: []config.Repository{
+					{Name: "api"},
+				},
+			},
+		},
+	}
+
+	// Pre-create all repo dirs so pull doesn't skip them.
+	for _, proj := range ws.Projects {
+		for _, repo := range proj.Repositories {
+			dir := filepath.Join(tmp, proj.Name, repo.Name)
+			if err := os.MkdirAll(dir, 0o755); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+
+	var out, errOut strings.Builder
+	rep := reporter.NewReporter(&out, &errOut)
+	mock := &executor.MockExecutor{}
+
+	err := workspace.Pull(ws, mock, rep, workspace.RunOptions{ParallelAll: true})
+	if err != nil {
+		t.Fatalf("Pull parallel-all error: %v", err)
+	}
+	if len(mock.Calls) != 3 {
+		t.Errorf("expected 3 pull calls (all repos across all projects), got %d", len(mock.Calls))
+	}
+}
+
 // --- Purge ---
 
 func TestPurge_RemovesDirectory(t *testing.T) {

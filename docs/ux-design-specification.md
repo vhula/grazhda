@@ -488,7 +488,7 @@ All `ws` subcommands share the same flag vocabulary:
 | `--verbose` | `-v` | init, pull | Show rendered commands |
 | `--no-confirm` | | purge | Skip Y/N prompt |
 | `--parallel` | | init, pull | Clone/pull repos within each project concurrently |
-| `--parallel-all` | | init | Clone all repos across all projects concurrently |
+| `--parallel-all` | | init, pull | Clone/pull all repos across all projects concurrently |
 | `--clone-delay-seconds=N` | | init | Sleep N seconds after each clone command |
 
 `--parallel` and `--parallel-all` are intentionally absent from `ws purge` (purge is a single directory removal; concurrency is meaningless). `--clone-delay-seconds` is intentionally absent from `ws pull` (pull is fast and in-place; throttling is not needed).
