@@ -2,7 +2,7 @@
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Go](https://img.shields.io/badge/Go-1.26+-00ADD8?logo=go&logoColor=white)](https://go.dev)
-[![Phase](https://img.shields.io/badge/Phase-1%20%E2%80%94%20zgard-brightgreen)](https://github.com/vhula/grazhda)
+[![Phase](https://img.shields.io/badge/Phase-2%20%E2%80%94%20dukh-brightgreen)](https://github.com/vhula/grazhda)
 
 **One command to clone your entire dev environment. Exactly how you left it.**
 
@@ -55,7 +55,7 @@ Every failure is reported with the actual git error — no more hunting for `exi
 curl -s https://raw.githubusercontent.com/vhula/grazhda/refs/heads/main/grazhda.sh | bash
 ```
 
-The installer builds `zgard` from source and places it in `$GRAZHDA_DIR/bin/`.
+The installer builds `zgard` and `dukh` from source and places them in `$GRAZHDA_DIR/bin/`.
 
 ### Configure
 
@@ -69,16 +69,107 @@ $EDITOR "$GRAZHDA_DIR/config.yaml"
 ```bash
 zgard ws init            # clone everything in the default workspace
 zgard ws pull            # pull latest on all repos
-zgard ws purge --name old-ws  # remove a workspace
+dukh start               # start background workspace health monitor
+zgard ws status          # check workspace health
 ```
 
 > **Prerequisites:** `bash`, `curl`, `git`, `just`, `protoc`, Go `1.26+`
 
 ---
 
-## 🗂️ Commands
+## 🗂️ Workspace Concept
 
-### `zgard ws init`
+A **workspace** is the central organizing unit in Grazhda. It describes a group of related projects that live together on your local machine — their disk locations, their repositories, and the exact branch each repository should track.
+
+```
+workspace: default
+  └── project: backend
+  │     ├── repo: api          (branch: main)
+  │     ├── repo: auth         (branch: dev)
+  │     └── repo: gateway      (branch: main)
+  └── project: infra
+        └── repo: terraform    (branch: main)
+```
+
+The three Grazhda tools each have a distinct role in the workspace lifecycle:
+
+| Tool | Role |
+| :--- | :--- |
+| **`grazhda`** | Manages your Grazhda installation — upgrade, configure |
+| **`zgard`** | Manages workspace operations on demand — clone, pull, purge, inspect health |
+| **`dukh`** | Monitors workspace health continuously in the background — detects branch drift and missing repos |
+
+`dukh` is the *overseer*: it runs silently in the background and keeps a live health snapshot of every workspace. `zgard` is the *operator*: you run it when you want to act — clone repositories, pull changes, or query the health snapshot that `dukh` maintains. Both tools read the same `config.yaml` and share the same workspace model.
+
+---
+
+## 🧰 CLI Tools
+
+### `grazhda` — Installation Manager
+
+```
+Grazhda Management Script
+
+Usage: grazhda <command> [options]
+
+Commands:
+  upgrade          Pull latest sources and rebuild all binaries
+  config --edit    Open config.yaml in the configured editor
+  help             Show this help message
+
+Environment:
+  GRAZHDA_DIR      Installation directory (default: $HOME/.grazhda)
+```
+
+#### `grazhda upgrade`
+Pull the latest sources and rebuild all binaries in one command.
+
+```bash
+grazhda upgrade
+```
+
+What it does:
+1. `git pull` in `$GRAZHDA_DIR/sources`
+2. `just build` (regenerates proto code, recompiles `zgard` and `dukh`)
+3. Copies all binaries to `$GRAZHDA_DIR/bin/`
+
+The upgrade is safe to run while `dukh` is running — binaries are replaced atomically.
+
+#### `grazhda config --edit`
+Open `$GRAZHDA_DIR/config.yaml` in your preferred editor.
+
+```bash
+grazhda config --edit
+```
+
+Editor resolution order:
+1. `editor:` field in `config.yaml`
+2. `$VISUAL` environment variable
+3. `$EDITOR` environment variable
+4. `vi` (fallback)
+
+---
+
+### `zgard` — Workspace CLI
+
+```
+zgard manages local workspace lifecycle — init, purge, and pull repositories.
+
+Usage:
+  zgard [command]
+
+Available Commands:
+  completion  Generate the autocompletion script for the specified shell
+  help        Help about any command
+  ws          Workspace operations
+
+Flags:
+  -h, --help   help for zgard
+
+Use "zgard [command] --help" for more information about a command.
+```
+
+#### `zgard ws init`
 Clone all repositories for a workspace. Skips repos that already exist. Continues on failure and reports all errors at the end.
 
 ```bash
@@ -88,7 +179,7 @@ zgard ws init --all --parallel   # all workspaces, concurrently
 zgard ws init --dry-run          # preview without executing
 ```
 
-### `zgard ws pull`
+#### `zgard ws pull`
 Run `git pull --rebase` for every repo in a workspace. Skips repos that haven't been cloned yet.
 
 ```bash
@@ -97,7 +188,7 @@ zgard ws pull --all --parallel   # all workspaces, concurrently
 zgard ws pull --dry-run          # preview without executing
 ```
 
-### `zgard ws purge`
+#### `zgard ws purge`
 Remove a workspace directory tree. Always asks for confirmation. Always requires an explicit target.
 
 ```bash
@@ -106,8 +197,8 @@ zgard ws purge --all --no-confirm     # remove all, no prompt (for CI)
 zgard ws purge --name myws --dry-run  # preview what would be removed
 ```
 
-### `zgard ws status`
-Show current workspace health — branch alignment and missing repos — as tracked by dukh. Requires dukh to be running.
+#### `zgard ws status`
+Show workspace health as tracked by `dukh`. Requires `dukh` to be running.
 
 ```bash
 zgard ws status              # all workspaces (cached)
@@ -133,101 +224,81 @@ Workspace: default
 ✓ 2 aligned  ⚠ 1 drifted  ✗ 1 missing
 ```
 
+Common flags for `zgard ws` commands:
+
+| Flag | Commands | Description |
+| :--- | :--- | :--- |
+| `-n, --name <name>` | init, pull, purge, status | Target a named workspace |
+| `--all` | init, pull, purge | Target all workspaces |
+| `--dry-run` | init, pull, purge | Print actions without executing |
+| `--parallel` | init, pull | Run repo operations concurrently |
+| `-v, --verbose` | init, pull, purge | Print the rendered git command before each operation |
+| `--no-confirm` | purge | Skip the confirmation prompt |
+| `--rescan` | status | Trigger a fresh scan before reporting |
+
 ---
 
-## 🖥️ dukh Commands
+### `dukh` — Workspace Health Monitor
 
-`dukh` manages the background workspace monitor process. It is a separate binary from `zgard`.
+`dukh` is a long-running background daemon. It continuously polls every workspace defined in `config.yaml`, checks branch alignment and repository existence, and exposes the live health snapshot over gRPC so `zgard ws status` can query it instantly.
 
-### `dukh start`
-Start dukh as a detached background process. Logs go to `$GRAZHDA_DIR/logs/dukh.log`.
+```
+Dukh — Grazhda workspace health monitor
+
+Usage:
+  dukh [command]
+
+Available Commands:
+  completion  Generate the autocompletion script for the specified shell
+  help        Help about any command
+  scan        Trigger an immediate workspace rescan in dukh
+  start       Start the dukh workspace monitor in the background
+  status      Show dukh process status (running, PID, uptime)
+  stop        Stop the running dukh workspace monitor
+
+Flags:
+  -h, --help   help for dukh
+
+Use "dukh [command] --help" for more information about a command.
+```
+
+#### `dukh start`
+Start dukh as a detached background process. Self-daemonizes — no `&` needed. Logs go to `$GRAZHDA_DIR/logs/dukh.log`.
 
 ```bash
 dukh start
+# ✓ dukh started (pid 12345)
 ```
 
-### `dukh stop`
+#### `dukh stop`
 Stop the running dukh monitor server gracefully via gRPC.
 
 ```bash
 dukh stop
 ```
 
-### `dukh status`
-Show process health — whether dukh is running, its PID, and uptime.
+#### `dukh status`
+Show **process** health — whether dukh is running, its PID, and uptime. Distinct from `zgard ws status` which shows workspace health.
 
 ```bash
 dukh status
+# ●  dukh: running  (pid 12345, uptime: 2h 34m)
+# ○  dukh: not running
 ```
 
-```
-●  dukh: running  (pid 12345, uptime: 2h 34m)
-```
-
-This is distinct from `zgard ws status` — it reports **process** state, not workspace health.
-
-### `dukh scan`
-Trigger an immediate out-of-cycle workspace rescan.
+#### `dukh scan`
+Trigger an immediate out-of-cycle workspace rescan. Fire-and-forget — use `zgard ws status --rescan` if you need to wait for fresh results.
 
 ```bash
 dukh scan
-```
-
-### Common Flags
-
-| Flag | Commands | Description |
-| :--- | :--- | :--- |
-| `-n, --name <name>` | init, pull, purge | Target a named workspace |
-| `--all` | init, pull, purge | Target all workspaces |
-| `--dry-run` | init, pull, purge | Print actions without executing |
-| `--parallel` | init, pull | Run repo operations concurrently |
-| `-v, --verbose` | init, pull, purge | Print the rendered git command before each operation |
-| `--no-confirm` | purge | Skip the confirmation prompt |
-
----
-
-## 🔧 Management
-
-The `grazhda` script manages your installation — upgrading to the latest version and editing your config.
-
-### `grazhda upgrade`
-Pull the latest sources and rebuild all binaries in one command.
-
-```bash
-grazhda upgrade
-```
-
-What it does:
-1. `git pull` in `$GRAZHDA_DIR/sources`
-2. `just build` (regenerates proto code, recompiles `zgard` and `dukh`)
-3. Copies all binaries to `$GRAZHDA_DIR/bin/`
-
-The upgrade is safe to run while `dukh` is running — binaries are replaced atomically.
-
-### `grazhda config --edit`
-Open `$GRAZHDA_DIR/config.yaml` in your preferred editor.
-
-```bash
-grazhda config --edit
-```
-
-Editor resolution order:
-1. `editor:` field in `config.yaml`
-2. `$VISUAL` environment variable
-3. `$EDITOR` environment variable
-4. `vi` (fallback)
-
-To change your default editor, update `config.yaml`:
-
-```yaml
-editor: nano   # or code, hx, emacs, etc.
+# ✓ rescan initiated
 ```
 
 ---
 
 ## ⚙️ Configuration
 
-`zgard` resolves `config.yaml` from:
+`zgard` and `dukh` both resolve `config.yaml` from:
 1. `$GRAZHDA_DIR/config.yaml` — when `$GRAZHDA_DIR` is set
 2. `~/.grazhda/config.yaml` — default fallback
 
@@ -343,10 +414,9 @@ repositories:
 | :--- | :--- | :---: |
 | **zgard** | Workspace lifecycle CLI | ✅ Phase 1 |
 | **dukh** | Background gRPC workspace monitor | ✅ Phase 2 |
-| **Grazhda installer** | Source-build installer script | ✅ |
-| **grazhda management** | `upgrade` and `config --edit` commands | ✅ Phase 3 |
-| **Molfar** | Orchestration server | 📅 Phase 4 |
-| **Molf** | Orchestrator CLI | 📅 Phase 4 |
+| **grazhda** | Installer + management script | ✅ |
+| **Molfar** | Orchestration server | 📅 Phase 3 |
+| **Molf** | Orchestrator CLI | 📅 Phase 3 |
 
 ---
 
@@ -391,5 +461,3 @@ grazhda/
 ## 📄 License
 
 GNU GPL v3 — see [`LICENSE`](LICENSE).
-
-
