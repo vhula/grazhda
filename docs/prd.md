@@ -484,17 +484,18 @@ The `grazhda` management script provides self-management capabilities for the Gr
 - **FR-G5:** If `git pull` reports "Already up to date", the upgrade proceeds with the rebuild step (ensuring local binaries always match sources).
 - **FR-G6:** `grazhda upgrade` must print step-by-step progress so the user can track which phase is running.
 - **FR-G7:** If any step fails, `grazhda upgrade` must exit immediately with a non-zero code and a descriptive error message.
+- **FR-G8:** Before rebuilding, `grazhda upgrade` must check whether `dukh` is running (via `$GRAZHDA_DIR/run/dukh.pid`) and, if so, stop it gracefully via `dukh stop`. If the process does not exit within 10 seconds, it is force-killed with SIGKILL. This ensures the `dukh` binary is not locked when it is replaced on disk.
 
 #### Config Command
 
-- **FR-G8:** `grazhda config --edit` must open `$GRAZHDA_DIR/config.yaml` in the user's preferred editor.
-- **FR-G9:** Editor resolution order: `editor:` field in `config.yaml` → `$VISUAL` environment variable → `$EDITOR` environment variable → `vi` fallback.
-- **FR-G10:** If the resolved editor binary is not found in `$PATH`, `grazhda config --edit` must exit with a clear error message that suggests fixing the `editor:` field in `config.yaml`.
-- **FR-G11:** If `$GRAZHDA_DIR/config.yaml` does not exist, `grazhda config --edit` must exit with an error directing the user to run the installer.
+- **FR-G9:** `grazhda config --edit` must open `$GRAZHDA_DIR/config.yaml` in the user's preferred editor.
+- **FR-G10:** Editor resolution order: `editor:` field in `config.yaml` → `$VISUAL` environment variable → `$EDITOR` environment variable → `vi` fallback.
+- **FR-G11:** If the resolved editor binary is not found in `$PATH`, `grazhda config --edit` must exit with a clear error message that suggests fixing the `editor:` field in `config.yaml`.
+- **FR-G12:** If `$GRAZHDA_DIR/config.yaml` does not exist, `grazhda config --edit` must exit with an error directing the user to run the installer.
 
 #### Config Schema
 
-- **FR-G12:** `config.template.yaml` must include a top-level `editor:` field (default: `vim`) with a comment explaining the resolution order.
+- **FR-G13:** `config.template.yaml` must include a top-level `editor:` field (default: `vim`) with a comment explaining the resolution order.
 
 ### Non-Functional Requirements
 

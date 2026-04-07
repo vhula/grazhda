@@ -961,6 +961,10 @@ No external frameworks; only POSIX `bash`, `git`, `go`, and `just`.
 grazhda upgrade
   │
   ├─ verify git, go, just, protoc are on PATH
+  ├─ stop dukh if running
+  │    ├─ read $GRAZHDA_DIR/run/dukh.pid
+  │    ├─ if alive: run `dukh stop` via gRPC
+  │    └─ wait up to 10 s; SIGKILL on timeout
   ├─ cd $GRAZHDA_DIR/sources
   ├─ git pull
   │    └─ log: "Already up to date" or delta summary
@@ -974,6 +978,8 @@ grazhda upgrade
 ```
 
 **Self-update safety:** The running `grazhda` script is already loaded into the Bash interpreter's memory. Overwriting `$GRAZHDA_DIR/bin/grazhda` via `cp` during the upgrade is safe — the OS creates a new inode, leaving the running process unaffected. The new script is active on the next invocation.
+
+**dukh stop safety:** `dukh` must be stopped before its binary is replaced on disk. On Linux, replacing an open executable is safe due to copy-on-write semantics, but stopping first avoids any in-flight gRPC requests being interrupted mid-upgrade and ensures a clean restart with the new binary. If dukh was running before the upgrade, the user must restart it manually afterward (or rely on `zgard ws status` auto-start).
 
 ### YAML Parsing Strategy
 

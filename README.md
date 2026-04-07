@@ -129,11 +129,12 @@ grazhda upgrade
 ```
 
 What it does:
-1. `git pull` in `$GRAZHDA_DIR/sources`
-2. `just build` (regenerates proto code, recompiles `zgard` and `dukh`)
-3. Copies all binaries to `$GRAZHDA_DIR/bin/`
+1. Stops `dukh` gracefully if it is currently running
+2. `git pull` in `$GRAZHDA_DIR/sources`
+3. `just build` (regenerates proto code, recompiles `zgard` and `dukh`)
+4. Copies all binaries to `$GRAZHDA_DIR/bin/`
 
-The upgrade is safe to run while `dukh` is running — binaries are replaced atomically.
+> **Note:** `dukh` is not restarted automatically after the upgrade. Run `dukh start` (or `zgard ws status`) to bring it back up.
 
 #### `grazhda config --edit`
 Open `$GRAZHDA_DIR/config.yaml` in your preferred editor.

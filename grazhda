@@ -64,6 +64,50 @@ usage() {
     echo ""
 }
 
+# stop_dukh_if_running — gracefully stops dukh before replacing its binary.
+# Reads the PID file to check if dukh is running. If it is, calls `dukh stop`
+# via gRPC and waits up to 10 seconds for the process to exit.
+stop_dukh_if_running() {
+    local pid_file="$GRAZHDA_DIR/run/dukh.pid"
+
+    if [ ! -f "$pid_file" ]; then
+        return 0
+    fi
+
+    local pid
+    pid=$(tr -d '[:space:]' < "$pid_file" 2>/dev/null)
+    if [ -z "$pid" ]; then
+        return 0
+    fi
+
+    # Check if the process is actually alive.
+    if ! kill -0 "$pid" 2>/dev/null; then
+        warn "Stale dukh PID file found (pid $pid) — removing."
+        rm -f "$pid_file"
+        return 0
+    fi
+
+    info "Stopping dukh (pid $pid)..."
+    if "$BIN_DIR/dukh" stop 2>/dev/null; then
+        # Wait up to 10 seconds for the process to exit.
+        local waited=0
+        while kill -0 "$pid" 2>/dev/null; do
+            if [ "$waited" -ge 10 ]; then
+                warn "dukh did not stop within 10 seconds — sending SIGKILL..."
+                kill -9 "$pid" 2>/dev/null || true
+                break
+            fi
+            sleep 1
+            waited=$((waited + 1))
+        done
+        success "dukh stopped."
+    else
+        warn "dukh stop command failed — sending SIGTERM to pid $pid..."
+        kill -15 "$pid" 2>/dev/null || true
+        sleep 2
+    fi
+}
+
 # grazhda upgrade — pull latest sources, rebuild, and replace installed binaries atomically.
 cmd_upgrade() {
     echo ""
@@ -107,6 +151,9 @@ cmd_upgrade() {
         echo "$pull_output" | grep -v "^$" | sed 's/^/  /'
     fi
 
+    echo ""
+    info "Stopping dukh before upgrade..."
+    stop_dukh_if_running
     echo ""
     info "Rebuilding binaries..."
     # Ensure protoc Go plugins installed by just generate are reachable
