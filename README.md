@@ -174,11 +174,19 @@ Use "zgard [command] --help" for more information about a command.
 Clone all repositories for a workspace. Skips repos that already exist. Continues on failure and reports all errors at the end.
 
 ```bash
-zgard ws init                    # default workspace
-zgard ws init --name myws        # named workspace
-zgard ws init --all --parallel   # all workspaces, concurrently
-zgard ws init --dry-run          # preview without executing
+zgard ws init                            # default workspace
+zgard ws init --name myws                # named workspace
+zgard ws init --all --parallel-all       # all workspaces, all repos concurrently
+zgard ws init --all --parallel           # all workspaces, per-project concurrency
+zgard ws init --clone-delay-seconds=5   # sleep 5s after each clone
+zgard ws init --dry-run                  # preview without executing
 ```
+
+| Flag | Description |
+|---|---|
+| `--parallel` | Clone repos within each project concurrently |
+| `--parallel-all` | Clone **all** repos across all projects concurrently |
+| `--clone-delay-seconds=N` | Sleep N seconds after each clone command |
 
 #### `zgard ws pull`
 Run `git pull --rebase` for every repo in a workspace. Skips repos that haven't been cloned yet.
@@ -233,7 +241,9 @@ Common flags for `zgard ws` commands:
 | `-n, --name <name>` | init, pull, purge, status | Target a named workspace |
 | `--all` | init, pull, purge | Target all workspaces |
 | `--dry-run` | init, pull, purge | Print actions without executing |
-| `--parallel` | init, pull | Run repo operations concurrently |
+| `--parallel` | init, pull | Clone/pull repos within each project concurrently |
+| `--parallel-all` | init | Clone all repos across all projects concurrently |
+| `--clone-delay-seconds=N` | init | Sleep N seconds after each clone command |
 | `-v, --verbose` | init, pull, purge | Print the rendered git command before each operation |
 | `--no-confirm` | purge | Skip the confirmation prompt |
 | `--rescan` | status | Trigger a fresh scan before reporting |

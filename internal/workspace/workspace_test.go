@@ -6,7 +6,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/vhula/grazhda/internal/config"
 	"github.com/vhula/grazhda/internal/executor"
@@ -162,6 +164,74 @@ func TestInit_Parallel(t *testing.T) {
 
 	if len(mock.Calls) != 2 {
 		t.Errorf("expected 2 clone calls in parallel mode, got %d", len(mock.Calls))
+	}
+}
+
+func TestInit_ParallelAll(t *testing.T) {
+	tmp := t.TempDir()
+	ws := config.Workspace{
+		Name:                 "test-ws",
+		Path:                 tmp,
+		CloneCommandTemplate: "echo clone {{.RepoName}} {{.DestDir}}",
+		Projects: []config.Project{
+			{
+				Name:   "frontend",
+				Branch: "main",
+				Repositories: []config.Repository{
+					{Name: "web"},
+					{Name: "mobile"},
+				},
+			},
+			{
+				Name:   "backend",
+				Branch: "main",
+				Repositories: []config.Repository{
+					{Name: "api"},
+				},
+			},
+		},
+	}
+
+	var out, errOut strings.Builder
+	rep := reporter.NewReporter(&out, &errOut)
+	mock := &executor.MockExecutor{}
+
+	err := workspace.Init(ws, mock, rep, workspace.RunOptions{ParallelAll: true})
+	if err != nil {
+		t.Fatalf("Init parallel-all error: %v", err)
+	}
+	if len(mock.Calls) != 3 {
+		t.Errorf("expected 3 clone calls (all repos across all projects), got %d", len(mock.Calls))
+	}
+}
+
+func TestInit_CloneDelay(t *testing.T) {
+	ws, _ := makeWorkspace(t)
+	var out, errOut strings.Builder
+	rep := reporter.NewReporter(&out, &errOut)
+
+	started := make([]int64, 0, 2)
+	var mu sync.Mutex
+	mock := &executor.MockExecutor{
+		ErrFn: func(_ int) error {
+			mu.Lock()
+			started = append(started, time.Now().UnixMilli())
+			mu.Unlock()
+			return nil
+		},
+	}
+
+	const delaySeconds = 1
+	err := workspace.Init(ws, mock, rep, workspace.RunOptions{CloneDelaySeconds: delaySeconds})
+	if err != nil {
+		t.Fatalf("Init clone-delay error: %v", err)
+	}
+	if len(started) != 2 {
+		t.Fatalf("expected 2 clone calls, got %d", len(started))
+	}
+	gapMs := started[1] - started[0]
+	if gapMs < int64(delaySeconds*1000) {
+		t.Errorf("expected gap >= %dms between clones, got %dms", delaySeconds*1000, gapMs)
 	}
 }
 

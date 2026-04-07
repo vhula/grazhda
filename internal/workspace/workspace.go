@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/vhula/grazhda/internal/config"
 	"github.com/vhula/grazhda/internal/executor"
@@ -84,28 +85,61 @@ func ResolveDestNamesForProject(repos []config.Repository, structure string) []s
 }
 
 // Init initializes the workspace by creating directory structure and cloning all repositories.
+//
+// When opts.ParallelAll is true, all repositories across every project are
+// cloned concurrently in a single goroutine pool (directories are created
+// before the pool starts). When opts.Parallel is true (and ParallelAll is
+// false), repositories within each project are cloned concurrently.
+// opts.CloneDelaySeconds introduces a per-repo sleep after each clone
+// command; it is applied even in parallel mode (each goroutine sleeps after
+// its own clone).
 func Init(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, opts RunOptions) error {
 	rep.PrintLine("Workspace: " + ws.Name)
 	wsPath := ExpandHome(ws.Path)
 
+	// Pre-create all project directories before any cloning starts so that
+	// parallel goroutines never race on MkdirAll for the same path.
 	for _, proj := range ws.Projects {
-		rep.PrintLine("  Project: " + proj.Name)
 		projPath := filepath.Join(wsPath, proj.Name)
-
 		if opts.DryRun {
-			rep.PrintLine(fmt.Sprintf("    [DRY RUN] would create directory: %s", wsPath))
 			rep.PrintLine(fmt.Sprintf("    [DRY RUN] would create directory: %s", projPath))
 		} else {
 			if err := os.MkdirAll(projPath, 0o755); err != nil {
 				return fmt.Errorf("creating directory %s: %w", projPath, err)
 			}
 		}
+	}
+
+	if opts.ParallelAll {
+		// Flat goroutine pool across ALL projects in this workspace.
+		var wg sync.WaitGroup
+		for _, proj := range ws.Projects {
+			proj := proj
+			rep.PrintLine("  Project: " + proj.Name)
+			projPath := filepath.Join(wsPath, proj.Name)
+			for _, repo := range proj.Repositories {
+				repo := repo
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					cloneRepo(ws, proj, projPath, repo, exec, rep, opts)
+				}()
+			}
+		}
+		wg.Wait()
+		return nil
+	}
+
+	// Sequential (or per-project parallel) path.
+	for _, proj := range ws.Projects {
+		rep.PrintLine("  Project: " + proj.Name)
+		projPath := filepath.Join(wsPath, proj.Name)
 
 		if opts.Parallel {
 			var wg sync.WaitGroup
 			for _, repo := range proj.Repositories {
-				wg.Add(1)
 				repo := repo
+				wg.Add(1)
 				go func() {
 					defer wg.Done()
 					cloneRepo(ws, proj, projPath, repo, exec, rep, opts)
@@ -192,6 +226,10 @@ func cloneRepo(ws config.Workspace, proj config.Project, projPath string, repo c
 		Workspace: ws.Name, Project: proj.Name, Repo: repo.Name,
 		Msg: fmt.Sprintf("cloned (%s)", branch),
 	})
+
+	if opts.CloneDelaySeconds > 0 {
+		time.Sleep(time.Duration(opts.CloneDelaySeconds) * time.Second)
+	}
 }
 
 // Purge removes the workspace directory tree.

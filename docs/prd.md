@@ -84,7 +84,7 @@ classification:
 - `zgard ws init` — initializes the default workspace (or `--name <name>` / `--all`); creates project directories; clones repos via Go-templated clone commands; skips already-cloned repos; continues on clone failure; reports failures at end; validates config up-front.
 - `zgard ws purge` — removes the targeted workspace directory; requires explicit `--name <name>` or `--all`; interactive Y/N confirmation; `--dry-run` support.
 - `zgard ws pull` — runs `git pull --rebase` on each repo's configured branch; same targeting flags as `ws init`.
-- Shared flags across all commands: `--dry-run`, `--verbose` / `-v`, `--no-confirm`, `--parallel`.
+- Shared flags across all commands: `--dry-run`, `--verbose` / `-v`, `--no-confirm`, `--parallel`, `--parallel-all` (init only), `--clone-delay-seconds` (init only).
 - Config model: workspaces → projects → repositories (branch + optional `local_dir_name` per repo); Go template variables `{{.Branch}}`, `{{.RepoName}}`, `{{.DestDir}}`.
 
 **MVP must-have justifications:**
@@ -367,7 +367,9 @@ workspaces:
 - **FR33:** The system exits with a non-zero code when any operation fails or when config validation fails.
 - **FR34:** Users can suppress all interactive prompts for non-interactive scripts and CI pipelines (`--no-confirm`).
 - **FR35:** The system writes error and failure messages to stderr and progress/info messages to stdout.
-- **FR36:** Users can enable parallel repository operations for `ws init` and `ws pull` via `--parallel` to reduce total execution time.
+- **FR36:** Users can enable parallel repository operations for `ws init` and `ws pull` via `--parallel` (per-project concurrency) to reduce total execution time.
+- **FR37:** Users can enable full concurrency across all repos in all projects via `--parallel-all` on `ws init`, running every clone as a goroutine in a single flat pool.
+- **FR38:** Users can introduce a delay between sequential clone commands via `--clone-delay-seconds=N` on `ws init` to throttle connections to git hosts with rate limits.
 
 ## Non-Functional Requirements
 
@@ -376,7 +378,7 @@ workspaces:
 - **NFR1:** Config file loading and validation must complete in under 500ms for configs with up to 10 workspaces and 100 repositories total.
 - **NFR2:** Directory creation and pre-clone setup (all filesystem work excluding actual git clone/pull network operations) must complete in under 1 second.
 - **NFR3:** By default, repository operations (clone, pull) execute sequentially to avoid overwhelming the network or git host with concurrent connections.
-- **NFR4:** Users can enable parallel repository operations via `--parallel` to reduce total wall-clock time when network bandwidth allows.
+- **NFR4:** Users can enable parallel repository operations via `--parallel` (per-project) or `--parallel-all` (all repos at once) to reduce total wall-clock time when network bandwidth allows.
 
 ### Reliability
 
