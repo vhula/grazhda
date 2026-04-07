@@ -1,4 +1,4 @@
-package dukh
+package main
 
 import (
 	"context"
@@ -7,13 +7,12 @@ import (
 
 	"github.com/spf13/cobra"
 	dukhpb "github.com/vhula/grazhda/dukh/proto"
-	icolor "github.com/vhula/grazhda/internal/color"
 )
 
 func stopCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "stop",
-		Short: "Stop the dukh workspace monitor",
+		Short: "Stop the running dukh workspace monitor",
 		RunE:  runStop,
 	}
 }
@@ -21,17 +20,17 @@ func stopCmd() *cobra.Command {
 func runStop(_ *cobra.Command, _ []string) error {
 	conn, client, err := dial()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, icolor.Red("✗ "+err.Error()))
+		fmt.Fprintln(os.Stderr, "✗ "+err.Error())
 		return err
 	}
 	defer conn.Close()
 
 	resp, err := client.Stop(context.Background(), &dukhpb.StopRequest{})
 	if err != nil {
-		fmt.Fprintln(os.Stderr, icolor.Red("✗ dukh stop failed: "+err.Error()))
+		fmt.Fprintln(os.Stderr, "✗ dukh stop failed: "+err.Error())
 		return err
 	}
 
-	fmt.Println(icolor.Green("✓ " + resp.Message))
+	fmt.Println("✓ " + resp.Message)
 	return nil
 }

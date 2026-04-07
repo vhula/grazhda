@@ -1,30 +1,16 @@
-package dukh
+package main
 
 import (
 	"context"
 	"fmt"
 	"time"
 
-	"github.com/spf13/cobra"
 	dukhpb "github.com/vhula/grazhda/dukh/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
 const defaultAddr = "localhost:50501"
-
-// New returns the "dukh" subcommand group for zgard.
-func New() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "dukh",
-		Short: "Manage and inspect the dukh workspace monitor",
-	}
-	cmd.AddCommand(startCmd())
-	cmd.AddCommand(stopCmd())
-	cmd.AddCommand(statusCmd())
-	cmd.AddCommand(scanCmd())
-	return cmd
-}
 
 // dial opens a gRPC client connection to the dukh server.
 // The caller is responsible for closing the returned connection.

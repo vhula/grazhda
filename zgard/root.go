@@ -4,7 +4,6 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	zgdukh "github.com/vhula/grazhda/zgard/dukh"
 	"github.com/vhula/grazhda/zgard/ws"
 )
 
@@ -23,5 +22,4 @@ func Execute() {
 
 func init() {
 	rootCmd.AddCommand(ws.NewCmd())
-	rootCmd.AddCommand(zgdukh.New())
 }

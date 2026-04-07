@@ -42,10 +42,12 @@ This guide explains the Grazhda project from first principles. You do not need t
     - [server.go — gRPC Lifecycle](#171-servergo--grpc-lifecycle)
     - [monitor.go — Configurable Background Polling](#172-monitorrgo--configurable-background-polling)
     - [log.go — Structured Logging with Rotation](#173-loggo--structured-logging-with-rotation)
-18. [zgard dukh — CLI Commands for dukh](#18-zgard-dukh--cli-commands-for-dukh)
-    - [zgard dukh start](#181-zgard-dukh-start--spawning-a-background-process)
-    - [zgard dukh scan](#182-zgard-dukh-scan--triggering-an-immediate-rescan)
-    - [Configurable Monitoring Period](#183-configurable-monitoring-period)
+18. [dukh CLI Commands](#18-dukh-cli-commands)
+    - [dukh start — Self-Daemonizing](#181-dukh-start--self-daemonizing-background-process)
+    - [dukh scan](#182-dukh-scan--triggering-an-immediate-rescan)
+    - [dukh status — Process Health](#183-dukh-status--process-health)
+    - [zgard ws status --rescan](#184-zgard-ws-status---rescan--synchronous-scan-before-status)
+    - [Configurable Monitoring Period](#185-configurable-monitoring-period)
 19. [Updated Project Layout](#19-updated-project-layout)
 20. [New Go Concepts Introduced in Phase 2](#20-new-go-concepts-introduced-in-phase-2)
 
@@ -1807,15 +1809,17 @@ Every few minutes dukh walks through every workspace, project, and repository in
 2. If it does, what git branch is currently checked out?
 3. Does that branch match what `config.yaml` says?
 
-This health snapshot is held in memory and served instantly over gRPC when `zgard dukh status` asks for it.
+This health snapshot is held in memory and served instantly over gRPC when `zgard ws status` asks for it.
 
 ### 15.2 Why a Separate Process?
 
 `dukh` is a **long-running daemon** — a background process that never exits on its own. Daemons cannot be implemented as a simple command (like `zgard ws init`) because they need to keep running after the terminal is closed. Instead:
 
-- `zgard dukh start` spawns `dukh start` as a **detached child process**
+- `dukh start` self-daemonizes: it re-execs itself with `DUKH_DAEMON=1` in a detached child process
 - The child runs independently, logs to a file, and exposes a gRPC port
-- `zgard dukh stop/status/scan` connect to that port to communicate with the running server
+- `dukh stop/scan` connect to that port to communicate with the running server
+- `dukh status` reads the PID file and checks process liveness
+- `zgard ws status` uses the gRPC Status RPC to report workspace health
 
 ---
 
@@ -2115,22 +2119,35 @@ This is a common Go pattern for resource cleanup: return a function the caller c
 
 ---
 
-## 18. zgard dukh — CLI Commands for dukh
+## 18. dukh CLI Commands
 
-### 18.1 zgard dukh start — Spawning a Background Process
+### 18.1 dukh start — Self-Daemonizing Background Process
+
+`dukh start` uses the **self-re-exec pattern**: instead of requiring a separate launcher to spawn it, the `dukh` binary spawns itself in detached mode.
 
 ```go
-func runDukhStart(_ *cobra.Command, _ []string) error {
-    dukhBin, err := resolveDukhBinary()   // find the dukh binary
-    cmd := exec.Command(dukhBin, "start") // prepare the command
-    cmd.Stdin, cmd.Stdout, cmd.Stderr = nil, nil, nil  // detach I/O
-    setDetach(cmd)                         // set Setsid=true (Unix)
-    cmd.Start()                            // launch without waiting
+func runStart(_ *cobra.Command, _ []string) error {
+    if os.Getenv(daemonEnv) == "1" {
+        return runServer()   // already the daemon — run the server
+    }
+    return launchDaemon()    // launcher mode — re-exec self and exit
+}
+
+func launchDaemon() error {
+    exe, _ := os.Executable()
+    cmd := exec.Command(exe, "start")
+    cmd.Env = append(os.Environ(), "DUKH_DAEMON=1")
+    cmd.Stdin, cmd.Stdout, cmd.Stderr = nil, nil, nil
+    setDetach(cmd)           // Setsid=true on Unix
+    cmd.Start()
     fmt.Printf("✓ dukh started (pid %d)\n", cmd.Process.Pid)
+    return nil
 }
 ```
 
-`exec.Command` creates a command but does not run it. `cmd.Start()` launches it and returns immediately — unlike `cmd.Run()` which would wait for it to finish.
+`os.Executable()` returns the absolute path to the currently running binary. This is more reliable than using `os.Args[0]` (which may be relative or a shell wrapper).
+
+**`DUKH_DAEMON=1`** is the flag that distinguishes "launcher mode" from "daemon mode". When dukh detects this environment variable, it skips the re-exec and goes straight to running the server.
 
 **`setDetach(cmd)`** is in `detach_unix.go`:
 
@@ -2142,56 +2159,48 @@ func setDetach(cmd *exec.Cmd) {
 }
 ```
 
-`Setsid: true` calls the `setsid` Unix system call, which starts the process in a new session with no controlling terminal. This makes the child process fully independent: it survives when zgard exits and is not killed by Ctrl-C in the terminal.
+`Setsid: true` calls the `setsid` Unix system call, which starts the process in a new session with no controlling terminal. This makes the child process fully independent: it survives when the launcher exits and is not killed by Ctrl-C in the terminal.
 
-`//go:build !windows` is a **build constraint** — this file is only compiled on non-Windows platforms. You can have `detach_windows.go` with a no-op `setDetach` for Windows, letting the same codebase compile on all platforms.
-
-**`resolveDukhBinary`** uses a priority search:
-
-```go
-func resolveDukhBinary() (string, error) {
-    if dir := os.Getenv("GRAZHDA_DIR"); dir != "" {
-        candidate := filepath.Join(dir, "bin", "dukh")
-        if _, err := os.Stat(candidate); err == nil {
-            return candidate, nil  // found in $GRAZHDA_DIR/bin
-        }
-    }
-    return exec.LookPath("dukh")   // fall back to $PATH
-}
-```
-
-`os.Stat` returns `(FileInfo, error)`. If `err == nil`, the file exists. The `_` discards the `FileInfo` since we only care about existence.
-
-`exec.LookPath("dukh")` searches the directories listed in the `$PATH` environment variable for an executable named `dukh` — exactly what the shell does when you type a command.
-
-### 18.2 zgard dukh scan — Triggering an Immediate Rescan
+### 18.2 dukh scan — Triggering an Immediate Rescan
 
 ```go
 func runScan(_ *cobra.Command, _ []string) error {
     conn, client, err := dial()
     defer conn.Close()
     resp, err := client.Scan(context.Background(), &dukhpb.ScanRequest{})
-    fmt.Println(icolor.Green("✓ " + resp.Message))
+    fmt.Println("✓ " + resp.Message)
 }
 ```
 
-`context.Background()` creates a context with no deadline or cancellation. For simple one-shot RPC calls it is the right choice. Use `context.WithTimeout` (as in `dial()`) when you want automatic failure after a time limit.
+The scan itself happens asynchronously in dukh's monitor goroutine. `dukh scan` only guarantees the signal was delivered, not that the scan finished. If you need to wait for the scan to complete, use `zgard ws status --rescan` instead.
 
-The round-trip for a `Scan` RPC is:
-1. zgard sends `ScanRequest{}` over gRPC
-2. dukh calls `monitor.TriggerScan()` — non-blocking
-3. dukh returns `ScanResponse{Message: "rescan initiated"}`
-4. zgard prints the message
+### 18.3 dukh status — Process Health
 
-The scan itself happens asynchronously in dukh's monitor goroutine. `zgard dukh scan` only guarantees the signal was delivered, not that the scan finished. If you need to wait for the scan to complete, use `zgard dukh status --rescan` instead.
+`dukh status` is about **process health** — not workspace health. It answers: is the daemon running?
 
-### 18.4 zgard dukh status --rescan — Synchronous Scan Before Status
+```go
+func runDukhStatus(_ *cobra.Command, _ []string) error {
+    pid, err := readPIDFile(grazhdaDir)   // read $GRAZHDA_DIR/run/dukh.pid
+    if !isProcessAlive(pid) {
+        fmt.Println("○  dukh: not running")
+        return nil
+    }
+    uptime := tryGetUptime()              // optional gRPC probe
+    fmt.Printf("●  dukh: running  (pid %d, uptime: %s)\n", pid, uptime)
+}
+```
 
-`zgard dukh status --rescan` combines a scan trigger and a status report into one atomic operation. The user sees fresh data instead of the last cached snapshot.
+`isProcessAlive(pid)` on Unix uses `syscall.Kill(pid, 0)`. Signal 0 is never actually delivered — it only checks whether the process exists and is reachable. Returns `nil` error if alive.
+
+This is distinct from `zgard ws status` — `dukh status` reports the daemon's process state.
+
+### 18.4 zgard ws status --rescan — Synchronous Scan Before Status
+
+`zgard ws status --rescan` combines a scan trigger and a status report into one atomic operation. The user sees fresh data instead of the last cached snapshot.
 
 ```bash
-zgard dukh status --rescan          # all workspaces
-zgard dukh status --rescan --name myws  # one workspace
+zgard ws status --rescan          # all workspaces
+zgard ws status --rescan --name myws  # one workspace
 ```
 
 **How it works end-to-end:**
@@ -2206,9 +2215,9 @@ zgard dukh status --rescan --name myws  # one workspace
 
 The gRPC client context timeout of 60 seconds propagates to `TriggerScanAndWait(ctx)`. If dukh takes longer than 60 seconds to finish scanning, the RPC is cancelled and zgard prints an error. This prevents the CLI from hanging indefinitely on large workspaces.
 
-**Key difference vs `zgard dukh scan`:**
+**Key difference vs `dukh scan`:**
 
-| | `zgard dukh scan` | `zgard dukh status --rescan` |
+| | `dukh scan` | `zgard ws status --rescan` |
 |---|---|---|
 | Waits for scan to finish | ✗ (fire-and-forget) | ✓ (blocks until done) |
 | Returns health data | ✗ | ✓ |
@@ -2263,24 +2272,27 @@ grazhda/
 │   └── workspace/          Init, Purge, Pull domain logic + targeting resolver
 ├── zgard/                  zgard CLI module
 │   ├── main.go             entry point: calls Execute()
-│   ├── root.go             root Cobra command; wires ws and dukh subcommand groups
-│   ├── dukh/               zgard dukh command group
-│   │   ├── dukh.go         New() — creates the group; dial() helper for gRPC connection
-│   │   ├── start.go        zgard dukh start — spawns dukh as a detached background process
-│   │   ├── stop.go         zgard dukh stop  — sends Stop RPC
-│   │   ├── status.go       zgard dukh status — sends Status RPC; renders coloured health report
-│   │   ├── scan.go         zgard dukh scan  — sends Scan RPC (immediate rescan)
-│   │   └── detach_unix.go  setDetach() — sets Setsid=true; only compiled on non-Windows
+│   ├── root.go             root Cobra command; wires ws subcommand group
 │   └── ws/                 zgard ws command group
 │       ├── ws.go           NewCmd() — creates the group
 │       ├── init.go         zgard ws init
 │       ├── pull.go         zgard ws pull
 │       ├── purge.go        zgard ws purge
+│       ├── status.go       zgard ws status — gRPC Status RPC; coloured health report
 │       ├── config.go       shared config loading for ws commands
 │       └── confirm.go      interactive confirmation prompt
 └── dukh/                   dukh gRPC server module
     ├── cmd/
-    │   └── main.go         entry point for dukh binary; Cobra CLI with 'dukh start'
+    │   ├── main.go         entry point; Cobra root with start/stop/status/scan commands
+    │   ├── start.go        dukh start — self-re-exec daemonization; runServer()
+    │   ├── stop.go         dukh stop — gRPC Stop RPC
+    │   ├── status.go       dukh status — PID file + process liveness check
+    │   ├── scan.go         dukh scan — gRPC Scan RPC (immediate rescan)
+    │   ├── dial.go         shared gRPC dial helper
+    │   ├── detach_unix.go  setDetach() — Setsid=true; only compiled on non-Windows
+    │   ├── detach_windows.go setDetach() no-op for Windows
+    │   ├── pid_unix.go     isProcessAlive() via syscall.Kill(pid, 0)
+    │   └── pid_windows.go  isProcessAlive() via os.FindProcess
     ├── proto/              generated protobuf Go code — DO NOT EDIT
     │   ├── dukh.pb.go      message structs (StopRequest, StatusResponse, RepoStatus, …)
     │   └── dukh_grpc.pb.go DukhServiceServer interface + DukhServiceClient

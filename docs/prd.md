@@ -409,7 +409,7 @@ workspaces:
 
 #### Start & Lifecycle
 
-- **FR-D1:** `dukh start` launches the monitor server as a foreground process (the caller is responsible for backgrounding via `&` or a process supervisor).
+- **FR-D1:** `dukh start` self-daemonizes: it re-execs itself with `DUKH_DAEMON=1` in a detached child process (Unix: `Setsid=true`), prints the child PID, and exits. The daemon writes its PID file and begins polling.
 - **FR-D2:** On startup, `dukh` writes its PID to `$GRAZHDA_DIR/run/dukh.pid`, creating the directory if absent.
 - **FR-D3:** `dukh start` exits with a non-zero code and a clear message if another `dukh` instance is already running (PID file present and process alive).
 - **FR-D4:** `dukh` removes its PID file on graceful shutdown (Stop RPC or SIGTERM/SIGINT).
@@ -441,7 +441,10 @@ workspaces:
 
 #### Stop Command
 
-- **FR-D20:** `zgard dukh stop` connects to the dukh gRPC endpoint, calls `Stop`, and prints the response message; exits with code `1` if dukh is not reachable.
+- **FR-D20:** `dukh stop` connects to the dukh gRPC endpoint, calls `Stop`, and prints the response message; exits with code `1` if dukh is not reachable.
+- **FR-D21:** `dukh status` reads `$GRAZHDA_DIR/run/dukh.pid` and checks process liveness; prints `●  dukh: running (pid N, uptime: X)` or `○  dukh: not running`. This reports **process** health only.
+- **FR-D22:** `zgard ws status` is the workspace health command; it calls the dukh gRPC `Status` RPC and renders the coloured per-repo report. It replaces the former `zgard dukh status` command.
+- **FR-D23:** `zgard ws status --rescan` sets `StatusRequest.rescan=true` on the RPC, waits up to 60 seconds, and prints `⟳ rescanning workspaces…` before the report.
 
 ### Non-Functional Requirements
 
@@ -453,13 +456,14 @@ workspaces:
 
 ### Success Criteria
 
-- `dukh start` launches, writes PID, and begins polling without error.
-- `zgard dukh status` renders a correctly coloured health report reflecting the actual state of all repos.
-- `zgard dukh status --rescan` waits for a fresh scan to complete before rendering the report.
-- `zgard dukh stop` gracefully shuts down `dukh` and the PID file is removed.
+- `dukh start` launches as a detached daemon, writes PID, and begins polling without error.
+- `zgard ws status` renders a correctly coloured health report reflecting the actual state of all repos.
+- `zgard ws status --rescan` waits for a fresh scan to complete before rendering the report.
+- `dukh stop` gracefully shuts down `dukh` and the PID file is removed.
+- `dukh status` prints `●  dukh: running` with PID and uptime when the daemon is alive.
 - Log file at `$GRAZHDA_DIR/logs/dukh.log` contains structured entries and rotates at 5 MiB.
-- A repo with the wrong branch checked out shows `✗` in `zgard dukh status` output.
-- A missing repo directory shows `✗ (missing)` in `zgard dukh status` output.
+- A repo with the wrong branch checked out shows `✗` in `zgard ws status` output.
+- A missing repo directory shows `✗ (missing)` in `zgard ws status` output.
 
 
 ## Phase 3 — grazhda Management Script

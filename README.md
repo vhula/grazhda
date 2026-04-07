@@ -106,37 +106,16 @@ zgard ws purge --all --no-confirm     # remove all, no prompt (for CI)
 zgard ws purge --name myws --dry-run  # preview what would be removed
 ```
 
-### `zgard dukh start`
-Start dukh as a detached background process. Logs go to `$GRAZHDA_DIR/logs/dukh.log`.
+### `zgard ws status`
+Show current workspace health — branch alignment and missing repos — as tracked by dukh. Requires dukh to be running.
 
 ```bash
-zgard dukh start
+zgard ws status              # all workspaces (cached)
+zgard ws status --name myws  # one workspace
+zgard ws status --rescan     # trigger a fresh scan, wait, then report
 ```
 
-### `zgard dukh stop`
-Stop the running dukh monitor server gracefully.
-
-```bash
-zgard dukh stop
-```
-
-### `zgard dukh scan`
-Trigger an immediate out-of-cycle workspace rescan without waiting for the next polling interval.
-
-```bash
-zgard dukh scan
-```
-
-### `zgard dukh status`
-Show current workspace health — branch alignment and missing repos — as tracked by dukh.
-
-```bash
-zgard dukh status              # all workspaces (cached)
-zgard dukh status --name myws  # one workspace
-zgard dukh status --rescan     # trigger a fresh scan, wait, then report
-```
-
-Use `--rescan` (`-r` is not available; use the long form) when you want up-to-the-moment results instead of the last cached snapshot.
+Use `--rescan` when you want up-to-the-moment results instead of the last cached snapshot.
 
 ```
 ⟳ rescanning workspaces…
@@ -152,6 +131,46 @@ Workspace: default
     ✓ terraform       main → main
 
 ✓ 2 aligned  ⚠ 1 drifted  ✗ 1 missing
+```
+
+---
+
+## 🖥️ dukh Commands
+
+`dukh` manages the background workspace monitor process. It is a separate binary from `zgard`.
+
+### `dukh start`
+Start dukh as a detached background process. Logs go to `$GRAZHDA_DIR/logs/dukh.log`.
+
+```bash
+dukh start
+```
+
+### `dukh stop`
+Stop the running dukh monitor server gracefully via gRPC.
+
+```bash
+dukh stop
+```
+
+### `dukh status`
+Show process health — whether dukh is running, its PID, and uptime.
+
+```bash
+dukh status
+```
+
+```
+●  dukh: running  (pid 12345, uptime: 2h 34m)
+```
+
+This is distinct from `zgard ws status` — it reports **process** state, not workspace health.
+
+### `dukh scan`
+Trigger an immediate out-of-cycle workspace rescan.
+
+```bash
+dukh scan
 ```
 
 ### Common Flags
@@ -360,10 +379,9 @@ grazhda/
 ├── zgard/                  # CLI module
 │   ├── main.go
 │   ├── root.go
-│   ├── dukh/               # zgard dukh stop · status
-│   └── ws/                 # ws init · ws purge · ws pull
+│   └── ws/                 # ws init · ws purge · ws pull · ws status
 └── dukh/                   # gRPC server module
-    ├── cmd/                # dukh start
+    ├── cmd/                # dukh start · stop · status · scan
     ├── proto/              # generated protobuf (do not edit)
     └── server/             # gRPC server · monitor · logging
 ```

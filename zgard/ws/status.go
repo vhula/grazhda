@@ -1,4 +1,4 @@
-package dukh
+package ws
 
 import (
 	"context"
@@ -9,24 +9,28 @@ import (
 	"github.com/spf13/cobra"
 	dukhpb "github.com/vhula/grazhda/dukh/proto"
 	icolor "github.com/vhula/grazhda/internal/color"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
-func statusCmd() *cobra.Command {
+const dukhAddr = "localhost:50501"
+
+func newStatusCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Show workspace health as monitored by dukh",
-		RunE:  runStatus,
+		RunE:  runWsStatus,
 	}
 	cmd.Flags().StringP("name", "n", "", "Workspace name (default: all)")
 	cmd.Flags().Bool("rescan", false, "Trigger a fresh workspace rescan before reporting (waits for completion)")
 	return cmd
 }
 
-func runStatus(cmd *cobra.Command, _ []string) error {
+func runWsStatus(cmd *cobra.Command, _ []string) error {
 	name, _ := cmd.Flags().GetString("name")
 	rescan, _ := cmd.Flags().GetBool("rescan")
 
-	conn, client, err := dial()
+	conn, client, err := dialDukh()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, icolor.Red("✗ "+err.Error()))
 		return err
@@ -35,7 +39,6 @@ func runStatus(cmd *cobra.Command, _ []string) error {
 
 	ctx := context.Background()
 	if rescan {
-		// Allow up to 60 s for the scan to complete on large workspaces.
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, 60*time.Second)
 		defer cancel()
@@ -51,16 +54,32 @@ func runStatus(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	renderStatus(resp)
+	renderWsStatus(resp)
 	return nil
 }
 
-func renderStatus(resp *dukhpb.StatusResponse) {
+// dialDukh opens a gRPC connection to the dukh server.
+func dialDukh() (*grpc.ClientConn, dukhpb.DukhServiceClient, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	//nolint:staticcheck // DialContext is the correct API for this grpc version
+	conn, err := grpc.DialContext(ctx, dukhAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithBlock(),
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("cannot reach dukh at %s — is it running? (%w)", dukhAddr, err)
+	}
+	return conn, dukhpb.NewDukhServiceClient(conn), nil
+}
+
+func renderWsStatus(resp *dukhpb.StatusResponse) {
 	uptime := time.Duration(resp.UptimeSeconds) * time.Second
 	fmt.Printf("%s  %s  •  uptime: %s\n\n",
 		icolor.Blue("Dukh"),
 		icolor.Green("running"),
-		formatUptime(uptime),
+		formatWsUptime(uptime),
 	)
 
 	var aligned, drifted, missing int
@@ -111,8 +130,7 @@ func renderStatus(resp *dukhpb.StatusResponse) {
 	)
 }
 
-// formatUptime renders a duration as a human-readable string (e.g. "2h 34m").
-func formatUptime(d time.Duration) string {
+func formatWsUptime(d time.Duration) string {
 	h := int(d.Hours())
 	m := int(d.Minutes()) % 60
 	s := int(d.Seconds()) % 60
