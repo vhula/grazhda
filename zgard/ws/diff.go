@@ -42,6 +42,7 @@ Repos not yet cloned are shown as '(not cloned)'.`,
 				ProjectName: projectName,
 				RepoName:    repoName,
 				Verbose:     verbose,
+				Tags:        tagFilter,
 			}
 
 			exec := executor.OsExecutor{}

@@ -10,9 +10,9 @@ import (
 )
 
 var rootCmd = &cobra.Command{
-	Use:          "zgard",
-	Short:        "Workspace lifecycle manager",
-	Long:         "zgard manages local workspace lifecycle — init, purge, and pull repositories.",
+	Use:           "zgard",
+	Short:         "Workspace lifecycle manager",
+	Long:          "zgard manages local workspace lifecycle — init, purge, and pull repositories.",
 	SilenceErrors: true,
 	SilenceUsage:  true,
 }

@@ -182,70 +182,167 @@ func TestValidateFilters_RepoNotFound(t *testing.T) {
 	}
 }
 
-
 func makePartialMatchWorkspace() config.Workspace {
-return config.Workspace{
-Name: "ws",
-Path: "/tmp/ws",
-Projects: []config.Project{
-{
-Name: "backend",
-Repositories: []config.Repository{
-{Name: "ORG/PACK/my-cool-backend-lol"},
-{Name: "ORG/PACK/other-service"},
-},
-},
-},
-}
+	return config.Workspace{
+		Name: "ws",
+		Path: "/tmp/ws",
+		Projects: []config.Project{
+			{
+				Name: "backend",
+				Repositories: []config.Repository{
+					{Name: "ORG/PACK/my-cool-backend-lol"},
+					{Name: "ORG/PACK/other-service"},
+				},
+			},
+		},
+	}
 }
 
 func TestValidateFilters_PartialMatch_Substring(t *testing.T) {
-ws := makePartialMatchWorkspace()
-for _, filter := range []string{"cool", "backend", "my", "lol", "my-cool-backend-lol", "ORG/PACK/my-cool-backend-lol"} {
-opts := workspace.RunOptions{ProjectName: "backend", RepoName: filter}
-if err := workspace.ValidateFilters(ws, opts); err != nil {
-t.Errorf("filter %q: expected nil, got %v", filter, err)
-}
-}
+	ws := makePartialMatchWorkspace()
+	for _, filter := range []string{"cool", "backend", "my", "lol", "my-cool-backend-lol", "ORG/PACK/my-cool-backend-lol"} {
+		opts := workspace.RunOptions{ProjectName: "backend", RepoName: filter}
+		if err := workspace.ValidateFilters(ws, opts); err != nil {
+			t.Errorf("filter %q: expected nil, got %v", filter, err)
+		}
+	}
 }
 
 func TestValidateFilters_PartialMatch_NoMatch(t *testing.T) {
-ws := makePartialMatchWorkspace()
-opts := workspace.RunOptions{ProjectName: "backend", RepoName: "zzznope"}
-if err := workspace.ValidateFilters(ws, opts); err == nil {
-t.Fatal("expected error for unmatched filter")
-}
+	ws := makePartialMatchWorkspace()
+	opts := workspace.RunOptions{ProjectName: "backend", RepoName: "zzznope"}
+	if err := workspace.ValidateFilters(ws, opts); err == nil {
+		t.Fatal("expected error for unmatched filter")
+	}
 }
 
 func TestValidateFilters_PartialMatch_MultipleReposMatchIsValid(t *testing.T) {
-ws := makePartialMatchWorkspace()
-// "service" does not appear in both, but "ORG" does — both repos share the namespace prefix.
-opts := workspace.RunOptions{ProjectName: "backend", RepoName: "PACK"}
-if err := workspace.ValidateFilters(ws, opts); err != nil {
-t.Fatalf("multiple matches must be valid: %v", err)
-}
+	ws := makePartialMatchWorkspace()
+	// "service" does not appear in both, but "ORG" does — both repos share the namespace prefix.
+	opts := workspace.RunOptions{ProjectName: "backend", RepoName: "PACK"}
+	if err := workspace.ValidateFilters(ws, opts); err != nil {
+		t.Fatalf("multiple matches must be valid: %v", err)
+	}
 }
 
 func TestCountMatchingRepos_Single(t *testing.T) {
-ws := makePartialMatchWorkspace()
-opts := workspace.RunOptions{ProjectName: "backend", RepoName: "lol"}
-if n := workspace.CountMatchingRepos(ws, opts); n != 1 {
-t.Errorf("expected 1, got %d", n)
-}
+	ws := makePartialMatchWorkspace()
+	opts := workspace.RunOptions{ProjectName: "backend", RepoName: "lol"}
+	if n := workspace.CountMatchingRepos(ws, opts); n != 1 {
+		t.Errorf("expected 1, got %d", n)
+	}
 }
 
 func TestCountMatchingRepos_Multiple(t *testing.T) {
-ws := makePartialMatchWorkspace()
-opts := workspace.RunOptions{ProjectName: "backend", RepoName: "PACK"}
-if n := workspace.CountMatchingRepos(ws, opts); n != 2 {
-t.Errorf("expected 2 (both repos share PACK namespace), got %d", n)
-}
+	ws := makePartialMatchWorkspace()
+	opts := workspace.RunOptions{ProjectName: "backend", RepoName: "PACK"}
+	if n := workspace.CountMatchingRepos(ws, opts); n != 2 {
+		t.Errorf("expected 2 (both repos share PACK namespace), got %d", n)
+	}
 }
 
 func TestCountMatchingRepos_NoFilter(t *testing.T) {
-ws := makePartialMatchWorkspace()
-opts := workspace.RunOptions{ProjectName: "backend"}
-if n := workspace.CountMatchingRepos(ws, opts); n != 0 {
-t.Errorf("expected 0 when no RepoName filter, got %d", n)
+	ws := makePartialMatchWorkspace()
+	opts := workspace.RunOptions{ProjectName: "backend"}
+	if n := workspace.CountMatchingRepos(ws, opts); n != 0 {
+		t.Errorf("expected 0 when no RepoName filter, got %d", n)
+	}
 }
+
+// ── Tag filtering tests ───────────────────────────────────────────────────────
+
+func makeTagWorkspace() config.Workspace {
+	return config.Workspace{
+		Name: "default",
+		Path: "/ws",
+		Projects: []config.Project{
+			{
+				Name:   "backend",
+				Branch: "main",
+				Tags:   []string{"api", "backend"},
+				Repositories: []config.Repository{
+					{Name: "auth-service", Tags: []string{"core"}},
+					{Name: "gateway", Tags: []string{"edge"}},
+					{Name: "worker"},
+				},
+			},
+			{
+				Name:   "frontend",
+				Branch: "main",
+				Tags:   []string{"ui"},
+				Repositories: []config.Repository{
+					{Name: "web-app", Tags: []string{"critical"}},
+					{Name: "design-system"},
+				},
+			},
+		},
+	}
+}
+
+func TestRepoTagsMatch_ORLogic(t *testing.T) {
+	ws := makeTagWorkspace()
+
+	// "core" matches only auth-service (inherited: api+backend+core)
+	if n := workspace.CountMatchingRepos(ws, workspace.RunOptions{Tags: []string{"core"}}); n != 1 {
+		t.Errorf("expected 1 match for tag 'core', got %d", n)
+	}
+
+	// "edge" matches only gateway
+	if n := workspace.CountMatchingRepos(ws, workspace.RunOptions{Tags: []string{"edge"}}); n != 1 {
+		t.Errorf("expected 1 match for tag 'edge', got %d", n)
+	}
+
+	// OR: "core" OR "edge" matches 2
+	if n := workspace.CountMatchingRepos(ws, workspace.RunOptions{Tags: []string{"core", "edge"}}); n != 2 {
+		t.Errorf("expected 2 OR matches for 'core'+'edge', got %d", n)
+	}
+
+	// "ui" is frontend project tag — does NOT match backend repos
+	// Validate filter with ProjectName=backend and tag=ui should fail
+	opts := workspace.RunOptions{ProjectName: "backend", Tags: []string{"ui"}}
+	if err := workspace.ValidateFilters(ws, opts); err == nil {
+		t.Error("expected error: 'ui' tag does not match any backend repo")
+	}
+}
+
+func TestValidateFilters_TagMatch(t *testing.T) {
+	ws := makeTagWorkspace()
+	opts := workspace.RunOptions{Tags: []string{"api"}}
+	if err := workspace.ValidateFilters(ws, opts); err != nil {
+		t.Errorf("tag 'api' should match; got error: %v", err)
+	}
+}
+
+func TestValidateFilters_TagNoMatch(t *testing.T) {
+	ws := makeTagWorkspace()
+	opts := workspace.RunOptions{Tags: []string{"nonexistent-tag"}}
+	err := workspace.ValidateFilters(ws, opts)
+	if err == nil {
+		t.Error("expected error for unmatched tag filter")
+	}
+}
+
+func TestValidateFilters_TagInheritedFromProject(t *testing.T) {
+	ws := makeTagWorkspace()
+	// "backend" is a project tag; worker repo has no own tags but should inherit it
+	opts := workspace.RunOptions{Tags: []string{"backend"}}
+	if err := workspace.ValidateFilters(ws, opts); err != nil {
+		t.Errorf("inherited project tag should match: %v", err)
+	}
+}
+
+func TestCountMatchingRepos_TagFilter(t *testing.T) {
+	ws := makeTagWorkspace()
+	opts := workspace.RunOptions{Tags: []string{"core"}}
+	if n := workspace.CountMatchingRepos(ws, opts); n != 1 {
+		t.Errorf("expected 1 repo tagged 'core', got %d", n)
+	}
+}
+
+func TestCountMatchingRepos_TagOR(t *testing.T) {
+	ws := makeTagWorkspace()
+	opts := workspace.RunOptions{Tags: []string{"core", "edge"}}
+	if n := workspace.CountMatchingRepos(ws, opts); n != 2 {
+		t.Errorf("expected 2 repos matching 'core' OR 'edge', got %d", n)
+	}
 }

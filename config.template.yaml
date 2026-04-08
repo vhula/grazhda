@@ -36,18 +36,23 @@ workspaces:
     projects:
       - name: ws-project1
         branch: main
+        tags: [backend, api]          # project-level tags inherited by all repos below
         repositories:
           - name: test-repo-1
+            tags: [core]              # repo-specific tags (merged with project tags)
           - name: test-repo-2
           - name: test-repo-1
             local_dir_name: test-repo-1-copy
           - name: test-repo-3
             branch: dev
+            tags: [experimental]
       - name: ws-project2
         branch: main
+        tags: [frontend]
         repositories:
           - name: test-repo-1
           - name: test-repo-2
+            tags: [ui, critical]
           - name: test-repo-3
   - name: secondary
     path: ~/secondary_ws
@@ -56,6 +61,8 @@ workspaces:
     projects:
       - name: secondary-project1
         branch: main
+        tags: [infra]
         repositories:
           - name: test-repo-1
           - name: test-repo-2
+            tags: [deploy]

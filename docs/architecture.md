@@ -1210,3 +1210,58 @@ Search uses `bufio.Scanner` (default 64 KB token buffer) to read files line-by-l
 ### Module Dependencies
 
 No new external dependencies. `internal/workspace/inspect.go` imports `internal/color` for diff colour-coding (already used by the reporter which the workspace package already imports).
+
+## Phase 7 — Tag-Based Targeting & IDE Integration
+
+### Schema Extension (internal/config/config.go)
+
+```yaml
+# Example showing tags at both levels
+projects:
+  - name: backend
+    branch: main
+    tags: [backend, critical]
+    repositories:
+      - name: org/api
+        tags: [api, public]   # effective tags: backend, critical, api, public
+      - name: org/auth        # effective tags: backend, critical (inherited only)
+```
+
+`Project.Tags []string yaml:"tags,omitempty"` and `Repository.Tags []string yaml:"tags,omitempty"` are added to the config structs.
+
+### Filtering Engine v2 (internal/workspace/targeting.go)
+
+New helpers:
+
+- `effectiveTags(proj, repo) []string` — merges project tags + repo tags (deduped).
+- `repoTagsMatch(proj, repo, filter []string) bool` — returns true if filter is empty OR any effective tag matches any filter tag (OR logic).
+- `repoMatchesFilters(proj, repo, opts RunOptions) bool` — AND-combines RepoName substring check with Tags check; used in all iteration loops.
+
+Updated:
+
+- `RunOptions.Tags []string` — new field.
+- `InspectOptions.Tags []string` — new field.
+- `ValidateFilters` — extended to check tag filter (when `len(opts.Tags) > 0`), returns error if no repos match.
+- `CountMatchingRepos` — now also applies tag filter when set.
+
+Updated filter application sites: `runOverRepos` (exec/stash/checkout), `Init`, `Pull`, and all three inspect loops (Search, Diff, Stats jobs).
+
+### IDE Launcher (zgard/ws/open.go)
+
+`findIDEBinary(ide string) (string, error)` tries `exec.LookPath` then common hardcoded paths:
+
+| IDE    | Binaries tried                              |
+|--------|---------------------------------------------|
+| vscode | `code`, `code-insiders`                     |
+| idea   | `idea`, `idea.sh`, `/opt/idea/bin/idea.sh`  |
+
+`CollectRepoPaths(ws, opts RunOptions) ([]string, error)` — new exported function in `internal/workspace` that returns filesystem paths of all matching repos (skips repos not on disk but does not error on them).
+
+`openCmd` collects paths, prints count info, launches `binary <path>` via `exec.Command(binary, path)` with `Start()` (detached, no wait).
+
+### Cobra Integration (zgard/ws/ws.go)
+
+- `tagFilter []string` package-level var.
+- `cmd.PersistentFlags().StringArrayVarP(&tagFilter, "tag", "t", nil, "Filter by tag (OR logic; repeat for multiple)")`.
+- `AddCommand(newOpenCmd())`.
+- All subcommand RunOptions/InspectOptions structs pass `Tags: tagFilter`.

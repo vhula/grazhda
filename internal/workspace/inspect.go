@@ -21,6 +21,7 @@ func inspectRunOpts(opts InspectOptions) RunOptions {
 	return RunOptions{
 		ProjectName: opts.ProjectName,
 		RepoName:    opts.RepoName,
+		Tags:        opts.Tags,
 		Parallel:    opts.Parallel,
 		ParallelAll: opts.ParallelAll,
 		Verbose:     opts.Verbose,
@@ -74,7 +75,7 @@ func Search(ws config.Workspace, opts SearchOptions, out io.Writer) error {
 		}
 		projPath := filepath.Join(wsPath, proj.Name)
 		for _, repo := range proj.Repositories {
-			if opts.RepoName != "" && !repoNameMatches(repo.Name, opts.RepoName) {
+			if !repoMatchesFilters(proj, repo, rOpts) {
 				continue
 			}
 			dest := ResolveDestName(projPath, repo.Name, repo.LocalDirName, ws.Structure)
@@ -243,7 +244,7 @@ func Diff(ws config.Workspace, exec executor.Executor, opts InspectOptions, out 
 		}
 		var jobs []diffJob
 		for _, repo := range proj.Repositories {
-			if opts.RepoName != "" && !repoNameMatches(repo.Name, opts.RepoName) {
+			if !repoMatchesFilters(proj, repo, rOpts) {
 				continue
 			}
 			dest := ResolveDestName(projPath, repo.Name, repo.LocalDirName, ws.Structure)
@@ -291,19 +292,19 @@ func Diff(ws config.Workspace, exec executor.Executor, opts InspectOptions, out 
 				diffAheadBehindStr(row.behind),
 			}
 			switch {
-		case row.uncommitted == -1:
-			rowColors[i] = func(s string) string { return clr.Yellow(s) }
-			totalNotCloned++
-		case row.uncommitted > 0:
-			rowColors[i] = func(s string) string { return clr.Red(s) }
-			totalDirty++
-		case row.ahead > 0 || row.behind > 0:
-			rowColors[i] = func(s string) string { return clr.Yellow(s) }
-			totalDirty++
-		default:
-			rowColors[i] = func(s string) string { return clr.Green(s) }
-			totalClean++
-		}
+			case row.uncommitted == -1:
+				rowColors[i] = func(s string) string { return clr.Yellow(s) }
+				totalNotCloned++
+			case row.uncommitted > 0:
+				rowColors[i] = func(s string) string { return clr.Red(s) }
+				totalDirty++
+			case row.ahead > 0 || row.behind > 0:
+				rowColors[i] = func(s string) string { return clr.Yellow(s) }
+				totalDirty++
+			default:
+				rowColors[i] = func(s string) string { return clr.Green(s) }
+				totalClean++
+			}
 		}
 		printTable(out, "    ", headers, tableRows, rowColors)
 		fmt.Fprintln(out)
@@ -393,7 +394,7 @@ func Stats(ws config.Workspace, exec executor.Executor, opts InspectOptions, out
 		}
 		var jobs []statsJob
 		for _, repo := range proj.Repositories {
-			if opts.RepoName != "" && !repoNameMatches(repo.Name, opts.RepoName) {
+			if !repoMatchesFilters(proj, repo, rOpts) {
 				continue
 			}
 			dest := ResolveDestName(projPath, repo.Name, repo.LocalDirName, ws.Structure)

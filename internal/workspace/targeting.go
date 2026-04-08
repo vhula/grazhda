@@ -20,12 +20,61 @@ func repoNameMatches(repoConfigName, filter string) bool {
 	return strings.Contains(repoConfigName, filter)
 }
 
+// effectiveTags returns the merged tag set for a repo: project-level tags
+// first, then any additional repo-level tags (deduped, preserving order).
+func effectiveTags(proj config.Project, repo config.Repository) []string {
+	seen := map[string]bool{}
+	var tags []string
+	for _, t := range proj.Tags {
+		if !seen[t] {
+			seen[t] = true
+			tags = append(tags, t)
+		}
+	}
+	for _, t := range repo.Tags {
+		if !seen[t] {
+			seen[t] = true
+			tags = append(tags, t)
+		}
+	}
+	return tags
+}
+
+// repoTagsMatch reports whether a repo's effective tag set intersects with
+// filter (OR logic). An empty filter always matches.
+func repoTagsMatch(proj config.Project, repo config.Repository, filter []string) bool {
+	if len(filter) == 0 {
+		return true
+	}
+	effective := effectiveTags(proj, repo)
+	for _, ft := range filter {
+		for _, et := range effective {
+			if et == ft {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// repoMatchesFilters returns true when the repo satisfies ALL active filters
+// (RepoName substring and Tags). An absent filter always matches.
+func repoMatchesFilters(proj config.Project, repo config.Repository, opts RunOptions) bool {
+	if opts.RepoName != "" && !repoNameMatches(repo.Name, opts.RepoName) {
+		return false
+	}
+	if len(opts.Tags) > 0 && !repoTagsMatch(proj, repo, opts.Tags) {
+		return false
+	}
+	return true
+}
+
 // CountMatchingRepos returns the number of repositories in ws that satisfy
-// opts.RepoName (substring match).  If opts.ProjectName is set only that
-// project's repositories are considered.  Returns 0 when opts.RepoName is
-// empty (no filter active).
+// opts.RepoName (substring match) and opts.Tags (OR match).
+// If opts.ProjectName is set only that project's repositories are considered.
+// Returns 0 when both opts.RepoName and opts.Tags are empty (no filter active).
 func CountMatchingRepos(ws config.Workspace, opts RunOptions) int {
-	if opts.RepoName == "" {
+	if opts.RepoName == "" && len(opts.Tags) == 0 {
 		return 0
 	}
 	total := 0
@@ -34,7 +83,7 @@ func CountMatchingRepos(ws config.Workspace, opts RunOptions) int {
 			continue
 		}
 		for _, repo := range proj.Repositories {
-			if repoNameMatches(repo.Name, opts.RepoName) {
+			if repoMatchesFilters(proj, repo, opts) {
 				total++
 			}
 		}
@@ -42,32 +91,44 @@ func CountMatchingRepos(ws config.Workspace, opts RunOptions) int {
 	return total
 }
 
-// ValidateFilters returns an error if opts.ProjectName or opts.RepoName
-// does not match any entry in the given workspace's configuration.
+// ValidateFilters returns an error if opts.ProjectName, opts.RepoName, or
+// opts.Tags do not match any entry in the workspace configuration.
 // Validates config structure only — filesystem presence is not checked here.
-//
-// opts.RepoName is matched via case-sensitive substring against the full
-// repository config name (e.g. "cool" matches "ORG/PACK/my-cool-backend-lol").
-// Matching more than one repository is valid; the caller is responsible for
-// warning the user when multiple matches are found.
 func ValidateFilters(ws config.Workspace, opts RunOptions) error {
-	if opts.ProjectName == "" {
-		return nil
-	}
+	projectFound := false
+	repoFound := false
+	tagFound := false
+
 	for _, proj := range ws.Projects {
-		if proj.Name == opts.ProjectName {
-			if opts.RepoName == "" {
-				return nil
+		if opts.ProjectName != "" && proj.Name != opts.ProjectName {
+			continue
+		}
+		projectFound = true
+		for _, repo := range proj.Repositories {
+			nameOK := opts.RepoName == "" || repoNameMatches(repo.Name, opts.RepoName)
+			tagOK := len(opts.Tags) == 0 || repoTagsMatch(proj, repo, opts.Tags)
+			if nameOK {
+				repoFound = true
 			}
-			for _, repo := range proj.Repositories {
-				if repoNameMatches(repo.Name, opts.RepoName) {
-					return nil // at least one match → valid
-				}
+			if nameOK && tagOK {
+				tagFound = true
 			}
-			return fmt.Errorf("repository filter %q matched no repositories in project %q", opts.RepoName, opts.ProjectName)
 		}
 	}
-	return fmt.Errorf("project %q not found in workspace %q", opts.ProjectName, ws.Name)
+
+	if opts.ProjectName != "" && !projectFound {
+		return fmt.Errorf("project %q not found in workspace %q", opts.ProjectName, ws.Name)
+	}
+	if opts.RepoName != "" && opts.ProjectName != "" && !repoFound {
+		return fmt.Errorf("repository filter %q matched no repositories in project %q", opts.RepoName, opts.ProjectName)
+	}
+	if opts.RepoName != "" && opts.ProjectName != "" && repoFound && len(opts.Tags) > 0 && !tagFound {
+		return fmt.Errorf("tag filter %v matched no repositories matching %q in project %q", opts.Tags, opts.RepoName, opts.ProjectName)
+	}
+	if len(opts.Tags) > 0 && !tagFound {
+		return fmt.Errorf("tag filter %v matched no repositories in workspace %q", opts.Tags, ws.Name)
+	}
+	return nil
 }
 
 // Resolve returns the workspaces to operate on based on flag inputs.

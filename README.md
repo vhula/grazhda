@@ -155,7 +155,7 @@ Editor resolution order:
 
 #### Targeting Logic
 
-Every `zgard ws` subcommand shares the same four targeting flags, inherited from the `ws` parent:
+Every `zgard ws` subcommand shares the same targeting flags, inherited from the `ws` parent:
 
 | Flag | Short | Description |
 |---|---|---|
@@ -163,6 +163,7 @@ Every `zgard ws` subcommand shares the same four targeting flags, inherited from
 | `--all` | | Operate on all configured workspaces |
 | `--project-name <name>` | `-p` | Filter to a specific project within the targeted workspace |
 | `--repo-name <name>` | `-r` | Substring filter on repository names (requires `--project-name`) |
+| `--tag <tag>` | `-t` | Filter by tag (OR logic; repeat for multiple tags) |
 
 **Flag constraints:**
 - `--name` and `--all` are mutually exclusive.
@@ -187,6 +188,18 @@ Warning: --repo-name "cool" matches 3 repositories
 ```
 
 If the filter matches nothing, `zgard` exits with a **red error**.
+
+**`--tag` filtering (OR logic):** Repositories and projects can declare a `tags` list in config. The `--tag` flag filters to repos whose effective tag set (project tags merged with repo tags) contains the specified tag. Supplying multiple `--tag` flags uses **OR** logic — a repo matching any one of the provided tags is included.
+
+```bash
+# Run pull only on repositories tagged "backend" or "api"
+zgard ws pull -t backend -t api
+
+# Open all "critical" repos in VS Code
+zgard ws open --ide vscode -t critical
+```
+
+Project-level tags are **inherited** by all repositories in that project (merged with any repo-specific tags). If `--tag` matches no repositories, `zgard` exits with a **red error**.
 
 ```
 zgard manages local workspace lifecycle — init, purge, and pull repositories.
@@ -424,6 +437,34 @@ Workspace: myws
 
 ---
 
+#### `zgard ws open`
+
+Launch an IDE for each resolved repository directory. Supports VS Code (`code`) and IntelliJ IDEA (`idea`).
+
+```sh
+zgard ws open --ide vscode                                 # open all repos in default workspace
+zgard ws open --ide idea -p backend                        # all repos in "backend" project
+zgard ws open --ide vscode -t critical                     # only repos tagged "critical"
+zgard ws open --ide vscode -t backend -t api               # repos tagged "backend" OR "api"
+```
+
+- `--ide` is required; supported values: `vscode`, `idea`.
+- Each matching repository directory is launched in a separate IDE window (non-blocking).
+- Repositories not yet cloned are skipped with a yellow `⏭` message.
+- When more than 5 windows would open, a yellow warning is printed first.
+- If the IDE binary cannot be found on PATH, an error with install instructions is shown.
+
+Sample output:
+
+```
+Opening 3 repo(s) in VS Code...
+  ✓ /home/alice/ws/backend/api
+  ✓ /home/alice/ws/backend/auth-service
+  ⏭ /home/alice/ws/backend/gateway — not cloned, skipped
+```
+
+---
+
 Common flags for `zgard ws` commands:
 
 | Flag | Commands | Description |
@@ -432,6 +473,7 @@ Common flags for `zgard ws` commands:
 | `--all` | all | Operate on all workspaces (persistent, inherited) |
 | `-p, --project-name <name>` | all | Filter to a specific project (persistent, inherited) |
 | `-r, --repo-name <name>` | all | Substring filter on repo names — requires `-p`; may match multiple repos (persistent, inherited) |
+| `-t, --tag <tag>` | all | Filter by tag (OR logic; repeat for multiple: `-t backend -t api`) (persistent, inherited) |
 | `--dry-run` | init, pull, exec, stash, checkout | Print actions without executing |
 | `--parallel` | init, pull, exec, stash, checkout, search, diff, stats | Run repos within each project concurrently |
 | `--parallel-all` | init, pull, exec, stash, checkout, search, diff, stats | Run all repos across all projects concurrently |
@@ -441,6 +483,7 @@ Common flags for `zgard ws` commands:
 | `--rescan` | status | Trigger a fresh scan before reporting |
 | `--glob` | search | Match filenames instead of file contents |
 | `--regex` | search | Treat pattern as a Go regular expression |
+| `--ide` | open | IDE to launch: `vscode` or `idea` (required) |
 
 ---
 

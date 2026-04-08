@@ -626,3 +626,41 @@ Phase 6 introduces three read-only `zgard ws` subcommands — `search`, `diff`, 
 - **NFR-I1:** `search` must use streaming line-by-line scanning (`bufio.Scanner`) — no full file loads.
 - **NFR-I2:** `diff` and `stats` must not fail the whole run when one repo returns a git error; missing repos are reported inline.
 - **NFR-I3:** Parallel execution must not exhaust file descriptors on workspaces with 50+ repos.
+
+## Phase 7 — Tag-Based Targeting & IDE Integration
+
+### Executive Summary
+
+Phase 7 extends zgard's targeting model with tag-based filtering, allowing users to select repositories by semantic labels defined in config.yaml. It also adds `zgard ws open --ide`, which resolves targeted repo paths and launches a supported IDE on each directory, enabling fast multi-repo workspace setup from the command line.
+
+### Functional Requirements
+
+#### Tag Schema
+
+- **FR-T5:** A `tags` YAML field (optional list of strings) is added to both `Project` and `Repository` structs.
+- **FR-T6:** Project-level tags are inherited by all repositories within that project (merged union).
+- **FR-T7:** Repository-level tags extend (not replace) project-level tags.
+- **FR-T8:** Tags are case-sensitive strings; no validation constraints on values.
+
+#### Tag Filtering
+
+- **FR-T9:** A new `--tag/-t` persistent flag is added to the `ws` parent command; it is repeatable (StringArray).
+- **FR-T10:** Multiple `--tag` values use OR (union) logic — a repo matches if it has ANY of the specified tags.
+- **FR-T11:** `--tag` combines with `--project-name` and `--repo-name` using AND logic (all active filters must match).
+- **FR-T12:** `--tag` is compatible with `--all` (filters within each workspace).
+- **FR-T13:** When the tag filter matches zero repos: red error message is printed and the command exits non-zero.
+
+#### ws open
+
+- **FR-I24:** `zgard ws open --ide <ide>` resolves targeted repo paths and launches the IDE on each.
+- **FR-I25:** Supported IDEs: `vscode` (binary: `code`, fallback `code-insiders`) and `idea` (binary: `idea`, fallback `idea.sh`, `/opt/idea/bin/idea.sh`).
+- **FR-I26:** When the IDE binary is not found: red error with installation instructions is printed.
+- **FR-I27:** Repos not present on disk are skipped with a yellow warning.
+- **FR-I28:** When more than 5 repo windows would open: yellow warning showing the count is printed before proceeding.
+- **FR-I29:** `ws open` supports all universal targeting flags including `--tag`.
+- **FR-I30:** `--ide` flag is required; omitting it produces a red error.
+
+### Non-Functional Requirements
+
+- **NFR-T1:** Tag lookups must be O(n) where n is total repos — no preprocessing index needed at current workspace sizes.
+- **NFR-T2:** `ws open` must not block — each IDE process is launched detached.

@@ -1021,3 +1021,54 @@ Workspace: myws
 - Column padding: 2 spaces between columns.
 - Indent: 4 spaces for repo rows under a project (consistent with existing "4-space repo indent" spec).
 - `(not cloned)` entries always use yellow ⏭ symbol prefix in summary counts.
+
+## Phase 7 — Tag-Based Targeting & IDE Integration
+
+### Tag Visibility in ws status
+
+Tags are shown after the repo name in `ws status` output, formatted as `[tag1 tag2]` in dim/grey colour (or plain square brackets if colour is disabled):
+
+```
+  ✓ api [backend critical]        — clean (main)
+  ✓ auth-service [backend]        — clean (main)
+```
+
+### Error: Tag filter matches nothing
+
+```
+✗ tag filter [legacy] matched no repositories in workspace "myws"
+```
+
+Printed in red to stderr.
+
+### Error: IDE not found
+
+```
+✗ VS Code CLI 'code' not found on PATH
+  Install VS Code and run: Shell Command → Install 'code' command in PATH
+```
+
+Printed in red to stderr.
+
+### ws open output
+
+```
+Info: Targeting default workspace: /home/user/ws
+Opening 3 repo(s) in VS Code...
+  ✓ /home/user/ws/backend/api
+  ✓ /home/user/ws/backend/auth-service
+  ⏭ /home/user/ws/backend/gateway  — not cloned, skipped
+```
+
+### Warning: Many windows
+
+```
+Warning: 8 IDE windows will open. Proceed? (press Ctrl+C to abort)
+```
+
+Printed when count > 5. Always printed; no interactive prompt — the user can abort before the first window appears.
+
+### Common Rules for Phase 7
+
+- `--tag` appears in help text for all `ws` subcommands via persistent flag inheritance.
+- Tag values in YAML are free-form strings; the UX never validates casing.

@@ -43,29 +43,31 @@ type MonitoringConfig struct {
 
 // Workspace represents a named collection of projects.
 type Workspace struct {
-	Name                 string    `yaml:"name"`
-	Default              bool      `yaml:"default"`
-	Path                 string    `yaml:"path"`
-	CloneCommandTemplate string    `yaml:"clone_command_template"`
+	Name                 string `yaml:"name"`
+	Default              bool   `yaml:"default"`
+	Path                 string `yaml:"path"`
+	CloneCommandTemplate string `yaml:"clone_command_template"`
 	// Structure controls how repo names containing slashes are mapped to local
 	// directories. Accepted values: "tree" (default) or "list".
 	// See StructureTree / StructureList constants for details.
-	Structure            string    `yaml:"structure"`
-	Projects             []Project `yaml:"projects"`
+	Structure string    `yaml:"structure"`
+	Projects  []Project `yaml:"projects"`
 }
 
 // Project groups repositories under a common branch.
 type Project struct {
 	Name         string       `yaml:"name"`
 	Branch       string       `yaml:"branch"`
+	Tags         []string     `yaml:"tags,omitempty"`
 	Repositories []Repository `yaml:"repositories"`
 }
 
 // Repository is a single repository entry within a project.
 type Repository struct {
-	Name         string `yaml:"name"`
-	Branch       string `yaml:"branch,omitempty"`
-	LocalDirName string `yaml:"local_dir_name,omitempty"`
+	Name         string   `yaml:"name"`
+	Branch       string   `yaml:"branch,omitempty"`
+	LocalDirName string   `yaml:"local_dir_name,omitempty"`
+	Tags         []string `yaml:"tags,omitempty"`
 }
 
 // CloneTemplateData holds variables available in clone_command_template.

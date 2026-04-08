@@ -568,31 +568,31 @@ func TestInit_ListStructure(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestResolveDestNamesForProject_TreeMode(t *testing.T) {
-repos := []config.Repository{
-{Name: "org/pack/repo1"},
-{Name: "org/pack/repo2"},
-}
-got := workspace.ResolveDestNamesForProject(repos, config.StructureTree)
-want := []string{"org/pack/repo1", "org/pack/repo2"}
-for i, w := range want {
-if got[i] != w {
-t.Errorf("[%d] tree mode: want %q got %q", i, w, got[i])
-}
-}
+	repos := []config.Repository{
+		{Name: "org/pack/repo1"},
+		{Name: "org/pack/repo2"},
+	}
+	got := workspace.ResolveDestNamesForProject(repos, config.StructureTree)
+	want := []string{"org/pack/repo1", "org/pack/repo2"}
+	for i, w := range want {
+		if got[i] != w {
+			t.Errorf("[%d] tree mode: want %q got %q", i, w, got[i])
+		}
+	}
 }
 
 func TestResolveDestNamesForProject_ListMode_NoCollision(t *testing.T) {
-repos := []config.Repository{
-{Name: "org/pack/repo1"},
-{Name: "other/pack/repo2"},
-}
-got := workspace.ResolveDestNamesForProject(repos, config.StructureList)
-want := []string{"repo1", "repo2"}
-for i, w := range want {
-if got[i] != w {
-t.Errorf("[%d] list no-collision: want %q got %q", i, w, got[i])
-}
-}
+	repos := []config.Repository{
+		{Name: "org/pack/repo1"},
+		{Name: "other/pack/repo2"},
+	}
+	got := workspace.ResolveDestNamesForProject(repos, config.StructureList)
+	want := []string{"repo1", "repo2"}
+	for i, w := range want {
+		if got[i] != w {
+			t.Errorf("[%d] list no-collision: want %q got %q", i, w, got[i])
+		}
+	}
 }
 
 func TestResolveDestNamesForProject_ListMode_Collision(t *testing.T) {
@@ -628,13 +628,13 @@ func TestResolveDestNamesForProject_ListMode_AllReturnLastSegment(t *testing.T) 
 }
 
 func TestResolveDestNamesForProject_LocalDirNameOverridesStructure(t *testing.T) {
-repos := []config.Repository{
-{Name: "org/pack/repo1", LocalDirName: "my-repo"},
-}
-got := workspace.ResolveDestNamesForProject(repos, config.StructureList)
-if got[0] != "my-repo" {
-t.Errorf("localDirName override: want %q got %q", "my-repo", got[0])
-}
+	repos := []config.Repository{
+		{Name: "org/pack/repo1", LocalDirName: "my-repo"},
+	}
+	got := workspace.ResolveDestNamesForProject(repos, config.StructureList)
+	if got[0] != "my-repo" {
+		t.Errorf("localDirName override: want %q got %q", "my-repo", got[0])
+	}
 }
 
 func TestResolveDestNamesForProject_LocalDirName_AndListSegment(t *testing.T) {
@@ -657,109 +657,109 @@ func TestResolveDestNamesForProject_LocalDirName_AndListSegment(t *testing.T) {
 func TestInit_ProjectFilter(t *testing.T) {
 	ws, _ := makeMultiProjectWorkspace(t)
 
-var out, errOut strings.Builder
-rep := reporter.NewReporter(&out, &errOut)
-mock := &executor.MockExecutor{}
+	var out, errOut strings.Builder
+	rep := reporter.NewReporter(&out, &errOut)
+	mock := &executor.MockExecutor{}
 
-opts := workspace.RunOptions{ProjectName: "frontend"}
-if err := workspace.Init(ws, mock, rep, opts); err != nil {
-t.Fatalf("Init error: %v", err)
-}
+	opts := workspace.RunOptions{ProjectName: "frontend"}
+	if err := workspace.Init(ws, mock, rep, opts); err != nil {
+		t.Fatalf("Init error: %v", err)
+	}
 
-// frontend has 1 repo (web)
-if len(mock.Calls) != 1 {
-t.Errorf("expected 1 clone call (frontend only), got %d: %v", len(mock.Calls), mock.Calls)
-}
-if !strings.Contains(out.String(), "frontend") {
-t.Error("expected frontend to appear in output")
-}
-if strings.Contains(out.String(), "backend") {
-t.Error("backend should not appear in output")
-}
+	// frontend has 1 repo (web)
+	if len(mock.Calls) != 1 {
+		t.Errorf("expected 1 clone call (frontend only), got %d: %v", len(mock.Calls), mock.Calls)
+	}
+	if !strings.Contains(out.String(), "frontend") {
+		t.Error("expected frontend to appear in output")
+	}
+	if strings.Contains(out.String(), "backend") {
+		t.Error("backend should not appear in output")
+	}
 }
 
 func TestInit_RepoFilter(t *testing.T) {
-ws, tmp := makeMultiProjectWorkspace(t)
-_ = tmp
+	ws, tmp := makeMultiProjectWorkspace(t)
+	_ = tmp
 
-var out, errOut strings.Builder
-rep := reporter.NewReporter(&out, &errOut)
-mock := &executor.MockExecutor{}
+	var out, errOut strings.Builder
+	rep := reporter.NewReporter(&out, &errOut)
+	mock := &executor.MockExecutor{}
 
-opts := workspace.RunOptions{ProjectName: "backend", RepoName: "api"}
-if err := workspace.Init(ws, mock, rep, opts); err != nil {
-t.Fatalf("Init error: %v", err)
-}
+	opts := workspace.RunOptions{ProjectName: "backend", RepoName: "api"}
+	if err := workspace.Init(ws, mock, rep, opts); err != nil {
+		t.Fatalf("Init error: %v", err)
+	}
 
-// backend has 2 repos but only api is targeted
-if len(mock.Calls) != 1 {
-t.Errorf("expected 1 clone call (api only), got %d: %v", len(mock.Calls), mock.Calls)
-}
+	// backend has 2 repos but only api is targeted
+	if len(mock.Calls) != 1 {
+		t.Errorf("expected 1 clone call (api only), got %d: %v", len(mock.Calls), mock.Calls)
+	}
 }
 
 func TestInit_UnknownProject_ReturnsError(t *testing.T) {
-ws, _ := makeMultiProjectWorkspace(t)
-var out, errOut strings.Builder
-rep := reporter.NewReporter(&out, &errOut)
-mock := &executor.MockExecutor{}
+	ws, _ := makeMultiProjectWorkspace(t)
+	var out, errOut strings.Builder
+	rep := reporter.NewReporter(&out, &errOut)
+	mock := &executor.MockExecutor{}
 
-err := workspace.Init(ws, mock, rep, workspace.RunOptions{ProjectName: "nonexistent"})
-if err == nil {
-t.Fatal("expected error for unknown project")
-}
-if len(mock.Calls) != 0 {
-t.Error("no commands should have run")
-}
+	err := workspace.Init(ws, mock, rep, workspace.RunOptions{ProjectName: "nonexistent"})
+	if err == nil {
+		t.Fatal("expected error for unknown project")
+	}
+	if len(mock.Calls) != 0 {
+		t.Error("no commands should have run")
+	}
 }
 
 func TestPull_ProjectFilter(t *testing.T) {
-ws, tmp := makeMultiProjectWorkspace(t)
-createRepoDirs(t, ws, tmp)
+	ws, tmp := makeMultiProjectWorkspace(t)
+	createRepoDirs(t, ws, tmp)
 
-var out, errOut strings.Builder
-rep := reporter.NewReporter(&out, &errOut)
-mock := &executor.MockExecutor{}
+	var out, errOut strings.Builder
+	rep := reporter.NewReporter(&out, &errOut)
+	mock := &executor.MockExecutor{}
 
-opts := workspace.RunOptions{ProjectName: "frontend"}
-if err := workspace.Pull(ws, mock, rep, opts); err != nil {
-t.Fatalf("Pull error: %v", err)
-}
+	opts := workspace.RunOptions{ProjectName: "frontend"}
+	if err := workspace.Pull(ws, mock, rep, opts); err != nil {
+		t.Fatalf("Pull error: %v", err)
+	}
 
-// frontend has 1 repo (web)
-if len(mock.Calls) != 1 {
-t.Errorf("expected 1 pull call (frontend only), got %d: %v", len(mock.Calls), mock.Calls)
-}
+	// frontend has 1 repo (web)
+	if len(mock.Calls) != 1 {
+		t.Errorf("expected 1 pull call (frontend only), got %d: %v", len(mock.Calls), mock.Calls)
+	}
 }
 
 func TestPull_RepoFilter(t *testing.T) {
-ws, tmp := makeMultiProjectWorkspace(t)
-createRepoDirs(t, ws, tmp)
+	ws, tmp := makeMultiProjectWorkspace(t)
+	createRepoDirs(t, ws, tmp)
 
-var out, errOut strings.Builder
-rep := reporter.NewReporter(&out, &errOut)
-mock := &executor.MockExecutor{}
+	var out, errOut strings.Builder
+	rep := reporter.NewReporter(&out, &errOut)
+	mock := &executor.MockExecutor{}
 
-opts := workspace.RunOptions{ProjectName: "backend", RepoName: "auth"}
-if err := workspace.Pull(ws, mock, rep, opts); err != nil {
-t.Fatalf("Pull error: %v", err)
-}
+	opts := workspace.RunOptions{ProjectName: "backend", RepoName: "auth"}
+	if err := workspace.Pull(ws, mock, rep, opts); err != nil {
+		t.Fatalf("Pull error: %v", err)
+	}
 
-if len(mock.Calls) != 1 {
-t.Errorf("expected 1 pull call (auth only), got %d: %v", len(mock.Calls), mock.Calls)
-}
+	if len(mock.Calls) != 1 {
+		t.Errorf("expected 1 pull call (auth only), got %d: %v", len(mock.Calls), mock.Calls)
+	}
 }
 
 func TestPull_UnknownProject_ReturnsError(t *testing.T) {
-ws, _ := makeMultiProjectWorkspace(t)
-var out, errOut strings.Builder
-rep := reporter.NewReporter(&out, &errOut)
-mock := &executor.MockExecutor{}
+	ws, _ := makeMultiProjectWorkspace(t)
+	var out, errOut strings.Builder
+	rep := reporter.NewReporter(&out, &errOut)
+	mock := &executor.MockExecutor{}
 
-err := workspace.Pull(ws, mock, rep, workspace.RunOptions{ProjectName: "nonexistent"})
-if err == nil {
-t.Fatal("expected error for unknown project")
-}
-if len(mock.Calls) != 0 {
-t.Error("no commands should have run")
-}
+	err := workspace.Pull(ws, mock, rep, workspace.RunOptions{ProjectName: "nonexistent"})
+	if err == nil {
+		t.Fatal("expected error for unknown project")
+	}
+	if len(mock.Calls) != 0 {
+		t.Error("no commands should have run")
+	}
 }

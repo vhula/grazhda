@@ -1224,3 +1224,44 @@ Ensure all three commands (`search`, `diff`, `stats`) fully respect the universa
 ### Story Z5 — README documentation update
 
 Update `README.md` to document `zgard ws search`, `zgard ws diff`, and `zgard ws stats` under the workspace commands section. Include usage synopsis, flag descriptions, and trimmed example output (matching the UX spec) for each command so that new users can understand the feature without reading internal docs.
+
+## Epic AA — Tag-Based Targeting & IDE Integration
+
+### Story AA1 — Config schema: tags field
+
+Add `tags: []string` to the `Project` and `Repository` YAML structs in `internal/config/config.go`. Update `config.template.yaml` with annotated examples showing tags at both levels.
+
+**Acceptance criteria:**
+- Tags load correctly from YAML for both projects and repositories.
+- Existing configs without `tags` fields continue to work without change.
+- `Validate` behaviour is unchanged.
+
+### Story AA2 — Tag filtering engine
+
+Implement `effectiveTags`, `repoTagsMatch`, and `repoMatchesFilters` helpers in `internal/workspace/targeting.go`. Extend `RunOptions` and `InspectOptions` with a `Tags []string` field. Update `ValidateFilters` and `CountMatchingRepos` to apply tag filtering. Apply `repoMatchesFilters` in all iteration loops: `runOverRepos` (exec/stash/checkout), `Init`, `Pull`, and all three inspect loops (Search, Diff, Stats jobs).
+
+**Acceptance criteria:**
+- `--tag` filters repos correctly with OR logic and project-level tag inheritance.
+- Zero-match tag filter produces a red error and non-zero exit.
+- Combining `--tag` with `-p`/`-r` applies AND logic correctly.
+- All existing commands respect `--tag` without behavioural regression.
+
+### Story AA3 — ws open command
+
+Implement `CollectRepoPaths(ws, opts RunOptions) ([]string, error)` in `internal/workspace`. Implement `newOpenCmd` in `zgard/ws/open.go` with `findIDEBinary` for `vscode` and `idea` IDE targets.
+
+**Acceptance criteria:**
+- `--ide vscode` launches `code <path>` for each resolved repo directory.
+- `--ide idea` launches `idea <path>` for each resolved repo directory.
+- Missing IDE binary produces a red error with installation instructions.
+- Repos not cloned to disk are skipped with a yellow warning.
+- More than 5 target repos prints the count warning before opening.
+
+### Story AA4 — README and config.template.yaml updates
+
+Update `README.md` to document the `--tag` flag in the common flags table and add a `ws open` subsection with usage synopsis and examples. Update `config.template.yaml` to demonstrate `tags` at both project and repository levels.
+
+**Acceptance criteria:**
+- README shows `--tag` in the common flags table.
+- `ws open` has its own subsection in the README with usage examples.
+- `config.template.yaml` demonstrates tags at both project and repository levels.

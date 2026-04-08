@@ -45,7 +45,7 @@ func runOverRepos(
 			rep.PrintLine("  Project: " + proj.Name)
 			projPath := filepath.Join(wsPath, proj.Name)
 			for _, repo := range proj.Repositories {
-				if opts.RepoName != "" && !repoNameMatches(repo.Name, opts.RepoName) {
+				if !repoMatchesFilters(proj, repo, opts) {
 					continue
 				}
 				repo := repo
@@ -70,7 +70,7 @@ func runOverRepos(
 		if opts.Parallel {
 			var wg sync.WaitGroup
 			for _, repo := range proj.Repositories {
-				if opts.RepoName != "" && !repoNameMatches(repo.Name, opts.RepoName) {
+				if !repoMatchesFilters(proj, repo, opts) {
 					continue
 				}
 				repo := repo
@@ -83,7 +83,7 @@ func runOverRepos(
 			wg.Wait()
 		} else {
 			for _, repo := range proj.Repositories {
-				if opts.RepoName != "" && !repoNameMatches(repo.Name, opts.RepoName) {
+				if !repoMatchesFilters(proj, repo, opts) {
 					continue
 				}
 				fn(proj, projPath, repo)

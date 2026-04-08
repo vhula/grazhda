@@ -43,12 +43,12 @@ type WorkspaceHealth struct {
 // The polling period is read from config on every cycle so changes to
 // dukh.monitoring.period_mins take effect at the next tick without restart.
 type Monitor struct {
-	mu          sync.RWMutex
-	snapshot    []WorkspaceHealth
-	configPath  string
-	logger      *log.Logger
-	stopCh      chan struct{}
-	doneCh      chan struct{}
+	mu         sync.RWMutex
+	snapshot   []WorkspaceHealth
+	configPath string
+	logger     *log.Logger
+	stopCh     chan struct{}
+	doneCh     chan struct{}
 	// triggerScan carries optional reply channels. A nil reply means
 	// fire-and-forget (used by TriggerScan). A non-nil reply channel is
 	// closed by the loop after the scan completes (used by TriggerScanAndWait).
