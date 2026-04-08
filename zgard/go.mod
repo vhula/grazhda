@@ -3,7 +3,8 @@ module github.com/vhula/grazhda/zgard
 go 1.26.1
 
 require (
-	github.com/spf13/cobra v1.9.1
+	github.com/spf13/cobra v1.10.2
+	github.com/vhula/grazhda/dukh v0.0.0-20260408152430-0f8844b429f0
 	github.com/vhula/grazhda/internal v0.0.0-20260405211310-d6ee0cbc2b73
 	google.golang.org/grpc v1.80.0
 )
@@ -13,7 +14,7 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/spf13/pflag v1.0.6 // indirect
+	github.com/spf13/pflag v1.0.9 // indirect
 	golang.org/x/net v0.49.0 // indirect
 	golang.org/x/sys v0.42.0 // indirect
 	golang.org/x/text v0.33.0 // indirect

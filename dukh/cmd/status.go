@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	dukhpb "github.com/vhula/grazhda/dukh/proto"
 	icolor "github.com/vhula/grazhda/internal/color"
+	"github.com/vhula/grazhda/internal/format"
 )
 
 func statusCmd() *cobra.Command {
@@ -101,19 +102,5 @@ func tryGetUptime() string {
 	if err != nil {
 		return ""
 	}
-	return formatUptime(time.Duration(resp.UptimeSeconds) * time.Second)
-}
-
-// formatUptime renders a duration as a human-readable string.
-func formatUptime(d time.Duration) string {
-	h := int(d.Hours())
-	m := int(d.Minutes()) % 60
-	s := int(d.Seconds()) % 60
-	if h > 0 {
-		return fmt.Sprintf("%dh %dm", h, m)
-	}
-	if m > 0 {
-		return fmt.Sprintf("%dm %ds", m, s)
-	}
-	return fmt.Sprintf("%ds", s)
+	return format.Uptime(time.Duration(resp.UptimeSeconds) * time.Second)
 }

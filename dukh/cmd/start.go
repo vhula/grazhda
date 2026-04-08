@@ -9,7 +9,9 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/vhula/grazhda/dukh/server"
+	"github.com/vhula/grazhda/internal/config"
 	icolor "github.com/vhula/grazhda/internal/color"
+	"github.com/vhula/grazhda/internal/grpcdial"
 )
 
 // daemonEnv is set to "1" in the environment of the re-exec'd daemon process.
@@ -92,8 +94,18 @@ func runServer() error {
 	monitor.Start()
 	defer monitor.Stop()
 
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		logger.Warn("could not load config for addr resolution; using default", "err", err)
+	}
+	var addr string
+	if cfg != nil {
+		addr = grpcdial.Addr(cfg)
+	} else {
+		addr = grpcdial.DefaultAddr()
+	}
+
 	srv := server.New(monitor, logger)
-	addr := "localhost:50501"
 	logger.Info("dukh starting", "addr", addr, "config", configPath)
 
 	if err := srv.ListenAndServe(addr); err != nil {

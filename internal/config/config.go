@@ -24,8 +24,23 @@ const (
 
 // Config is the top-level Grazhda configuration.
 type Config struct {
-	Dukh       DukhConfig  `yaml:"dukh"`
-	Workspaces []Workspace `yaml:"workspaces"`
+	Editor     string        `yaml:"editor"`
+	Dukh       DukhConfig    `yaml:"dukh"`
+	Zgard      ZgardConfig   `yaml:"zgard"`
+	General    GeneralConfig `yaml:"general"`
+	Workspaces []Workspace   `yaml:"workspaces"`
+}
+
+// ZgardConfig holds optional zgard-specific settings.
+type ZgardConfig struct {
+	Config map[string]interface{} `yaml:"config"`
+}
+
+// GeneralConfig holds general installation path settings.
+type GeneralConfig struct {
+	InstallDir string `yaml:"install_dir"`
+	SourcesDir string `yaml:"sources_dir"`
+	BinDir     string `yaml:"bin_dir"`
 }
 
 // DukhConfig holds connection and monitoring settings for the dukh server.

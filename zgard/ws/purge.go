@@ -19,6 +19,11 @@ func newPurgeCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "purge",
 		Short: "Purge a workspace by removing all cloned repositories",
+		Long: `Remove workspace directories from disk.
+
+Purge requires an explicit target (--name or --all) and cannot fall back
+to the default workspace. A confirmation prompt is shown unless
+--no-confirm is passed. Use --dry-run to preview the removal.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// ws purge requires explicit targeting — no implicit default.
 			if wsName == "" && !wsAll {

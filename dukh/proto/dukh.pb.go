@@ -503,28 +503,28 @@ const file_dukh_proto_rawDesc = "" +
 	"\n" +
 	"\n" +
 	"dukh.proto\x12\adukh.v1\"\r\n" +
-	"\vStopRequest\"(\n" +
+	"\vStopRequest\".\n" +
 	"\fStopResponse\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage\"\r\n" +
-	"\vScanRequest\"(\n" +
+	"\amessage\x18\x01 \x01(\tR\amessageJ\x04\b\x02\x10\x10\"\r\n" +
+	"\vScanRequest\".\n" +
 	"\fScanResponse\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage\"N\n" +
+	"\amessage\x18\x01 \x01(\tR\amessageJ\x04\b\x02\x10\x10\"T\n" +
 	"\rStatusRequest\x12%\n" +
 	"\x0eworkspace_name\x18\x01 \x01(\tR\rworkspaceName\x12\x16\n" +
-	"\x06rescan\x18\x02 \x01(\bR\x06rescan\"\x98\x01\n" +
+	"\x06rescan\x18\x02 \x01(\bR\x06rescanJ\x04\b\x03\x10\x10\"\x9e\x01\n" +
 	"\x0eStatusResponse\x128\n" +
 	"\n" +
 	"workspaces\x18\x01 \x03(\v2\x18.dukh.v1.WorkspaceStatusR\n" +
 	"workspaces\x12%\n" +
 	"\x0eserver_version\x18\x02 \x01(\tR\rserverVersion\x12%\n" +
-	"\x0euptime_seconds\x18\x03 \x01(\x03R\ruptimeSeconds\"m\n" +
+	"\x0euptime_seconds\x18\x03 \x01(\x03R\ruptimeSecondsJ\x04\b\x04\x10\x10\"s\n" +
 	"\x0fWorkspaceStatus\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
 	"\x04path\x18\x02 \x01(\tR\x04path\x122\n" +
-	"\bprojects\x18\x03 \x03(\v2\x16.dukh.v1.ProjectStatusR\bprojects\"\\\n" +
+	"\bprojects\x18\x03 \x03(\v2\x16.dukh.v1.ProjectStatusR\bprojectsJ\x04\b\x04\x10\x10\"b\n" +
 	"\rProjectStatus\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x127\n" +
-	"\frepositories\x18\x02 \x03(\v2\x13.dukh.v1.RepoStatusR\frepositories\"\xc5\x01\n" +
+	"\frepositories\x18\x02 \x03(\v2\x13.dukh.v1.RepoStatusR\frepositoriesJ\x04\b\x03\x10\x10\"\xcb\x01\n" +
 	"\n" +
 	"RepoStatus\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
@@ -532,7 +532,7 @@ const file_dukh_proto_rawDesc = "" +
 	"\x11configured_branch\x18\x03 \x01(\tR\x10configuredBranch\x12#\n" +
 	"\ractual_branch\x18\x04 \x01(\tR\factualBranch\x12\x16\n" +
 	"\x06exists\x18\x05 \x01(\bR\x06exists\x12%\n" +
-	"\x0ebranch_aligned\x18\x06 \x01(\bR\rbranchAligned2\xb2\x01\n" +
+	"\x0ebranch_aligned\x18\x06 \x01(\bR\rbranchAlignedJ\x04\b\a\x10\x102\xb2\x01\n" +
 	"\vDukhService\x123\n" +
 	"\x04Stop\x12\x14.dukh.v1.StopRequest\x1a\x15.dukh.v1.StopResponse\x129\n" +
 	"\x06Status\x12\x16.dukh.v1.StatusRequest\x1a\x17.dukh.v1.StatusResponse\x123\n" +

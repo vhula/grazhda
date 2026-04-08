@@ -20,6 +20,8 @@ message StopRequest {}
 
 message StopResponse {
   string message = 1;
+
+  reserved 2 to 15;
 }
 
 message ScanRequest {}
@@ -27,6 +29,8 @@ message ScanRequest {}
 message ScanResponse {
   // message describes what was triggered, e.g. "rescan initiated".
   string message = 1;
+
+  reserved 2 to 15;
 }
 
 // StatusRequest optionally scopes the response to a single workspace.
@@ -36,12 +40,16 @@ message ScanResponse {
 message StatusRequest {
   string workspace_name = 1;
   bool   rescan         = 2;
+
+  reserved 3 to 15;
 }
 
 message StatusResponse {
   repeated WorkspaceStatus workspaces = 1;
   string server_version                = 2;
   int64  uptime_seconds                = 3;
+
+  reserved 4 to 15;
 }
 
 // WorkspaceStatus aggregates project health for one workspace.
@@ -49,12 +57,16 @@ message WorkspaceStatus {
   string                 name     = 1;
   string                 path     = 2;
   repeated ProjectStatus projects = 3;
+
+  reserved 4 to 15;
 }
 
 // ProjectStatus aggregates repository health for one project.
 message ProjectStatus {
   string              name         = 1;
   repeated RepoStatus repositories = 2;
+
+  reserved 3 to 15;
 }
 
 // RepoStatus describes the health of a single repository.
@@ -65,4 +77,6 @@ message RepoStatus {
   string actual_branch     = 4;
   bool   exists            = 5;
   bool   branch_aligned    = 6;
+
+  reserved 7 to 15;
 }

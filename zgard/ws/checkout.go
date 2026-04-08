@@ -18,6 +18,10 @@ func newCheckoutCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "checkout <branch>",
 		Short: "Check out a branch across all repositories in a workspace",
+		Long: `Run "git checkout <branch>" in every targeted repository.
+
+The branch name is a required positional argument. Repositories not
+present on disk are skipped. Use --dry-run to preview the operations.`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			branch := args[0]

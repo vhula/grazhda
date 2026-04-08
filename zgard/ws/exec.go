@@ -19,6 +19,11 @@ func newExecCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "exec <command> [args...]",
 		Short: "Fan out a shell command to all repositories in a workspace",
+		Long: `Execute an arbitrary shell command inside every targeted repository.
+
+The command and its arguments are passed after "--". Each repository's
+output is prefixed with its name. Use --dry-run to preview which
+directories would be targeted.`,
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := loadConfig()

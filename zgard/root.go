@@ -12,7 +12,21 @@ import (
 var rootCmd = &cobra.Command{
 	Use:           "zgard",
 	Short:         "Workspace lifecycle manager",
-	Long:          "zgard manages local workspace lifecycle — init, purge, and pull repositories.",
+	Long: `zgard manages the full workspace lifecycle — from cloning repositories
+and pulling updates to cross-repo orchestration, inspection, and IDE integration.
+
+Subcommands (under "zgard ws"):
+  init        Clone all repositories defined in a workspace
+  pull        Pull latest changes for every repository
+  purge       Remove workspace directories from disk
+  exec        Run an arbitrary shell command across repositories
+  stash       Stash uncommitted changes across repositories
+  checkout    Switch branches across repositories
+  status      Show workspace health as monitored by dukh
+  search      Search for files or content across repositories
+  diff        Show uncommitted changes and upstream sync status
+  stats       Aggregate commit metadata across repositories
+  open        Launch an IDE for targeted repository paths`,
 	SilenceErrors: true,
 	SilenceUsage:  true,
 }

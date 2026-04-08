@@ -18,6 +18,10 @@ func newPullCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "pull",
 		Short: "Pull latest changes for all repositories in a workspace",
+		Long: `Run "git pull --rebase" on every repository in the targeted workspace.
+
+Repositories not yet cloned are skipped. Use --parallel or --parallel-all
+for concurrent pulls, and --dry-run to preview the operations.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := loadConfig()
 			if err != nil {

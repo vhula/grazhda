@@ -10,16 +10,20 @@ import (
 	"github.com/spf13/cobra"
 	dukhpb "github.com/vhula/grazhda/dukh/proto"
 	icolor "github.com/vhula/grazhda/internal/color"
+	"github.com/vhula/grazhda/internal/format"
+	"github.com/vhula/grazhda/internal/grpcdial"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
-
-const dukhAddr = "localhost:50501"
 
 func newStatusCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Show workspace health as monitored by dukh",
+		Long: `Query the running dukh server and display branch alignment status
+for every repository in the targeted workspace.
+
+If dukh is not running it is auto-started. Use --rescan to trigger a
+fresh scan before reporting.`,
 		RunE:  runWsStatus,
 	}
 	cmd.Flags().Bool("rescan", false, "Trigger a fresh workspace rescan before reporting (waits for completion)")
@@ -133,11 +137,10 @@ func waitForDukh(client dukhpb.DukhServiceClient, timeout time.Duration) error {
 // dialDukh opens a gRPC connection to the dukh server.
 // The connection is lazy — it will fail on the first RPC if dukh is not running.
 func dialDukh() (*grpc.ClientConn, dukhpb.DukhServiceClient, error) {
-	conn, err := grpc.NewClient(dukhAddr,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	)
+	addr := grpcdial.DefaultAddr()
+	conn, err := grpcdial.Dial(addr)
 	if err != nil {
-		return nil, nil, fmt.Errorf("cannot create dukh client for %s: %w", dukhAddr, err)
+		return nil, nil, err
 	}
 	return conn, dukhpb.NewDukhServiceClient(conn), nil
 }
@@ -147,7 +150,7 @@ func renderWsStatus(resp *dukhpb.StatusResponse) {
 	fmt.Printf("%s  %s  •  uptime: %s\n\n",
 		icolor.Blue("Dukh"),
 		icolor.Green("running"),
-		formatWsUptime(uptime),
+		format.Uptime(uptime),
 	)
 
 	var aligned, drifted, missing int
@@ -196,17 +199,4 @@ func renderWsStatus(resp *dukhpb.StatusResponse) {
 		icolor.Red("✗"),
 		missing,
 	)
-}
-
-func formatWsUptime(d time.Duration) string {
-	h := int(d.Hours())
-	m := int(d.Minutes()) % 60
-	s := int(d.Seconds()) % 60
-	if h > 0 {
-		return fmt.Sprintf("%dh %dm", h, m)
-	}
-	if m > 0 {
-		return fmt.Sprintf("%dm %ds", m, s)
-	}
-	return fmt.Sprintf("%ds", s)
 }

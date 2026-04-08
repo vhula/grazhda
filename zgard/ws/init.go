@@ -20,6 +20,12 @@ func newInitCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "init",
 		Short: "Initialize a workspace by cloning all repositories",
+		Long: `Clone every repository listed in the workspace configuration.
+
+Directories are created before cloning begins. Repositories that already
+exist on disk are skipped. Use --parallel or --parallel-all to clone
+concurrently, and --dry-run to preview without making changes.
+Use --no-confirm to skip the confirmation prompt.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := loadConfig()
 			if err != nil {

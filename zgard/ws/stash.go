@@ -18,6 +18,10 @@ func newStashCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "stash",
 		Short: "Stash local changes in all repositories in a workspace",
+		Long: `Run "git stash" in every repository that has uncommitted changes.
+
+Clean repositories are reported as skipped. Use --dry-run to preview
+which repositories would be stashed.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := loadConfig()
 			if err != nil {

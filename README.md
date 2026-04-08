@@ -474,12 +474,12 @@ Common flags for `zgard ws` commands:
 | `-p, --project-name <name>` | all | Filter to a specific project (persistent, inherited) |
 | `-r, --repo-name <name>` | all | Substring filter on repo names — requires `-p`; may match multiple repos (persistent, inherited) |
 | `-t, --tag <tag>` | all | Filter by tag (OR logic; repeat for multiple: `-t backend -t api`) (persistent, inherited) |
-| `--dry-run` | init, pull, exec, stash, checkout | Print actions without executing |
+| `--dry-run` | init, pull, exec, stash, checkout, purge | Print actions without executing |
 | `--parallel` | init, pull, exec, stash, checkout, search, diff, stats | Run repos within each project concurrently |
 | `--parallel-all` | init, pull, exec, stash, checkout, search, diff, stats | Run all repos across all projects concurrently |
 | `--clone-delay-seconds=N` | init | Sleep N seconds after each clone command |
-| `-v, --verbose` | all | Print the rendered command before each operation |
-| `--no-confirm` | purge | Skip the confirmation prompt |
+| `-v, --verbose` | init, pull, exec, stash, checkout, diff, stats, purge | Print the rendered command before each operation |
+| `--no-confirm` | init, purge | Skip the confirmation prompt |
 | `--rescan` | status | Trigger a fresh scan before reporting |
 | `--glob` | search | Match filenames instead of file contents |
 | `--regex` | search | Treat pattern as a Go regular expression |
