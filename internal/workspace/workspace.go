@@ -93,13 +93,24 @@ func ResolveDestNamesForProject(repos []config.Repository, structure string) []s
 // opts.CloneDelaySeconds introduces a per-repo sleep after each clone
 // command; it is applied even in parallel mode (each goroutine sleeps after
 // its own clone).
+//
+// When opts.ProjectName or opts.RepoName are set, only matching projects/repos
+// are created and cloned. ValidateFilters is called first so unmatched filters
+// return an error before any filesystem changes occur.
 func Init(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, opts RunOptions) error {
+	if err := ValidateFilters(ws, opts); err != nil {
+		return err
+	}
+
 	rep.PrintLine("Workspace: " + ws.Name)
 	wsPath := ExpandHome(ws.Path)
 
-	// Pre-create all project directories before any cloning starts so that
-	// parallel goroutines never race on MkdirAll for the same path.
+	// Pre-create project directories for matching projects before any
+	// cloning starts so parallel goroutines never race on MkdirAll.
 	for _, proj := range ws.Projects {
+		if opts.ProjectName != "" && proj.Name != opts.ProjectName {
+			continue
+		}
 		projPath := filepath.Join(wsPath, proj.Name)
 		if opts.DryRun {
 			rep.PrintLine(fmt.Sprintf("    [DRY RUN] would create directory: %s", projPath))
@@ -111,13 +122,19 @@ func Init(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, o
 	}
 
 	if opts.ParallelAll {
-		// Flat goroutine pool across ALL projects in this workspace.
+		// Flat goroutine pool across matching projects in this workspace.
 		var wg sync.WaitGroup
 		for _, proj := range ws.Projects {
+			if opts.ProjectName != "" && proj.Name != opts.ProjectName {
+				continue
+			}
 			proj := proj
 			rep.PrintLine("  Project: " + proj.Name)
 			projPath := filepath.Join(wsPath, proj.Name)
 			for _, repo := range proj.Repositories {
+				if opts.RepoName != "" && repo.Name != opts.RepoName {
+					continue
+				}
 				repo := repo
 				wg.Add(1)
 				go func() {
@@ -132,12 +149,18 @@ func Init(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, o
 
 	// Sequential (or per-project parallel) path.
 	for _, proj := range ws.Projects {
+		if opts.ProjectName != "" && proj.Name != opts.ProjectName {
+			continue
+		}
 		rep.PrintLine("  Project: " + proj.Name)
 		projPath := filepath.Join(wsPath, proj.Name)
 
 		if opts.Parallel {
 			var wg sync.WaitGroup
 			for _, repo := range proj.Repositories {
+				if opts.RepoName != "" && repo.Name != opts.RepoName {
+					continue
+				}
 				repo := repo
 				wg.Add(1)
 				go func() {
@@ -148,6 +171,9 @@ func Init(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, o
 			wg.Wait()
 		} else {
 			for _, repo := range proj.Repositories {
+				if opts.RepoName != "" && repo.Name != opts.RepoName {
+					continue
+				}
 				cloneRepo(ws, proj, projPath, repo, exec, rep, opts)
 			}
 		}
@@ -273,17 +299,31 @@ func Purge(ws config.Workspace, rep *reporter.Reporter, opts RunOptions) error {
 // pulled concurrently in a single goroutine pool. When opts.Parallel is true
 // (and ParallelAll is false), repositories within each project are pulled
 // concurrently.
+//
+// When opts.ProjectName or opts.RepoName are set, only matching projects/repos
+// are pulled. ValidateFilters is called first so unmatched filters return an
+// error before any git operations run.
 func Pull(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, opts RunOptions) error {
+	if err := ValidateFilters(ws, opts); err != nil {
+		return err
+	}
+
 	rep.PrintLine("Workspace: " + ws.Name)
 	wsPath := ExpandHome(ws.Path)
 
 	if opts.ParallelAll {
 		var wg sync.WaitGroup
 		for _, proj := range ws.Projects {
+			if opts.ProjectName != "" && proj.Name != opts.ProjectName {
+				continue
+			}
 			proj := proj
 			rep.PrintLine("  Project: " + proj.Name)
 			projPath := filepath.Join(wsPath, proj.Name)
 			for _, repo := range proj.Repositories {
+				if opts.RepoName != "" && repo.Name != opts.RepoName {
+					continue
+				}
 				repo := repo
 				wg.Add(1)
 				go func() {
@@ -297,12 +337,18 @@ func Pull(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, o
 	}
 
 	for _, proj := range ws.Projects {
+		if opts.ProjectName != "" && proj.Name != opts.ProjectName {
+			continue
+		}
 		rep.PrintLine("  Project: " + proj.Name)
 		projPath := filepath.Join(wsPath, proj.Name)
 
 		if opts.Parallel {
 			var wg sync.WaitGroup
 			for _, repo := range proj.Repositories {
+				if opts.RepoName != "" && repo.Name != opts.RepoName {
+					continue
+				}
 				repo := repo
 				wg.Add(1)
 				go func() {
@@ -313,6 +359,9 @@ func Pull(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, o
 			wg.Wait()
 		} else {
 			for _, repo := range proj.Repositories {
+				if opts.RepoName != "" && repo.Name != opts.RepoName {
+					continue
+				}
 				pullRepo(ws, proj, projPath, repo, exec, rep, opts)
 			}
 		}

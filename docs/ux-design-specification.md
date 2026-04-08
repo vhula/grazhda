@@ -899,3 +899,49 @@ When `--project-name` is specified, only the matching project header and its rep
 | `✓` (green) | Operation succeeded |
 | `✗` (red) | Operation failed |
 | `⏭` (yellow) | Skipped (repo not on disk) |
+
+---
+
+## Phase 5 — Universal Targeting System
+
+### Default Workspace Warning
+
+When no targeting flags are provided and the command falls back to the default workspace, a **yellow** warning line is printed to stderr before any operation output:
+
+```
+Warning: Targeting default workspace: /home/alice/workspaces/default
+```
+
+The warning uses the same `internal/color.Yellow` helper already used throughout the codebase. It prints to **stderr** so it does not pollute stdout in pipe/script contexts. It appears **once** per invocation, before the `Workspace:` header line.
+
+The warning is intentionally a warning — not an error — because using the default workspace is a valid and expected workflow. It simply reminds the user of what is being targeted when they did not specify.
+
+### When the Warning Does NOT Appear
+
+| Scenario | Warning? |
+|---|---|
+| `--name myws` provided | No — explicit |
+| `--all` provided | No — explicit |
+| No flags, commands using `workspace.Resolve` | **Yes** |
+| `ws purge` (no flags) | No — blocked with error instead |
+| `ws status` (no flags) | No — defaults to all workspaces, not a single default |
+
+### Targeting Flags Reference (for README draft)
+
+```
+Targeting Flags (inherited by all ws subcommands):
+  -n, --name <name>           Target a named workspace (default: default workspace)
+      --all                   Operate on all workspaces
+  -p, --project-name <name>   Filter to a specific project
+  -r, --repo-name <name>      Filter to a specific repository (requires --project-name)
+```
+
+### `ws purge` Safety UI (unchanged)
+
+`ws purge` without explicit targeting prints a red error and exits 1:
+
+```
+ws purge requires --name <name> or --all
+```
+
+No warning is shown — purge errors immediately, making the safety contract unambiguous.

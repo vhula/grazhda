@@ -543,3 +543,37 @@ Phase 4 extends `zgard` with three commands that fan out actions to all reposito
 - **FR-X11:** `--dry-run` prints what would be executed without running any command, using the same `[DRY RUN]` prefix convention.
 - **FR-X12:** The end-of-run summary uses the same format as existing commands: `✓ N succeeded  ⏭ N skipped  ✗ N failed`.
 - **FR-X13:** The system exits with code 0 only if all operations succeeded; otherwise exits non-zero.
+
+---
+
+## Phase 5 — Universal Targeting System
+
+### Executive Summary
+
+Phase 5 standardises how users specify *what* to operate on across every `zgard ws` subcommand. Previously, workspace targeting flags (`--name`, `--all`) were declared independently in each command file, and project/repo granularity was available only on `exec`, `stash`, and `checkout`. This phase unifies all three targeting dimensions into a single persistent-flag set shared by every subcommand, adds safety warnings when an implicit default is used, and extends project/repo filtering to `init` and `pull`.
+
+### Functional Requirements
+
+#### Standardised Flags
+
+- **FR-T1:** Every `zgard ws` subcommand must accept `--name` / `-n`, `--all`, `--project-name` / `-p`, and `--repo-name` / `-r` as inherited persistent flags.
+- **FR-T2:** `--repo-name` / `-r` always requires `--project-name` / `-p`; specifying `--repo-name` without `--project-name` is an error on any subcommand.
+- **FR-T3:** `--project-name` / `-p` and `--repo-name` / `-r` filter which repositories are operated on by `init`, `pull`, `exec`, `stash`, and `checkout`. They are documented as "not applicable" for `purge` (which operates on workspace-level directories) and `status` (which queries dukh).
+
+#### Default Target Warning
+
+- **FR-T4:** When no targeting flags are provided (`--name`, `--all` both absent), every `zgard ws` subcommand that calls `workspace.Resolve` must print a yellow warning to stderr before executing: `Warning: Targeting default workspace: <absolute-path>`.
+- **FR-T5:** The warning must not appear when `--name` or `--all` is explicitly provided.
+- **FR-T6:** The `status` command is exempt from the warning — its implicit default is "all workspaces", not a single default.
+
+#### Safety Override
+
+- **FR-T7:** `ws purge` retains its existing strict safety contract: it requires `--name` or `--all` and exits with a clear error if neither is provided. No default fallback or warning applies to purge.
+
+#### Project/Repo Filtering for Init and Pull
+
+- **FR-T8:** `ws init --project-name <p>` must create directories and clone only repos within project `<p>`.
+- **FR-T9:** `ws init --project-name <p> --repo-name <r>` must create the project directory and clone only repo `<r>`.
+- **FR-T10:** `ws pull --project-name <p>` must pull only repos within project `<p>`.
+- **FR-T11:** `ws pull --project-name <p> --repo-name <r>` must pull only repo `<r>` within project `<p>`.
+- **FR-T12:** Providing a `--project-name` or `--repo-name` that does not exist in the workspace config is an error (same `ValidateFilters` contract as Phase 4).

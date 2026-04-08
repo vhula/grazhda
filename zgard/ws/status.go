@@ -22,13 +22,11 @@ func newStatusCmd() *cobra.Command {
 		Short: "Show workspace health as monitored by dukh",
 		RunE:  runWsStatus,
 	}
-	cmd.Flags().StringP("name", "n", "", "Workspace name (default: all)")
 	cmd.Flags().Bool("rescan", false, "Trigger a fresh workspace rescan before reporting (waits for completion)")
 	return cmd
 }
 
 func runWsStatus(cmd *cobra.Command, _ []string) error {
-	name, _ := cmd.Flags().GetString("name")
 	rescan, _ := cmd.Flags().GetBool("rescan")
 
 	conn, client, err := dialDukh()
@@ -47,12 +45,12 @@ func runWsStatus(cmd *cobra.Command, _ []string) error {
 	}
 
 	resp, err := client.Status(ctx, &dukhpb.StatusRequest{
-		WorkspaceName: name,
+		WorkspaceName: wsName,
 		Rescan:        rescan,
 	})
 	if err != nil {
 		// dukh is not running — attempt to auto-start it.
-		resp, err = tryAutoStartAndRetry(client, name, rescan)
+		resp, err = tryAutoStartAndRetry(client, wsName, rescan)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, icolor.Red("✗ dukh status failed: "+err.Error()))
 			return err

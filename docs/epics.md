@@ -1081,3 +1081,95 @@ So that it behaves consistently with `ws init` for targeting, output, exit codes
 **Given** `zgard ws stash --all`
 **When** run
 **Then** all workspaces are processed
+
+---
+
+## Epic Y — Universal Targeting System
+
+**Goal:** Unify all workspace/project/repo targeting flags as persistent Cobra flags on the `ws` parent command, add a default-workspace warning, and extend project/repo filtering to `init` and `pull`.
+
+**Requirements covered:** FR-T1 through FR-T12
+
+---
+
+### Story Y1 — Persistent targeting flags on `ws` parent command
+
+**As a** CLI user
+**I want** `--name`, `--all`, `--project-name`, and `--repo-name` to be available on every `zgard ws` subcommand
+**So that** I don't need to remember which commands accept which targeting flags.
+
+**Acceptance Criteria:**
+
+**Given** any `zgard ws` subcommand
+**When** run with `--name myws`
+**Then** it targets workspace "myws"
+
+**Given** `zgard ws init --project-name backend`
+**When** run
+**Then** only repos in the `backend` project are cloned
+
+**Given** `zgard ws pull --repo-name api --project-name backend`
+**When** run
+**Then** only repo `api` in `backend` is pulled
+
+**Given** `zgard ws exec --repo-name api` (without `--project-name`)
+**When** run
+**Then** command exits with error `--repo-name requires --project-name`
+
+---
+
+### Story Y2 — Default workspace warning
+
+**As a** CLI user who didn't specify a targeting flag
+**I want** to see a yellow warning before output
+**So that** I know which workspace is being targeted and can verify it before operations proceed.
+
+**Acceptance Criteria:**
+
+**Given** `zgard ws init` with no targeting flags
+**When** run
+**Then** stderr contains `Warning: Targeting default workspace: <absolute-path>`
+
+**Given** `zgard ws init --name default`
+**When** run
+**Then** no warning is printed
+
+**Given** `zgard ws init --all`
+**When** run
+**Then** no warning is printed
+
+---
+
+### Story Y3 — Shared loadConfig helper
+
+**As a** contributor
+**I want** config loading to be a single shared helper
+**So that** each command file isn't burdened with 8 lines of identical boilerplate.
+
+**Acceptance Criteria:**
+
+**Given** any `zgard ws` command
+**When** `config.yaml` is missing or invalid
+**Then** the error message is identical regardless of which command triggered it
+
+---
+
+### Story Y4 — Extend `ws init` and `ws pull` with project/repo filtering
+
+**As a** developer
+**I want** `zgard ws init --project-name backend` to clone only the backend project
+**So that** I can selectively initialise part of my workspace.
+
+**Acceptance Criteria:**
+
+**Given** a workspace with two projects
+**When** `zgard ws init --project-name backend`
+**Then** only the `backend` project directory is created and its repos are cloned
+
+**Given** `zgard ws init --project-name nonexistent`
+**When** run
+**Then** exits with error `project "nonexistent" not found in workspace "..."`
+
+**Given** `zgard ws pull --project-name backend --repo-name api`
+**When** run
+**Then** only `api` in `backend` is pulled

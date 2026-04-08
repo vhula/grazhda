@@ -153,6 +153,27 @@ Editor resolution order:
 
 ### `zgard` — Workspace CLI
 
+#### Targeting Logic
+
+Every `zgard ws` subcommand shares the same four targeting flags, inherited from the `ws` parent:
+
+| Flag | Short | Description |
+|---|---|---|
+| `--name <name>` | `-n` | Target a single named workspace |
+| `--all` | | Operate on all configured workspaces |
+| `--project-name <name>` | `-p` | Filter to a specific project within the targeted workspace |
+| `--repo-name <name>` | `-r` | Filter to a single repository (requires `--project-name`) |
+
+**Default workspace warning:** If you omit all targeting flags, `zgard` falls back to the `default` workspace and prints a yellow warning to stderr so you always know what is being targeted:
+
+```
+Warning: Targeting default workspace: /home/alice/workspaces/default
+```
+
+Suppress the warning by being explicit: `zgard ws init --name default`.
+
+**Safety contract for `ws purge`:** Purge never falls back to a default. If no targeting flag is provided it exits immediately with an error, requiring `--name <name>` or `--all`.
+
 ```
 zgard manages local workspace lifecycle — init, purge, and pull repositories.
 
@@ -174,28 +195,25 @@ Use "zgard [command] --help" for more information about a command.
 Clone all repositories for a workspace. Skips repos that already exist. Continues on failure and reports all errors at the end.
 
 ```bash
-zgard ws init                            # default workspace
-zgard ws init --name myws                # named workspace
-zgard ws init --all --parallel-all       # all workspaces, all repos concurrently
-zgard ws init --all --parallel           # all workspaces, per-project concurrency
-zgard ws init --clone-delay-seconds=5   # sleep 5s after each clone
-zgard ws init --dry-run                  # preview without executing
+zgard ws init                                       # default workspace (shows warning)
+zgard ws init -n myws                               # named workspace, no warning
+zgard ws init --all --parallel-all                  # all workspaces, all repos concurrently
+zgard ws init --all --parallel                      # all workspaces, per-project concurrency
+zgard ws init -p backend                            # only clone backend project
+zgard ws init -p backend -r api                     # only clone api repo in backend
+zgard ws init --clone-delay-seconds=5               # sleep 5s after each clone
+zgard ws init --dry-run                             # preview without executing
 ```
-
-| Flag | Description |
-|---|---|
-| `--parallel` | Clone repos within each project concurrently |
-| `--parallel-all` | Clone **all** repos across all projects concurrently |
-| `--clone-delay-seconds=N` | Sleep N seconds after each clone command |
 
 #### `zgard ws pull`
 Run `git pull --rebase` for every repo in a workspace. Skips repos that haven't been cloned yet.
 
 ```bash
-zgard ws pull                            # default workspace
-zgard ws pull --all --parallel-all       # all workspaces, all repos concurrently
-zgard ws pull --all --parallel           # all workspaces, per-project concurrency
-zgard ws pull --dry-run                  # preview without executing
+zgard ws pull                                       # default workspace (shows warning)
+zgard ws pull --all --parallel-all                  # all workspaces, all repos concurrently
+zgard ws pull -p backend                            # only pull backend project
+zgard ws pull -p backend -r api                     # only pull api in backend
+zgard ws pull --dry-run                             # preview without executing
 ```
 
 #### `zgard ws purge`
@@ -313,13 +331,13 @@ Common flags for `zgard ws` commands:
 
 | Flag | Commands | Description |
 | :--- | :--- | :--- |
-| `-n, --name <name>` | all | Target a named workspace |
-| `--all` | all | Target all workspaces |
+| `-n, --name <name>` | all | Target a named workspace (persistent, inherited) |
+| `--all` | all | Operate on all workspaces (persistent, inherited) |
+| `-p, --project-name <name>` | all | Filter to a specific project (persistent, inherited) |
+| `-r, --repo-name <name>` | all | Filter to a specific repo — requires `-p` (persistent, inherited) |
 | `--dry-run` | all | Print actions without executing |
 | `--parallel` | init, pull, exec, stash, checkout | Run repos within each project concurrently |
 | `--parallel-all` | init, pull, exec, stash, checkout | Run all repos across all projects concurrently |
-| `--project-name <name>` | exec, stash, checkout | Limit to a single project |
-| `--repo-name <name>` | exec, stash, checkout | Limit to a single repo (requires `--project-name`) |
 | `--clone-delay-seconds=N` | init | Sleep N seconds after each clone command |
 | `-v, --verbose` | all | Print the rendered command before each operation |
 | `--no-confirm` | purge | Skip the confirmation prompt |

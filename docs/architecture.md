@@ -1096,3 +1096,69 @@ type Executor interface {
 - Skip logic for non-existent repo directories is identical to `ws pull`.
 - No direct `os/exec` calls in workspace or CLI layers — all subprocess execution goes through the `Executor` interface.
 - `--repo-name` without `--project-name` is validated and rejected at the CLI layer before any workspace logic runs.
+
+---
+
+## Phase 5 — Universal Targeting System
+
+### Overview
+
+Phase 5 consolidates all targeting logic into a single shared layer within the `zgard/ws` package. Persistent Cobra flags on the `ws` parent command propagate to every subcommand without code duplication. A shared helper layer handles config loading, filter validation, and default-target warnings uniformly.
+
+### Persistent Flags on the `ws` Parent Command
+
+Targeting flags are declared once with `PersistentFlags()` on the `ws` command and bind to package-level variables:
+
+```go
+var (
+    wsName      string // --name / -n
+    wsAll       bool   // --all
+    projectName string // --project-name / -p
+    repoName    string // --repo-name / -r
+)
+```
+
+All subcommands read these package-level variables directly (they share the `ws` package). Per-command operational flags (`--dry-run`, `--verbose`, `--parallel`, etc.) remain per-command.
+
+### Shared Helpers: `zgard/ws/flags.go`
+
+| Function | Purpose |
+|---|---|
+| `loadConfig() (*config.Config, error)` | Resolves config path, loads, validates — eliminating the repeated 8-line block in every command |
+| `warnDefaultTarget(out io.Writer, ws config.Workspace)` | Prints `Warning: Targeting default workspace: <path>` in yellow to the provided writer |
+
+### `PersistentPreRunE` for `--repo-name` Validation
+
+A `PersistentPreRunE` hook on the `ws` parent command checks `repoName != "" && projectName == ""` before any subcommand runs. This removes the duplicate check from `exec.go`, `stash.go`, and `checkout.go`.
+
+### Default Warning Logic
+
+Commands that resolve workspaces implicitly use this pattern:
+
+```go
+workspaces, err := workspace.Resolve(cfg, wsName, wsAll)
+implicit := wsName == "" && !wsAll
+if implicit {
+    warnDefaultTarget(os.Stderr, workspaces[0])
+}
+```
+
+`status` is exempt — its implicit default is "all workspaces", not a single default workspace.
+
+`purge` is exempt — it rejects the implicit case with an explicit error before reaching this point.
+
+### `workspace.Init` and `workspace.Pull` Filtering
+
+Both functions are extended to honour `opts.ProjectName` and `opts.RepoName`:
+
+1. `ValidateFilters(ws, opts)` is called first — returns error if filter names don't exist in config.
+2. Directory creation in `Init` is scoped to matching projects.
+3. The repo iteration loops in both functions skip non-matching projects/repos with `continue`.
+
+The filtering logic is identical to the existing `runOverRepos` helper (three mode branches: `ParallelAll`, `Parallel`, sequential).
+
+### Architectural Invariants
+
+- No targeting flag is declared twice — persistent flags on the parent, operational flags on each child.
+- `warnDefaultTarget` always writes to stderr; it never affects stdout (which carries structured operation output).
+- Project/repo filters for `purge` and `status` are silently ignored at the CLI layer — their domain functions do not accept `RunOptions.ProjectName`/`RepoName`.
