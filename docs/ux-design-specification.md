@@ -827,3 +827,75 @@ Environment:
 ```
 
 Unknown commands print `✗ Unknown command: <cmd>` in red followed by the usage block, then exit with code 1.
+
+---
+
+## Phase 4 — Cross-Repository Operations
+
+### Overview
+
+`ws exec`, `ws stash`, and `ws checkout` follow the same structural output as `ws init` and `ws pull`: workspace → project → repo hierarchy with per-repo status symbols. The only addition is per-repo command output for `ws exec`.
+
+### Output: `ws exec`
+
+Command output captured from each repo is printed indented (6 spaces) below the repo's status line. The status line itself uses the same symbol/name/message format as all other commands.
+
+```
+Workspace: default
+  Project: backend
+    ✓ api          — done
+      running tests...
+      ok  github.com/acme/api
+    ✗ auth         — exit 1: make: No rule to make target 'test'
+      make: No rule to make target 'test'. Stop.
+    ⏭ gateway      — not present, skipped
+
+✓ 1 executed  ⏭ 1 skipped  ✗ 1 failed
+```
+
+For parallel execution, each repo's output is buffered and printed atomically (under the reporter mutex) when that goroutine completes. Lines from different repos never interleave.
+
+### Output: `ws stash`
+
+```
+Workspace: default
+  Project: backend
+    ✓ api          — stashed
+    ✓ auth         — stashed
+    ⏭ gateway      — not present, skipped
+
+✓ 2 stashed  ⏭ 1 skipped  ✗ 0 failed
+```
+
+### Output: `ws checkout`
+
+```
+Workspace: default
+  Project: backend
+    ✓ api          — checked out feature-x
+    ✗ auth         — pathspec 'feature-x' did not match any file(s) known to git
+    ⏭ gateway      — not present, skipped
+
+✓ 1 checked out  ⏭ 1 skipped  ✗ 1 failed
+```
+
+### Dry-Run Format
+
+Identical to existing commands: `[DRY RUN]` inline in the message column.
+
+```
+    ✓ api          — [DRY RUN] would exec: make test
+    ✓ auth         — [DRY RUN] would exec: make test
+```
+
+### Filtering Display
+
+When `--project-name` is specified, only the matching project header and its repos are printed. No change to the output format — absent projects are simply not shown.
+
+### Symbol Vocabulary (unchanged)
+
+| Symbol | Meaning |
+|---|---|
+| `✓` (green) | Operation succeeded |
+| `✗` (red) | Operation failed |
+| `⏭` (yellow) | Skipped (repo not on disk) |

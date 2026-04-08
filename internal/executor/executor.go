@@ -10,6 +10,9 @@ import (
 // Executor runs shell commands in a given working directory.
 type Executor interface {
 	Run(dir string, command string) error
+	// RunCapture runs command in dir and returns its stdout. On failure the
+	// error message contains the last meaningful line of stderr, identical to Run.
+	RunCapture(dir string, command string) (string, error)
 }
 
 // OsExecutor runs commands via sh -c using os/exec.
@@ -31,6 +34,22 @@ func (e OsExecutor) Run(dir string, command string) error {
 		return err
 	}
 	return nil
+}
+
+func (e OsExecutor) RunCapture(dir, command string) (string, error) {
+	var stdout, stderr bytes.Buffer
+	cmd := exec.Command("sh", "-c", command)
+	cmd.Dir = dir
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		msg := lastMeaningfulLine(stderr.String())
+		if msg != "" {
+			return stdout.String(), fmt.Errorf("%s", msg)
+		}
+		return stdout.String(), err
+	}
+	return stdout.String(), nil
 }
 
 // lastMeaningfulLine returns the last non-empty line from s.

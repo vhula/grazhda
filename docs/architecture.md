@@ -1028,3 +1028,71 @@ This field is the only config key consumed by the Bash management script.
 - The `grazhda` Bash script must remain self-contained; it must not source other scripts or call helper binaries from `$GRAZHDA_DIR/bin/`.
 - YAML parsing is limited to top-level scalar keys; the script must never attempt to parse nested YAML structures.
 - The `just build` invocation during upgrade is the single source of truth for the build process — no duplicate build logic in the Bash script.
+
+---
+
+## Phase 4 — Cross-Repository Operations
+
+### Overview
+
+Phase 4 adds three cross-repo fan-out commands to `zgard`: `ws exec`, `ws stash`, and `ws checkout`. The implementation reuses all existing patterns (executor interface, reporter, RunOptions) and extends them with granular project/repo filtering.
+
+### Targeting Engine
+
+`RunOptions` is extended with two new string fields:
+
+```go
+type RunOptions struct {
+    // ... existing fields ...
+    ProjectName string // filter: only operate on this project (empty = all)
+    RepoName    string // filter: only operate on this repo within ProjectName (empty = all)
+}
+```
+
+A shared `runOverRepos` helper in `internal/workspace/exec.go` wraps the standard iteration pattern (sequential / per-project parallel / all-parallel), applying `ProjectName` and `RepoName` filters before dispatching each per-repo function. All three new workspace functions delegate to this helper.
+
+### Executor Interface Extension
+
+`executor.Executor` gains a `RunCapture` method:
+
+```go
+type Executor interface {
+    Run(dir string, command string) error
+    RunCapture(dir string, command string) (string, error) // returns stdout
+}
+```
+
+`OsExecutor.RunCapture` captures stdout and returns it as a string. Stderr is captured for error messages on failure (identical behaviour to `Run`). `MockExecutor` gains a `CaptureOutput string` field returned by `RunCapture`.
+
+### `ws exec` — Shell Command Fan-out
+
+`workspace.Exec(ws, command, exec, rep, opts)` calls `execRepo` for each resolved target. `execRepo` uses `RunCapture` to capture stdout, then includes the captured lines in `OpResult.OutputLines` so the reporter prints them indented below the status line.
+
+### `ws stash` — Git Stash
+
+`workspace.Stash(ws, exec, rep, opts)` calls `stashRepo` for each resolved target. `stashRepo` uses `exec.Run` with `"git stash push"`. Git's exit code 0 (whether changes were stashed or not) is recorded as success with message `"stashed"`.
+
+### `ws checkout` — Git Branch Checkout
+
+`workspace.Checkout(ws, branch, exec, rep, opts)` calls `checkoutRepo` for each resolved target. `checkoutRepo` uses `exec.Run` with `"git checkout <branch>"`. Branch-not-found errors surface naturally through the existing error capture in `OsExecutor.Run` (last meaningful line of stderr).
+
+### Reporter Extension
+
+`reporter.OpResult` gains an `OutputLines []string` field. `reporter.Record` prints each line indented (6 spaces) below the standard status line, under the reporter mutex, ensuring atomic output per repo in parallel mode.
+
+### File Layout
+
+| File | Contents |
+|---|---|
+| `internal/workspace/exec.go` | `runOverRepos`, `Exec`, `Stash`, `Checkout`, `execRepo`, `stashRepo`, `checkoutRepo` |
+| `internal/workspace/exec_test.go` | Unit tests for all three operations including filters, dry-run, continue-on-failure |
+| `zgard/ws/exec.go` | `newExecCmd()` Cobra command |
+| `zgard/ws/stash.go` | `newStashCmd()` Cobra command |
+| `zgard/ws/checkout.go` | `newCheckoutCmd()` Cobra command |
+
+### Architectural Invariants
+
+- All new commands follow the same continue-on-failure pattern as `ws init` and `ws pull`: per-repo errors are recorded via `rep.Record`, never returned as function errors.
+- Skip logic for non-existent repo directories is identical to `ws pull`.
+- No direct `os/exec` calls in workspace or CLI layers — all subprocess execution goes through the `Executor` interface.
+- `--repo-name` without `--project-name` is validated and rejected at the CLI layer before any workspace logic runs.

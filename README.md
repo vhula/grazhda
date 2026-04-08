@@ -235,17 +235,93 @@ Workspace: default
 ✓ 2 aligned  ⚠ 1 drifted  ✗ 1 missing
 ```
 
+#### `zgard ws exec`
+Run any shell command in every repository of a workspace. Output from each repo is printed below its status line.
+
+```bash
+zgard ws exec "make test"                              # default workspace, all repos
+zgard ws exec --name myws "make lint"                  # named workspace
+zgard ws exec --all "echo hi"                          # every workspace
+zgard ws exec --project-name backend "make test"       # one project only
+zgard ws exec --project-name backend --repo-name api "go build ./..."  # one repo only
+zgard ws exec --parallel "make test"                   # parallel per project
+zgard ws exec --dry-run "make test"                    # preview without executing
+```
+
+Sample output:
+
+```
+Workspace: default
+  Project: backend
+    ✓ api          — done
+      running tests...
+      ok  github.com/acme/api
+    ✗ auth         — exit 1: make: No rule to make target 'test'
+      make: No rule to make target 'test'. Stop.
+    ⏭ gateway      — not present, skipped
+
+✓ 1 executed  ⏭ 1 skipped  ✗ 1 failed
+```
+
+#### `zgard ws stash`
+Run `git stash push` in every repository. Useful before coordinated branch switches.
+
+```bash
+zgard ws stash                                         # default workspace
+zgard ws stash --all --parallel-all                    # all workspaces, concurrently
+zgard ws stash --project-name backend                  # one project only
+zgard ws stash --dry-run                               # preview without executing
+```
+
+Sample output:
+
+```
+Workspace: default
+  Project: backend
+    ✓ api          — stashed
+    ✓ auth         — stashed
+    ⏭ gateway      — not present, skipped
+
+✓ 2 stashed  ⏭ 1 skipped  ✗ 0 failed
+```
+
+#### `zgard ws checkout`
+Run `git checkout <branch>` in every repository. Combine with `ws stash` to safely switch the whole workspace to a feature branch.
+
+```bash
+zgard ws checkout main                                 # default workspace → main
+zgard ws checkout --name myws feature-x                # named workspace
+zgard ws checkout --project-name backend feature-x     # one project only
+zgard ws checkout --repo-name api --project-name backend feature-x  # one repo
+zgard ws checkout --all --parallel-all main            # all workspaces, concurrently
+zgard ws checkout --dry-run feature-x                  # preview without executing
+```
+
+Sample output:
+
+```
+Workspace: default
+  Project: backend
+    ✓ api          — checked out feature-x
+    ✗ auth         — pathspec 'feature-x' did not match any file(s) known to git
+    ⏭ gateway      — not present, skipped
+
+✓ 1 checked out  ⏭ 1 skipped  ✗ 1 failed
+```
+
 Common flags for `zgard ws` commands:
 
 | Flag | Commands | Description |
 | :--- | :--- | :--- |
-| `-n, --name <name>` | init, pull, purge, status | Target a named workspace |
-| `--all` | init, pull, purge | Target all workspaces |
-| `--dry-run` | init, pull, purge | Print actions without executing |
-| `--parallel` | init, pull | Clone/pull repos within each project concurrently |
-| `--parallel-all` | init, pull | Clone/pull all repos across all projects concurrently |
+| `-n, --name <name>` | all | Target a named workspace |
+| `--all` | all | Target all workspaces |
+| `--dry-run` | all | Print actions without executing |
+| `--parallel` | init, pull, exec, stash, checkout | Run repos within each project concurrently |
+| `--parallel-all` | init, pull, exec, stash, checkout | Run all repos across all projects concurrently |
+| `--project-name <name>` | exec, stash, checkout | Limit to a single project |
+| `--repo-name <name>` | exec, stash, checkout | Limit to a single repo (requires `--project-name`) |
 | `--clone-delay-seconds=N` | init | Sleep N seconds after each clone command |
-| `-v, --verbose` | init, pull, purge | Print the rendered git command before each operation |
+| `-v, --verbose` | all | Print the rendered command before each operation |
 | `--no-confirm` | purge | Skip the confirmation prompt |
 | `--rescan` | status | Trigger a fresh scan before reporting |
 

@@ -511,3 +511,35 @@ The `grazhda` management script provides self-management capabilities for the Gr
 - `grazhda config --edit` opens `config.yaml` in the editor specified in the config, falling back gracefully through the resolution chain.
 - Running `grazhda upgrade` twice in a row produces no errors on the second run.
 - The `editor:` field is present in every new installation's `config.yaml` via the template.
+
+---
+
+## Phase 4 — Cross-Repository Operations
+
+### Executive Summary
+
+Phase 4 extends `zgard` with three commands that fan out actions to all repositories in a workspace in a single invocation: `ws exec` (arbitrary shell command), `ws stash` (git stash push), and `ws checkout` (git checkout branch). All three follow the same continue-on-failure semantics as Phase 1 commands and share the targeting model extended with per-project and per-repo granular filters.
+
+### Functional Requirements
+
+#### Cross-Repo Execution
+
+- **FR-X1:** Users can fan out an arbitrary shell command to all resolved repositories with `zgard ws exec <command> [args...]`.
+- **FR-X2:** Captured stdout from each repository is printed indented below that repo's status line.
+- **FR-X3:** `zgard ws stash` runs `git stash push` in each resolved repository directory.
+- **FR-X4:** `zgard ws checkout <branch>` runs `git checkout <branch>` in each resolved repository directory.
+- **FR-X5:** All three commands continue processing remaining repositories when any individual operation fails (continue-on-failure semantics identical to `ws init`).
+- **FR-X6:** All three commands skip repositories whose local directory does not exist on disk (identical to `ws pull` skip behaviour).
+
+#### Granular Filtering
+
+- **FR-X7:** Users can restrict cross-repo operations to a single project using `--project-name <name>`.
+- **FR-X8:** Users can restrict operations to a single repository using `--repo-name <name>`. `--repo-name` requires `--project-name`; specifying `--repo-name` without `--project-name` is an error.
+- **FR-X9:** `--project-name` and `--repo-name` filters are applied after workspace targeting (`--name` / `--all` / default).
+
+#### Shared Flags
+
+- **FR-X10:** All three new commands support `--dry-run`, `--verbose` (`-v`), `--parallel`, `--parallel-all`, `--name`, and `--all`.
+- **FR-X11:** `--dry-run` prints what would be executed without running any command, using the same `[DRY RUN]` prefix convention.
+- **FR-X12:** The end-of-run summary uses the same format as existing commands: `✓ N succeeded  ⏭ N skipped  ✗ N failed`.
+- **FR-X13:** The system exits with code 0 only if all operations succeeded; otherwise exits non-zero.

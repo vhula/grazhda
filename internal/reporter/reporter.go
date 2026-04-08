@@ -18,12 +18,13 @@ var (
 
 // OpResult records the outcome of a single repository operation.
 type OpResult struct {
-	Workspace string
-	Project   string
-	Repo      string
-	Skipped   bool
-	Err       error
-	Msg       string // human-readable description, e.g. "cloned (main)", "already exists, skipped"
+	Workspace   string
+	Project     string
+	Repo        string
+	Skipped     bool
+	Err         error
+	Msg         string   // human-readable description, e.g. "cloned (main)", "already exists, skipped"
+	OutputLines []string // optional per-repo command output printed after the status line
 }
 
 // Reporter accumulates operation results and produces structured progress output.
@@ -72,6 +73,10 @@ func (r *Reporter) Record(res OpResult) {
 	}
 
 	fmt.Fprintf(r.out, "    %s %-14s — %s\n", symbol, res.Repo, displayMsg)
+
+	for _, line := range res.OutputLines {
+		fmt.Fprintf(r.out, "      %s\n", line)
+	}
 }
 
 // Summary prints the run summary to stdout and failure details to stderr.

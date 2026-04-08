@@ -953,3 +953,131 @@ So that it behaves consistently with `ws init` for targeting, output, exit codes
 **Given** `config.yaml` does not exist
 **When** `grazhda config --edit` runs
 **Then** it exits with code 1 and advises the user to run the installer
+
+---
+
+## Epic X — Cross-Repository Operations
+
+**Goal:** Extend `zgard` with fan-out commands that execute actions across all repositories in a workspace in a single invocation: `ws exec` (arbitrary shell), `ws stash`, and `ws checkout`.
+
+**Requirements covered:** FR-X1 through FR-X13
+
+**Deliverables:** `ws exec`, `ws stash`, `ws checkout` with `--project-name`/`--repo-name` filtering and parallel execution support.
+
+---
+
+### Story X1 — Extend RunOptions and Executor with filtering and capture
+
+**As a** workspace domain library consumer
+**I want** RunOptions to carry `ProjectName`/`RepoName` filter fields and Executor to support stdout capture
+**So that** new fan-out operations can filter targets and surface per-repo output.
+
+**Acceptance Criteria:**
+
+**Given** `RunOptions{ProjectName: "backend"}`
+**When** passed to any new workspace function
+**Then** only repos within the `backend` project are processed
+
+**Given** `RunOptions{RepoName: "api"}` without `ProjectName`
+**When** validated at the CLI layer
+**Then** the command exits with error `--repo-name requires --project-name`
+
+**Given** `MockExecutor{CaptureOutput: "hello\n"}`
+**When** `RunCapture` is called
+**Then** it returns `("hello\n", nil)` and records the call
+
+---
+
+### Story X2 — Implement `workspace.Exec`
+
+**As a** developer
+**I want** `zgard ws exec <command>` to run a shell command in every repository directory
+**So that** I can fan out builds, tests, or any script across my workspace in one step.
+
+**Acceptance Criteria:**
+
+**Given** two repos present on disk
+**When** `zgard ws exec "echo hi"`
+**Then** the command runs in both repos and their output appears indented under each repo's status line
+
+**Given** one repo is absent from disk
+**When** `zgard ws exec "make test"`
+**Then** that repo is skipped (⏭) and the command continues in the remaining repos
+
+**Given** one repo's command exits non-zero
+**When** `zgard ws exec` runs
+**Then** that repo is recorded as failed (✗) and all remaining repos still execute
+
+**Given** `--dry-run`
+**When** `zgard ws exec "make test"`
+**Then** no commands are executed and `[DRY RUN] would exec: make test` appears per repo
+
+---
+
+### Story X3 — Implement `workspace.Stash`
+
+**As a** developer
+**I want** `zgard ws stash` to stash local changes in every repository
+**So that** I can cleanly switch branches across the whole workspace.
+
+**Acceptance Criteria:**
+
+**Given** two repos present on disk
+**When** `zgard ws stash`
+**Then** `git stash push` runs in both and status shows `✓ api — stashed`
+
+**Given** a repo fails to stash (e.g. git error)
+**When** `zgard ws stash`
+**Then** the failure is recorded and remaining repos are still processed
+
+**Given** `--dry-run`
+**When** `zgard ws stash`
+**Then** no commands execute and `[DRY RUN] would stash` appears per present repo
+
+---
+
+### Story X4 — Implement `workspace.Checkout`
+
+**As a** developer
+**I want** `zgard ws checkout <branch>` to check out a branch in every repository
+**So that** I can switch my entire workspace to a feature branch atomically.
+
+**Acceptance Criteria:**
+
+**Given** two repos present on disk
+**When** `zgard ws checkout feature-x`
+**Then** `git checkout feature-x` runs in both; status shows `✓ api — checked out feature-x`
+
+**Given** a repo does not have the branch
+**When** `zgard ws checkout feature-x`
+**Then** that repo is recorded as failed (✗) and checkout continues in other repos
+
+**Given** `--dry-run`
+**When** `zgard ws checkout main`
+**Then** no commands execute and `[DRY RUN] would checkout: main` appears per present repo
+
+---
+
+### Story X5 — Register CLI commands and wire filtering flags
+
+**As a** CLI user
+**I want** `zgard ws exec`, `zgard ws stash`, `zgard ws checkout` to appear as subcommands
+**So that** I can invoke them from the terminal with all supported flags.
+
+**Acceptance Criteria:**
+
+**Given** `zgard ws --help`
+**When** run
+**Then** exec, stash, checkout appear in the subcommand list
+
+**Given** `zgard ws exec --project-name backend "make test"`
+**When** run
+**Then** only repos in the `backend` project are processed
+
+**Given** `zgard ws checkout --repo-name api --project-name backend main`
+**When** run
+**Then** only `api` in `backend` is targeted
+
+**Given** `zgard ws stash --all`
+**When** run
+**Then** all workspaces are processed
