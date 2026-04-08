@@ -118,3 +118,66 @@ func TestResolve_MultiWorkspaceFixture(t *testing.T) {
 		t.Errorf("expected 2 workspaces, got %d", len(wss))
 	}
 }
+
+func makeFilterWorkspace() config.Workspace {
+	return config.Workspace{
+		Name: "ws",
+		Path: "/tmp/ws",
+		Projects: []config.Project{
+			{
+				Name: "backend",
+				Repositories: []config.Repository{
+					{Name: "api"},
+					{Name: "auth"},
+				},
+			},
+		},
+	}
+}
+
+func TestValidateFilters_NoFilter(t *testing.T) {
+	ws := makeFilterWorkspace()
+	if err := workspace.ValidateFilters(ws, workspace.RunOptions{}); err != nil {
+		t.Fatalf("expected nil, got %v", err)
+	}
+}
+
+func TestValidateFilters_ProjectFound(t *testing.T) {
+	ws := makeFilterWorkspace()
+	opts := workspace.RunOptions{ProjectName: "backend"}
+	if err := workspace.ValidateFilters(ws, opts); err != nil {
+		t.Fatalf("expected nil, got %v", err)
+	}
+}
+
+func TestValidateFilters_ProjectNotFound(t *testing.T) {
+	ws := makeFilterWorkspace()
+	opts := workspace.RunOptions{ProjectName: "nope"}
+	err := workspace.ValidateFilters(ws, opts)
+	if err == nil {
+		t.Fatal("expected error for unknown project")
+	}
+	if !strings.Contains(err.Error(), "nope") || !strings.Contains(err.Error(), "ws") {
+		t.Errorf("unexpected error message: %v", err)
+	}
+}
+
+func TestValidateFilters_RepoFound(t *testing.T) {
+	ws := makeFilterWorkspace()
+	opts := workspace.RunOptions{ProjectName: "backend", RepoName: "api"}
+	if err := workspace.ValidateFilters(ws, opts); err != nil {
+		t.Fatalf("expected nil, got %v", err)
+	}
+}
+
+func TestValidateFilters_RepoNotFound(t *testing.T) {
+	ws := makeFilterWorkspace()
+	opts := workspace.RunOptions{ProjectName: "backend", RepoName: "nope"}
+	err := workspace.ValidateFilters(ws, opts)
+	if err == nil {
+		t.Fatal("expected error for unknown repo")
+	}
+	if !strings.Contains(err.Error(), "nope") || !strings.Contains(err.Error(), "backend") {
+		t.Errorf("unexpected error message: %v", err)
+	}
+}

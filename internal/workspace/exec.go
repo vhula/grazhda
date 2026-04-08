@@ -15,12 +15,17 @@ import (
 // runOverRepos iterates all matching repos in a workspace and calls fn for each,
 // honouring opts.Parallel, opts.ParallelAll, opts.ProjectName, and opts.RepoName.
 // "Workspace:" and per-project "Project:" headers are printed to rep.
+// Returns an error if opts.ProjectName or opts.RepoName matches nothing in config.
 func runOverRepos(
 	ws config.Workspace,
 	opts RunOptions,
 	rep *reporter.Reporter,
 	fn func(proj config.Project, projPath string, repo config.Repository),
-) {
+) error {
+	if err := ValidateFilters(ws, opts); err != nil {
+		return err
+	}
+
 	wsPath := ExpandHome(ws.Path)
 	rep.PrintLine("Workspace: " + ws.Name)
 
@@ -46,7 +51,7 @@ func runOverRepos(
 			}
 		}
 		wg.Wait()
-		return
+		return nil
 	}
 
 	for _, proj := range ws.Projects {
@@ -79,6 +84,7 @@ func runOverRepos(
 			}
 		}
 	}
+	return nil
 }
 
 // Exec fans out a shell command to all resolved repository directories.
@@ -86,26 +92,23 @@ func runOverRepos(
 // All repos are attempted; failures are recorded and the function returns nil
 // (the caller checks rep.ExitCode()).
 func Exec(ws config.Workspace, command string, exec executor.Executor, rep *reporter.Reporter, opts RunOptions) error {
-	runOverRepos(ws, opts, rep, func(proj config.Project, projPath string, repo config.Repository) {
+	return runOverRepos(ws, opts, rep, func(proj config.Project, projPath string, repo config.Repository) {
 		execRepo(ws, proj, projPath, repo, command, exec, rep, opts)
 	})
-	return nil
 }
 
 // Stash runs "git stash push" in all resolved repository directories.
 func Stash(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, opts RunOptions) error {
-	runOverRepos(ws, opts, rep, func(proj config.Project, projPath string, repo config.Repository) {
+	return runOverRepos(ws, opts, rep, func(proj config.Project, projPath string, repo config.Repository) {
 		stashRepo(ws, proj, projPath, repo, exec, rep, opts)
 	})
-	return nil
 }
 
 // Checkout runs "git checkout <branch>" in all resolved repository directories.
 func Checkout(ws config.Workspace, branch string, exec executor.Executor, rep *reporter.Reporter, opts RunOptions) error {
-	runOverRepos(ws, opts, rep, func(proj config.Project, projPath string, repo config.Repository) {
+	return runOverRepos(ws, opts, rep, func(proj config.Project, projPath string, repo config.Repository) {
 		checkoutRepo(ws, proj, projPath, repo, branch, exec, rep, opts)
 	})
-	return nil
 }
 
 func execRepo(

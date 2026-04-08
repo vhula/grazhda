@@ -517,3 +517,71 @@ func TestCheckout_RepoFilter(t *testing.T) {
 		t.Errorf("expected 1 call (auth only), got %d: %v", len(mock.Calls), mock.Calls)
 	}
 }
+
+// --- Filter-not-found errors ---
+
+func TestExec_UnknownProject_ReturnsError(t *testing.T) {
+	ws, _ := makeMultiProjectWorkspace(t)
+	var out, errOut strings.Builder
+	rep := reporter.NewReporter(&out, &errOut)
+	mock := &executor.MockExecutor{}
+
+	err := workspace.Exec(ws, "echo hi", mock, rep, workspace.RunOptions{ProjectName: "nonexistent"})
+	if err == nil {
+		t.Fatal("expected error for unknown project")
+	}
+	if !strings.Contains(err.Error(), "nonexistent") {
+		t.Errorf("error should mention project name: %v", err)
+	}
+	if len(mock.Calls) != 0 {
+		t.Error("no commands should have run")
+	}
+}
+
+func TestExec_UnknownRepo_ReturnsError(t *testing.T) {
+	ws, _ := makeMultiProjectWorkspace(t)
+	var out, errOut strings.Builder
+	rep := reporter.NewReporter(&out, &errOut)
+	mock := &executor.MockExecutor{}
+
+	err := workspace.Exec(ws, "echo hi", mock, rep, workspace.RunOptions{ProjectName: "backend", RepoName: "nonexistent"})
+	if err == nil {
+		t.Fatal("expected error for unknown repo")
+	}
+	if !strings.Contains(err.Error(), "nonexistent") {
+		t.Errorf("error should mention repo name: %v", err)
+	}
+	if len(mock.Calls) != 0 {
+		t.Error("no commands should have run")
+	}
+}
+
+func TestStash_UnknownProject_ReturnsError(t *testing.T) {
+	ws, _ := makeMultiProjectWorkspace(t)
+	var out, errOut strings.Builder
+	rep := reporter.NewReporter(&out, &errOut)
+	mock := &executor.MockExecutor{}
+
+	err := workspace.Stash(ws, mock, rep, workspace.RunOptions{ProjectName: "nonexistent"})
+	if err == nil {
+		t.Fatal("expected error for unknown project")
+	}
+	if !strings.Contains(err.Error(), "nonexistent") {
+		t.Errorf("error should mention project name: %v", err)
+	}
+}
+
+func TestCheckout_UnknownProject_ReturnsError(t *testing.T) {
+	ws, _ := makeMultiProjectWorkspace(t)
+	var out, errOut strings.Builder
+	rep := reporter.NewReporter(&out, &errOut)
+	mock := &executor.MockExecutor{}
+
+	err := workspace.Checkout(ws, "main", mock, rep, workspace.RunOptions{ProjectName: "nonexistent"})
+	if err == nil {
+		t.Fatal("expected error for unknown project")
+	}
+	if !strings.Contains(err.Error(), "nonexistent") {
+		t.Errorf("error should mention project name: %v", err)
+	}
+}
