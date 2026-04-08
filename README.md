@@ -107,6 +107,7 @@ The three Grazhda tools each have a distinct role in the workspace lifecycle:
 
 | Document | What's inside |
 | :--- | :--- |
+| **[Quickstart](QUICK-START.md)** | 5-minute setup guide — install, configure, clone all repos |
 | **[CLI Reference](docs/CLI.md)** | All `grazhda`, `zgard`, and `dukh` commands — targeting flags, subcommands, sample output |
 | **[Configuration](docs/CONFIG.md)** | `config.yaml` schema, clone template variables, structure modes, field reference |
 | **[Development](docs/DEVELOPMENT.md)** | Module layout, Just tasks, build/test instructions, protobuf workflow |
