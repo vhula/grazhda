@@ -1162,3 +1162,51 @@ The filtering logic is identical to the existing `runOverRepos` helper (three mo
 - No targeting flag is declared twice — persistent flags on the parent, operational flags on each child.
 - `warnDefaultTarget` always writes to stderr; it never affects stdout (which carries structured operation output).
 - Project/repo filters for `purge` and `status` are silently ignored at the CLI layer — their domain functions do not accept `RunOptions.ProjectName`/`RepoName`.
+
+## Phase 6 — Workspace Inspection Suite
+
+### Overview
+
+Three new exported functions in `internal/workspace/inspect.go`: `Search`, `Diff`, `Stats`. Three new Cobra commands in `zgard/ws/`: `search.go`, `diff.go`, `stats.go`.
+
+### New Types (internal/workspace/options.go)
+
+```go
+InspectOptions { Parallel bool, ParallelAll bool, ProjectName string, RepoName string, Verbose bool }
+SearchOptions  { InspectOptions (embedded), Pattern string, Glob bool, Regex bool }
+```
+
+### Worker Pool Pattern
+
+All three functions use the same "collect jobs then fan-out" pattern:
+
+1. Collect matching repos into a `[]job` slice (respecting project/repo filters, skipping missing dirs).
+2. If `opts.Parallel || opts.ParallelAll`: launch one goroutine per job with `sync.WaitGroup`; results written to a pre-allocated slice indexed by job position (no mutex needed on the slice itself).
+3. Otherwise: iterate sequentially.
+
+For Search results a `sync.Mutex` guards appending to the shared matches slice; results are sorted deterministically after all goroutines finish.
+
+### Git Plumbing (per repo)
+
+| Command | Used By | Output |
+|---|---|---|
+| `git status --porcelain` | Diff | line count = uncommitted files |
+| `git rev-list @{u}..HEAD --count` | Diff | ahead count |
+| `git rev-list HEAD..@{u} --count` | Diff | behind count |
+| `git log -1 --format="%ci"` | Stats | last commit timestamp |
+| `git log --oneline --since="30 days ago" --format="%H"` | Stats | 30-day commits |
+| `git log --format="%ae"` | Stats | unique contributor emails |
+
+All git commands run via `executor.RunCapture`. If any command errors, the field is set to a sentinel value (`-1` or empty) and the table renders `--` for that column. No command failure aborts the overall run.
+
+### Stream-Based Search
+
+Search uses `bufio.Scanner` (default 64 KB token buffer) to read files line-by-line without loading them into memory. Binary detection reads the first 512 bytes and checks for a null byte. `.git` directories are skipped via `filepath.SkipDir` in `filepath.WalkDir`.
+
+### Table Rendering
+
+`printTable(out io.Writer, indent string, headers []string, rows [][]string)` is a private helper in `inspect.go`. It computes max column widths, prints a header row, a Unicode `─` separator, and then data rows, all left-aligned with 2-space column padding.
+
+### Module Dependencies
+
+No new external dependencies. `internal/workspace/inspect.go` imports `internal/color` for diff colour-coding (already used by the reporter which the workspace package already imports).

@@ -1173,3 +1173,54 @@ So that it behaves consistently with `ws init` for targeting, output, exit codes
 **Given** `zgard ws pull --project-name backend --repo-name api`
 **When** run
 **Then** only `api` in `backend` is pulled
+
+## Epic Z — Workspace Inspection Suite
+
+### Story Z1 — ws search: content and filename search
+
+Implement `zgard ws search <pattern>` with streaming line-by-line content grep (`bufio.Scanner`) and filename glob mode (`--glob`). Binary files (detected via null-byte scan of first 512 bytes) are silently skipped. `.git` directories are excluded from traversal. Output follows the `[project/repo] filepath:lineno: matched line` format (content) or `[project/repo] filepath` (glob). A summary line `N match(es) across M repo(s)` is always printed. Parallel scanning is supported via `--parallel` / `--parallel-all`.
+
+**Acceptance criteria:**
+- Content search finds matching lines in text files across all resolved repos.
+- `--glob` mode finds matching filenames without reading file contents.
+- Binary files are silently skipped; no error is emitted.
+- `.git` directories are never traversed.
+- `--parallel` / `--parallel-all` flags produce identical results to sequential mode.
+- Multi-repo `--repo-name` match emits a yellow warning before results.
+
+### Story Z2 — ws diff: per-repo Git state table
+
+Implement `zgard ws diff` that renders an aligned, colour-coded, project-grouped table showing UNCOMMITTED, AHEAD, and BEHIND counts for each repo. Uncommitted count is derived from `git status --porcelain` line count; ahead/behind from `git rev-list @{u}..HEAD` and `git rev-list HEAD..@{u}`. Repos with no upstream show `--` in those columns. Repos absent from disk render a `(not cloned)` row. A summary line listing dirty/clean/not-cloned counts is printed after all projects.
+
+**Acceptance criteria:**
+- UNCOMMITTED column reflects `git status --porcelain` line count.
+- AHEAD/BEHIND columns reflect `rev-list` counts; `--` when no upstream tracking branch.
+- Missing repos render `(not cloned)` without aborting the run.
+- Colour coding: UNCOMMITTED > 0 red; AHEAD/BEHIND > 0 yellow; all-zero clean rows green.
+- Summary counts (dirty / clean / not-cloned) printed at end.
+
+### Story Z3 — ws stats: repository metadata table
+
+Implement `zgard ws stats` that renders a project-grouped table with LAST COMMIT (YYYY-MM-DD HH:MM), 30D COMMITS, and CONTRIBUTORS per repo. Last commit timestamp comes from `git log -1 --format="%ci"` truncated to the minute. 30-day commit count comes from `git log --since="30 days ago"`. Contributor count is the number of unique author emails in the full `git log`. Repos absent from disk show a `(not cloned)` row with `-` in all value columns. Parallel execution is supported.
+
+**Acceptance criteria:**
+- LAST COMMIT renders as `YYYY-MM-DD HH:MM` from `git log -1 --format="%ci"`.
+- 30D COMMITS count derived from `--since="30 days ago"`.
+- CONTRIBUTORS = count of unique author emails across full history.
+- Missing repos render `(not cloned)` with `-` values without aborting.
+- `--parallel` / `--parallel-all` flags work correctly.
+
+### Story Z4 — Universal targeting integration
+
+Ensure all three commands (`search`, `diff`, `stats`) fully respect the universal targeting flags: `-n`/`--name`, `--all`, `-p`/`--project-name`, `-r`/`--repo-name`. `ValidateFilters` must be called before any git or filesystem operations. The default workspace info message must be shown when no explicit target is provided. `--repo-name` with a partial substring match must emit a yellow multi-match warning. `--all` must not be combinable with `-p`/`-r`.
+
+**Acceptance criteria:**
+- `--repo-name` with a name matching multiple repos emits yellow warning and continues.
+- `--all` combined with `-p` or `-r` returns a validation error.
+- Default workspace info message is shown when no target flags are given.
+- Purge safety behaviour is unaffected by these new commands.
+- `ValidateFilters` contract (red error on unknown project/repo) is enforced for all three commands.
+
+### Story Z5 — README documentation update
+
+Update `README.md` to document `zgard ws search`, `zgard ws diff`, and `zgard ws stats` under the workspace commands section. Include usage synopsis, flag descriptions, and trimmed example output (matching the UX spec) for each command so that new users can understand the feature without reading internal docs.

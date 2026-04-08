@@ -945,3 +945,79 @@ ws purge requires --name <name> or --all
 ```
 
 No warning is shown — purge errors immediately, making the safety contract unambiguous.
+
+## Phase 6 — Workspace Inspection Suite
+
+### ws search Output Format
+
+```
+[backend/api] src/main.go:42:     func coolHandler() {
+[backend/api] src/main.go:56:     // cool init
+[backend/auth] pkg/auth.go:12:    cool := true
+
+3 match(es) across 2 repo(s)
+```
+
+Glob mode (`--glob`):
+
+```
+[backend/api] cmd/server.go
+[backend/api] internal/server/server.go
+
+2 match(es) across 1 repo(s)
+```
+
+When `--repo-name` matches multiple repos (yellow warning before results):
+
+```
+Warning: --repo-name "service" matches 3 repositories
+[backend/api-service] ...
+```
+
+### ws diff Output Format
+
+```
+Workspace: myws
+  Project: backend
+
+    REPO              UNCOMMITTED  AHEAD  BEHIND
+    ──────────────────────────────────────────────
+    api               3            2      0
+    auth-service      0            0      1
+    gateway           (not cloned)
+
+  Project: frontend
+
+    REPO  UNCOMMITTED  AHEAD  BEHIND
+    ─────────────────────────────────
+    web   0            0      0
+
+✓ 1 clean  ✗ 2 dirty  ⏭ 1 not cloned
+```
+
+Color coding:
+- UNCOMMITTED > 0: red
+- AHEAD > 0 or BEHIND > 0: yellow
+- All zeros and upstream exists: green
+- `(not cloned)`: yellow/skipped symbol
+
+### ws stats Output Format
+
+```
+Workspace: myws
+  Project: backend
+
+    REPO              LAST COMMIT        30D COMMITS  CONTRIBUTORS
+    ──────────────────────────────────────────────────────────────
+    api               2024-01-15 10:30   47           8
+    auth-service      2024-01-14 09:00   12           3
+    gateway           (not cloned)       -            -
+```
+
+### Common Rules
+
+- Table headers are printed in UPPERCASE.
+- Separator uses Unicode `─` (U+2500) matching column width.
+- Column padding: 2 spaces between columns.
+- Indent: 4 spaces for repo rows under a project (consistent with existing "4-space repo indent" spec).
+- `(not cloned)` entries always use yellow ⏭ symbol prefix in summary counts.

@@ -11,3 +11,20 @@ type RunOptions struct {
 	ProjectName       string // filter: only operate on this project (empty = all)
 	RepoName          string // filter: only operate on this repo within ProjectName (empty = all)
 }
+
+// InspectOptions controls inspection commands (diff, stats, search).
+type InspectOptions struct {
+	Parallel    bool
+	ParallelAll bool
+	ProjectName string
+	RepoName    string
+	Verbose     bool
+}
+
+// SearchOptions extends InspectOptions with search-specific configuration.
+type SearchOptions struct {
+	InspectOptions
+	Pattern string
+	Glob    bool // match filenames instead of content
+	Regex   bool // treat Pattern as a regular expression
+}

@@ -49,5 +49,8 @@ cmd.AddCommand(newStatusCmd())
 cmd.AddCommand(newExecCmd())
 cmd.AddCommand(newStashCmd())
 cmd.AddCommand(newCheckoutCmd())
+cmd.AddCommand(newSearchCmd())
+cmd.AddCommand(newDiffCmd())
+cmd.AddCommand(newStatsCmd())
 return cmd
 }

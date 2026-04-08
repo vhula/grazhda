@@ -343,6 +343,87 @@ Workspace: default
 ✓ 1 checked out  ⏭ 1 skipped  ✗ 1 failed
 ```
 
+---
+
+#### `zgard ws search`
+
+Search file contents (default), filenames (`--glob`), or regular expressions (`--regex`) across all resolved repositories. Binary files and `.git` directories are automatically skipped.
+
+```sh
+zgard ws search "TODO"                                     # content grep, default workspace
+zgard ws search --glob "*.go"                              # filename glob
+zgard ws search --regex "^func\s"                          # Go regex on file contents
+zgard ws search -p backend "TODO"                          # one project only
+zgard ws search -p backend -r api "TODO"                   # repos containing "api"
+zgard ws search --parallel "TODO"                          # parallel per project
+```
+
+Sample output:
+
+```
+[backend/api] src/handler.go:42: // TODO: fix this
+[backend/api] src/handler.go:87: // TODO: add tests
+[backend/auth] pkg/auth.go:12:  // TODO: rotate key
+
+3 match(es) across 2 repo(s)
+```
+
+---
+
+#### `zgard ws diff`
+
+Show per-repo Git state in aligned, project-grouped tables. Rows are colour-coded: red for uncommitted changes, yellow for ahead/behind or not cloned, green for fully clean.
+
+```sh
+zgard ws diff                                              # default workspace
+zgard ws diff --name myws                                  # named workspace
+zgard ws diff -p backend                                   # one project only
+zgard ws diff --all --parallel-all                         # all workspaces, concurrently
+```
+
+Sample output:
+
+```
+Workspace: myws
+  Project: backend
+
+    REPO              UNCOMMITTED  AHEAD  BEHIND
+    ──────────────────────────────────────────────
+    api               3            2      0
+    auth-service      0            0      1
+    gateway           (not cloned)  --     --
+
+✓ 0 clean  ✗ 2 dirty  ⏭ 1 not cloned
+```
+
+---
+
+#### `zgard ws stats`
+
+Show aggregated repository metadata in aligned, project-grouped tables: last commit date, 30-day commit count, and unique contributor count.
+
+```sh
+zgard ws stats                                             # default workspace
+zgard ws stats --name myws                                 # named workspace
+zgard ws stats -p backend                                  # one project only
+zgard ws stats --all --parallel-all                        # all workspaces, concurrently
+```
+
+Sample output:
+
+```
+Workspace: myws
+  Project: backend
+
+    REPO              LAST COMMIT        30D COMMITS  CONTRIBUTORS
+    ──────────────────────────────────────────────────────────────
+    api               2024-06-15 10:30   47           8
+    auth-service      2024-06-14 09:00   12           3
+    gateway           (not cloned)       -            -
+```
+
+---
+
 Common flags for `zgard ws` commands:
 
 | Flag | Commands | Description |
@@ -351,13 +432,15 @@ Common flags for `zgard ws` commands:
 | `--all` | all | Operate on all workspaces (persistent, inherited) |
 | `-p, --project-name <name>` | all | Filter to a specific project (persistent, inherited) |
 | `-r, --repo-name <name>` | all | Substring filter on repo names — requires `-p`; may match multiple repos (persistent, inherited) |
-| `--dry-run` | all | Print actions without executing |
-| `--parallel` | init, pull, exec, stash, checkout | Run repos within each project concurrently |
-| `--parallel-all` | init, pull, exec, stash, checkout | Run all repos across all projects concurrently |
+| `--dry-run` | init, pull, exec, stash, checkout | Print actions without executing |
+| `--parallel` | init, pull, exec, stash, checkout, search, diff, stats | Run repos within each project concurrently |
+| `--parallel-all` | init, pull, exec, stash, checkout, search, diff, stats | Run all repos across all projects concurrently |
 | `--clone-delay-seconds=N` | init | Sleep N seconds after each clone command |
 | `-v, --verbose` | all | Print the rendered command before each operation |
 | `--no-confirm` | purge | Skip the confirmation prompt |
 | `--rescan` | status | Trigger a fresh scan before reporting |
+| `--glob` | search | Match filenames instead of file contents |
+| `--regex` | search | Treat pattern as a Go regular expression |
 
 ---
 

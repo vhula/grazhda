@@ -577,3 +577,52 @@ Phase 5 standardises how users specify *what* to operate on across every `zgard 
 - **FR-T10:** `ws pull --project-name <p>` must pull only repos within project `<p>`.
 - **FR-T11:** `ws pull --project-name <p> --repo-name <r>` must pull only repo `<r>` within project `<p>`.
 - **FR-T12:** Providing a `--project-name` or `--repo-name` that does not exist in the workspace config is an error (same `ValidateFilters` contract as Phase 4).
+
+## Phase 6 — Workspace Inspection Suite
+
+### Executive Summary
+
+Phase 6 introduces three read-only `zgard ws` subcommands — `search`, `diff`, and `stats` — that let engineers inspect the content and state of all repositories in a workspace without leaving the terminal. These commands provide content/filename search, per-repo Git divergence information, and repository activity metrics, all rendered as aligned, colour-coded tables consistent with the existing zgard output style.
+
+### Functional Requirements
+
+#### ws search
+
+- **FR-I1:** `zgard ws search <pattern>` performs case-sensitive substring grep of file contents across all resolved repositories.
+- **FR-I2:** `--glob` flag switches matching to filename glob (e.g. `*.go`) instead of content.
+- **FR-I3:** `--regex` flag treats pattern as a Go regular expression for content search.
+- **FR-I4:** Binary files are automatically skipped (detected via null-byte scan of first 512 bytes).
+- **FR-I5:** `.git` directories are never traversed during search.
+- **FR-I6:** Output format: `[project/repo] filepath:lineno: matched line` (content) or `[project/repo] filepath` (glob).
+- **FR-I7:** Summary line at end: `N match(es) across M repo(s)`.
+- **FR-I8:** When `--repo-name` matches >1 repo, a yellow multi-match warning is shown before results.
+
+#### ws diff
+
+- **FR-I9:** `zgard ws diff` shows per-repo Git state in a project-grouped aligned table.
+- **FR-I10:** Columns: REPO, UNCOMMITTED (file count from `git status --porcelain`), AHEAD (commits), BEHIND (commits).
+- **FR-I11:** Repos with no upstream tracking branch show `--` in AHEAD/BEHIND columns.
+- **FR-I12:** Repos not present on disk show `(not cloned)` row.
+- **FR-I13:** Summary: dirty/clean/not-cloned counts printed after all projects.
+- **FR-I14:** UNCOMMITTED > 0 shown in red; AHEAD/BEHIND > 0 shown in yellow; clean rows in green.
+
+#### ws stats
+
+- **FR-I15:** `zgard ws stats` shows per-repo metadata in a project-grouped aligned table.
+- **FR-I16:** Columns: REPO, LAST COMMIT (YYYY-MM-DD HH:MM), 30D COMMITS, CONTRIBUTORS.
+- **FR-I17:** 30D COMMITS = count of commits in last 30 days via `git log --since="30 days ago"`.
+- **FR-I18:** CONTRIBUTORS = unique author email count from full `git log`.
+- **FR-I19:** Repos not present on disk show `(not cloned)` row with `-` values.
+
+#### Execution Standards
+
+- **FR-I20:** All three commands inherit universal targeting flags and respect filtering and validation.
+- **FR-I21:** All three support `--parallel` (per-project) and `--parallel-all` (all repos).
+- **FR-I22:** Default workspace info message shown when no explicit target is provided.
+- **FR-I23:** Errors (missing project, no match for `--repo-name`) are printed in red.
+
+### Non-Functional Requirements
+
+- **NFR-I1:** `search` must use streaming line-by-line scanning (`bufio.Scanner`) — no full file loads.
+- **NFR-I2:** `diff` and `stats` must not fail the whole run when one repo returns a git error; missing repos are reported inline.
+- **NFR-I3:** Parallel execution must not exhaust file descriptors on workspaces with 50+ repos.
