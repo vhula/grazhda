@@ -26,6 +26,12 @@ PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 if repoName != "" && projectName == "" {
 return fmt.Errorf("--repo-name (-r) requires --project-name (-p)")
 }
+if wsAll && projectName != "" {
+return fmt.Errorf("--all and --project-name (-p) are mutually exclusive")
+}
+if wsAll && repoName != "" {
+return fmt.Errorf("--all and --repo-name (-r) are mutually exclusive")
+}
 return nil
 },
 }

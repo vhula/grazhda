@@ -132,7 +132,7 @@ func Init(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, o
 			rep.PrintLine("  Project: " + proj.Name)
 			projPath := filepath.Join(wsPath, proj.Name)
 			for _, repo := range proj.Repositories {
-				if opts.RepoName != "" && repo.Name != opts.RepoName {
+				if opts.RepoName != "" && !repoNameMatches(repo.Name, opts.RepoName, ws.Structure) {
 					continue
 				}
 				repo := repo
@@ -158,7 +158,7 @@ func Init(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, o
 		if opts.Parallel {
 			var wg sync.WaitGroup
 			for _, repo := range proj.Repositories {
-				if opts.RepoName != "" && repo.Name != opts.RepoName {
+				if opts.RepoName != "" && !repoNameMatches(repo.Name, opts.RepoName, ws.Structure) {
 					continue
 				}
 				repo := repo
@@ -171,7 +171,7 @@ func Init(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, o
 			wg.Wait()
 		} else {
 			for _, repo := range proj.Repositories {
-				if opts.RepoName != "" && repo.Name != opts.RepoName {
+				if opts.RepoName != "" && !repoNameMatches(repo.Name, opts.RepoName, ws.Structure) {
 					continue
 				}
 				cloneRepo(ws, proj, projPath, repo, exec, rep, opts)
@@ -321,7 +321,7 @@ func Pull(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, o
 			rep.PrintLine("  Project: " + proj.Name)
 			projPath := filepath.Join(wsPath, proj.Name)
 			for _, repo := range proj.Repositories {
-				if opts.RepoName != "" && repo.Name != opts.RepoName {
+				if opts.RepoName != "" && !repoNameMatches(repo.Name, opts.RepoName, ws.Structure) {
 					continue
 				}
 				repo := repo
@@ -346,7 +346,7 @@ func Pull(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, o
 		if opts.Parallel {
 			var wg sync.WaitGroup
 			for _, repo := range proj.Repositories {
-				if opts.RepoName != "" && repo.Name != opts.RepoName {
+				if opts.RepoName != "" && !repoNameMatches(repo.Name, opts.RepoName, ws.Structure) {
 					continue
 				}
 				repo := repo
@@ -359,7 +359,7 @@ func Pull(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, o
 			wg.Wait()
 		} else {
 			for _, repo := range proj.Repositories {
-				if opts.RepoName != "" && repo.Name != opts.RepoName {
+				if opts.RepoName != "" && !repoNameMatches(repo.Name, opts.RepoName, ws.Structure) {
 					continue
 				}
 				pullRepo(ws, proj, projPath, repo, exec, rep, opts)

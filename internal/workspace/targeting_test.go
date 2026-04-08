@@ -181,3 +181,53 @@ func TestValidateFilters_RepoNotFound(t *testing.T) {
 		t.Errorf("unexpected error message: %v", err)
 	}
 }
+
+func makeListFilterWorkspace() config.Workspace {
+return config.Workspace{
+Name:      "ws",
+Path:      "/tmp/ws",
+Structure: "list",
+Projects: []config.Project{
+{
+Name: "backend",
+Repositories: []config.Repository{
+{Name: "org/team/api"},
+{Name: "org/team/auth.git"},
+},
+},
+},
+}
+}
+
+func TestValidateFilters_ListStructure_MatchesBySegment(t *testing.T) {
+ws := makeListFilterWorkspace()
+opts := workspace.RunOptions{ProjectName: "backend", RepoName: "api"}
+if err := workspace.ValidateFilters(ws, opts); err != nil {
+t.Fatalf("expected nil for list-structure segment match, got %v", err)
+}
+}
+
+func TestValidateFilters_ListStructure_MatchesBySegmentGitSuffix(t *testing.T) {
+ws := makeListFilterWorkspace()
+opts := workspace.RunOptions{ProjectName: "backend", RepoName: "auth"}
+if err := workspace.ValidateFilters(ws, opts); err != nil {
+t.Fatalf("expected nil for list-structure .git strip match, got %v", err)
+}
+}
+
+func TestValidateFilters_ListStructure_NoMatchForFullPath(t *testing.T) {
+ws := makeListFilterWorkspace()
+// Using full path as filter — still matches via exact name comparison.
+opts := workspace.RunOptions{ProjectName: "backend", RepoName: "org/team/api"}
+if err := workspace.ValidateFilters(ws, opts); err != nil {
+t.Fatalf("exact name should still match: %v", err)
+}
+}
+
+func TestValidateFilters_ListStructure_NoMatch(t *testing.T) {
+ws := makeListFilterWorkspace()
+opts := workspace.RunOptions{ProjectName: "backend", RepoName: "nope"}
+if err := workspace.ValidateFilters(ws, opts); err == nil {
+t.Fatal("expected error for unmatched repo in list-structure workspace")
+}
+}
