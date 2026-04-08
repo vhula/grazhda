@@ -438,7 +438,7 @@ Workspace: myws
 
 #### `zgard ws open`
 
-Launch an IDE for each resolved repository directory. Supports VS Code (`code`) and IntelliJ IDEA (`idea`).
+Launch an IDE for all resolved repository directories in a **single window**. Supports VS Code (`code`) and IntelliJ IDEA (`idea`).
 
 ```sh
 zgard ws open --ide vscode                                 # open all repos in default workspace
@@ -448,15 +448,17 @@ zgard ws open --ide vscode -t backend -t api               # repos tagged "backe
 ```
 
 - `--ide` is required; supported values: `vscode`, `idea`.
-- Each matching repository directory is launched in a separate IDE window (non-blocking).
-- Repositories not yet cloned are skipped with a yellow `⏭` message.
-- When more than 5 windows would open, a yellow warning is printed first.
+- **Single-window policy:** the IDE binary is invoked exactly once, never once per repository.
+  - **VS Code:** all paths are passed as separate arguments (`code path1 path2 …`), opening a multi-root workspace window.
+  - **IntelliJ IDEA:** the common ancestor directory of all targeted repos is passed (`idea <common-parent>`), so all repos are visible inside one project.
+- Repositories not yet cloned are listed with `⏭` and skipped; the IDE still opens for the remaining repos.
 - If the IDE binary cannot be found on PATH, an error with install instructions is shown.
 
 Sample output:
 
 ```
-Opening 3 repo(s) in VS Code...
+Info: Targeting default workspace: /home/alice/ws
+Opening 3 repositories in one VS Code window...
   ✓ /home/alice/ws/backend/api
   ✓ /home/alice/ws/backend/auth-service
   ⏭ /home/alice/ws/backend/gateway — not cloned, skipped

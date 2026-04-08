@@ -652,13 +652,16 @@ Phase 7 extends zgard's targeting model with tag-based filtering, allowing users
 
 #### ws open
 
-- **FR-I24:** `zgard ws open --ide <ide>` resolves targeted repo paths and launches the IDE on each.
+- **FR-I24:** `zgard ws open --ide <ide>` aggregates all targeted repo paths and launches the IDE **exactly once** (single-window policy).
 - **FR-I25:** Supported IDEs: `vscode` (binary: `code`, fallback `code-insiders`) and `idea` (binary: `idea`, fallback `idea.sh`, `/opt/idea/bin/idea.sh`).
 - **FR-I26:** When the IDE binary is not found: red error with installation instructions is printed.
-- **FR-I27:** Repos not present on disk are skipped with a yellow warning.
-- **FR-I28:** When more than 5 repo windows would open: yellow warning showing the count is printed before proceeding.
+- **FR-I27:** Repos not present on disk are listed with a yellow `⏭` warning and excluded from the IDE invocation before launch.
+- **FR-I28:** The command prints `Opening N repositories in one <IDE> window...` followed by the list of paths, then launches the IDE once.
 - **FR-I29:** `ws open` supports all universal targeting flags including `--tag`.
 - **FR-I30:** `--ide` flag is required; omitting it produces a red error.
+- **FR-I31 (VS Code):** All valid paths are passed as separate positional arguments — `code path1 path2 …` — which opens a single multi-root workspace window.
+- **FR-I32 (IntelliJ):** The common ancestor directory of all valid paths is passed as the single argument to `idea`, ensuring one project window covers all targeted repos.
+- **FR-I33:** If after skipping un-cloned repos no valid paths remain, a yellow warning is printed and the command exits without launching the IDE.
 
 ### Non-Functional Requirements
 

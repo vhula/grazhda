@@ -1054,19 +1054,21 @@ Printed in red to stderr.
 
 ```
 Info: Targeting default workspace: /home/user/ws
-Opening 3 repo(s) in VS Code...
+Opening 3 repositories in one VS Code window...
   ✓ /home/user/ws/backend/api
   ✓ /home/user/ws/backend/auth-service
   ⏭ /home/user/ws/backend/gateway  — not cloned, skipped
 ```
 
-### Warning: Many windows
+The IDE is launched exactly once after all paths are listed. No interactive prompt is shown.
+
+### Warning: All repos skipped
 
 ```
-Warning: 8 IDE windows will open. Proceed? (press Ctrl+C to abort)
+Warning: all matched repositories are not yet cloned; nothing to open
 ```
 
-Printed when count > 5. Always printed; no interactive prompt — the user can abort before the first window appears.
+Printed to stderr (yellow) when every candidate path fails the existence check.
 
 ### Common Rules for Phase 7
 
