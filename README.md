@@ -162,17 +162,31 @@ Every `zgard ws` subcommand shares the same four targeting flags, inherited from
 | `--name <name>` | `-n` | Target a single named workspace |
 | `--all` | | Operate on all configured workspaces |
 | `--project-name <name>` | `-p` | Filter to a specific project within the targeted workspace |
-| `--repo-name <name>` | `-r` | Filter to a single repository (requires `--project-name`) |
+| `--repo-name <name>` | `-r` | Substring filter on repository names (requires `--project-name`) |
 
-**Default workspace info:** If you omit all targeting flags, `zgard` falls back to the `default` workspace and prints a cyan info message to stderr so you always know what is being targeted:
+**Flag constraints:**
+- `--name` and `--all` are mutually exclusive.
+- `--repo-name` (`-r`) requires `--project-name` (`-p`).
+- `--all` cannot be combined with `--project-name` or `--repo-name`.
+- Violating any constraint prints a **red error** and exits immediately.
+
+**Default workspace info:** If you omit all targeting flags, `zgard` falls back to the `default` workspace and prints a blue info message to stderr so you always know what is being targeted:
 
 ```
 Info: Targeting default workspace: /home/alice/workspaces/default
 ```
 
-Suppress the warning by being explicit: `zgard ws init --name default`.
+Suppress the message by being explicit: `zgard ws init --name default`.
 
-**Safety contract for `ws purge`:** Purge never falls back to a default. If no targeting flag is provided it exits immediately with an error, requiring `--name <name>` or `--all`.
+**Safety contract for `ws purge`:** Purge never falls back to a default. If no targeting flag is provided it exits immediately with a red error, requiring `--name <name>` or `--all`.
+
+**`--repo-name` substring matching:** The filter value is matched as a case-sensitive substring against the full repository config name, regardless of workspace structure. For example, `--repo-name cool` matches `ORG/PACK/my-cool-backend-lol`. Matching more than one repository is valid — a **yellow warning** is printed before the operation begins:
+
+```
+Warning: --repo-name "cool" matches 3 repositories
+```
+
+If the filter matches nothing, `zgard` exits with a **red error**.
 
 ```
 zgard manages local workspace lifecycle — init, purge, and pull repositories.
@@ -196,11 +210,11 @@ Clone all repositories for a workspace. Skips repos that already exist. Continue
 
 ```bash
 zgard ws init                                       # default workspace (shows info)
-zgard ws init -n myws                               # named workspace, no warning
+zgard ws init -n myws                               # named workspace, no info message
 zgard ws init --all --parallel-all                  # all workspaces, all repos concurrently
 zgard ws init --all --parallel                      # all workspaces, per-project concurrency
 zgard ws init -p backend                            # only clone backend project
-zgard ws init -p backend -r api                     # only clone api repo in backend
+zgard ws init -p backend -r api                     # repos whose name contains "api"
 zgard ws init --clone-delay-seconds=5               # sleep 5s after each clone
 zgard ws init --dry-run                             # preview without executing
 ```
@@ -212,7 +226,7 @@ Run `git pull --rebase` for every repo in a workspace. Skips repos that haven't 
 zgard ws pull                                       # default workspace (shows info)
 zgard ws pull --all --parallel-all                  # all workspaces, all repos concurrently
 zgard ws pull -p backend                            # only pull backend project
-zgard ws pull -p backend -r api                     # only pull api in backend
+zgard ws pull -p backend -r api                     # repos whose name contains "api"
 zgard ws pull --dry-run                             # preview without executing
 ```
 
@@ -257,13 +271,14 @@ Workspace: default
 Run any shell command in every repository of a workspace. Output from each repo is printed below its status line.
 
 ```bash
-zgard ws exec "make test"                              # default workspace, all repos
-zgard ws exec --name myws "make lint"                  # named workspace
-zgard ws exec --all "echo hi"                          # every workspace
-zgard ws exec --project-name backend "make test"       # one project only
-zgard ws exec --project-name backend --repo-name api "go build ./..."  # one repo only
-zgard ws exec --parallel "make test"                   # parallel per project
-zgard ws exec --dry-run "make test"                    # preview without executing
+zgard ws exec "make test"                                  # default workspace, all repos
+zgard ws exec --name myws "make lint"                      # named workspace
+zgard ws exec --all "echo hi"                              # every workspace
+zgard ws exec -p backend "make test"                       # one project only
+zgard ws exec -p backend -r api "go build ./..."           # repos whose name contains "api"
+zgard ws exec -p backend -r service "go build ./..."       # all repos containing "service"
+zgard ws exec --parallel "make test"                       # parallel per project
+zgard ws exec --dry-run "make test"                        # preview without executing
 ```
 
 Sample output:
@@ -285,10 +300,11 @@ Workspace: default
 Run `git stash push` in every repository. Useful before coordinated branch switches.
 
 ```bash
-zgard ws stash                                         # default workspace
-zgard ws stash --all --parallel-all                    # all workspaces, concurrently
-zgard ws stash --project-name backend                  # one project only
-zgard ws stash --dry-run                               # preview without executing
+zgard ws stash                                             # default workspace
+zgard ws stash --all --parallel-all                        # all workspaces, concurrently
+zgard ws stash -p backend                                  # one project only
+zgard ws stash -p backend -r service                       # repos containing "service"
+zgard ws stash --dry-run                                   # preview without executing
 ```
 
 Sample output:
@@ -307,12 +323,12 @@ Workspace: default
 Run `git checkout <branch>` in every repository. Combine with `ws stash` to safely switch the whole workspace to a feature branch.
 
 ```bash
-zgard ws checkout main                                 # default workspace → main
-zgard ws checkout --name myws feature-x                # named workspace
-zgard ws checkout --project-name backend feature-x     # one project only
-zgard ws checkout --repo-name api --project-name backend feature-x  # one repo
-zgard ws checkout --all --parallel-all main            # all workspaces, concurrently
-zgard ws checkout --dry-run feature-x                  # preview without executing
+zgard ws checkout main                                     # default workspace → main
+zgard ws checkout --name myws feature-x                    # named workspace
+zgard ws checkout -p backend feature-x                     # one project only
+zgard ws checkout -p backend -r api feature-x             # repos containing "api"
+zgard ws checkout --all --parallel-all main                # all workspaces, concurrently
+zgard ws checkout --dry-run feature-x                      # preview without executing
 ```
 
 Sample output:
@@ -334,7 +350,7 @@ Common flags for `zgard ws` commands:
 | `-n, --name <name>` | all | Target a named workspace (persistent, inherited) |
 | `--all` | all | Operate on all workspaces (persistent, inherited) |
 | `-p, --project-name <name>` | all | Filter to a specific project (persistent, inherited) |
-| `-r, --repo-name <name>` | all | Filter to a specific repo — requires `-p` (persistent, inherited) |
+| `-r, --repo-name <name>` | all | Substring filter on repo names — requires `-p`; may match multiple repos (persistent, inherited) |
 | `--dry-run` | all | Print actions without executing |
 | `--parallel` | init, pull, exec, stash, checkout | Run repos within each project concurrently |
 | `--parallel-all` | init, pull, exec, stash, checkout | Run all repos across all projects concurrently |
