@@ -906,10 +906,10 @@ When `--project-name` is specified, only the matching project header and its rep
 
 ### Default Workspace Warning
 
-When no targeting flags are provided and the command falls back to the default workspace, a **yellow** warning line is printed to stderr before any operation output:
+When no targeting flags are provided and the command falls back to the default workspace, a blue **info** line is printed to stderr before any operation output:
 
 ```
-Warning: Targeting default workspace: /home/alice/workspaces/default
+Info: Targeting default workspace: /home/alice/workspaces/default
 ```
 
 The warning uses the same `internal/color.Yellow` helper already used throughout the codebase. It prints to **stderr** so it does not pollute stdout in pipe/script contexts. It appears **once** per invocation, before the `Workspace:` header line.

@@ -164,10 +164,10 @@ Every `zgard ws` subcommand shares the same four targeting flags, inherited from
 | `--project-name <name>` | `-p` | Filter to a specific project within the targeted workspace |
 | `--repo-name <name>` | `-r` | Filter to a single repository (requires `--project-name`) |
 
-**Default workspace warning:** If you omit all targeting flags, `zgard` falls back to the `default` workspace and prints a yellow warning to stderr so you always know what is being targeted:
+**Default workspace info:** If you omit all targeting flags, `zgard` falls back to the `default` workspace and prints a cyan info message to stderr so you always know what is being targeted:
 
 ```
-Warning: Targeting default workspace: /home/alice/workspaces/default
+Info: Targeting default workspace: /home/alice/workspaces/default
 ```
 
 Suppress the warning by being explicit: `zgard ws init --name default`.
@@ -195,7 +195,7 @@ Use "zgard [command] --help" for more information about a command.
 Clone all repositories for a workspace. Skips repos that already exist. Continues on failure and reports all errors at the end.
 
 ```bash
-zgard ws init                                       # default workspace (shows warning)
+zgard ws init                                       # default workspace (shows info)
 zgard ws init -n myws                               # named workspace, no warning
 zgard ws init --all --parallel-all                  # all workspaces, all repos concurrently
 zgard ws init --all --parallel                      # all workspaces, per-project concurrency
@@ -209,7 +209,7 @@ zgard ws init --dry-run                             # preview without executing
 Run `git pull --rebase` for every repo in a workspace. Skips repos that haven't been cloned yet.
 
 ```bash
-zgard ws pull                                       # default workspace (shows warning)
+zgard ws pull                                       # default workspace (shows info)
 zgard ws pull --all --parallel-all                  # all workspaces, all repos concurrently
 zgard ws pull -p backend                            # only pull backend project
 zgard ws pull -p backend -r api                     # only pull api in backend

@@ -27,12 +27,12 @@ return nil, fmt.Errorf("configuration is invalid")
 return cfg, nil
 }
 
-// warnDefaultTarget prints a yellow warning to out when the user has not
+// warnDefaultTarget prints an info message to out when the user has not
 // provided an explicit targeting flag and the command falls back to the
 // default workspace.
 func warnDefaultTarget(out io.Writer, ws config.Workspace) {
-fmt.Fprintln(out, clr.Yellow(fmt.Sprintf(
-"Warning: Targeting default workspace: %s",
+fmt.Fprintln(out, clr.Blue(fmt.Sprintf(
+"Info: Targeting default workspace: %s",
 workspace.ExpandHome(ws.Path),
 )))
 }

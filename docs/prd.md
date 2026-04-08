@@ -562,7 +562,7 @@ Phase 5 standardises how users specify *what* to operate on across every `zgard 
 
 #### Default Target Warning
 
-- **FR-T4:** When no targeting flags are provided (`--name`, `--all` both absent), every `zgard ws` subcommand that calls `workspace.Resolve` must print a yellow warning to stderr before executing: `Warning: Targeting default workspace: <absolute-path>`.
+- **FR-T4:** When no targeting flags are provided (`--name`, `--all` both absent), every `zgard ws` subcommand that calls `workspace.Resolve` must print a blue info message to stderr before executing: `Info: Targeting default workspace: <absolute-path>`.
 - **FR-T5:** The warning must not appear when `--name` or `--all` is explicitly provided.
 - **FR-T6:** The `status` command is exempt from the warning — its implicit default is "all workspaces", not a single default.
 
