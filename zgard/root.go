@@ -25,8 +25,7 @@ Subcommands (under "zgard ws"):
   status      Show workspace health as monitored by dukh
   search      Search for files or content across repositories
   diff        Show uncommitted changes and upstream sync status
-  stats       Aggregate commit metadata across repositories
-  open        Launch an IDE for targeted repository paths`,
+  stats       Aggregate commit metadata across repositories`,
 	SilenceErrors: true,
 	SilenceUsage:  true,
 }

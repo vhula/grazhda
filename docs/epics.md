@@ -1246,24 +1246,10 @@ Implement `effectiveTags`, `repoTagsMatch`, and `repoMatchesFilters` helpers in 
 - Combining `--tag` with `-p`/`-r` applies AND logic correctly.
 - All existing commands respect `--tag` without behavioural regression.
 
-### Story AA3 — ws open command (single-window)
-
-Implement `CollectRepoPaths(ws, opts RunOptions) ([]string, error)` in `internal/workspace`. Implement `newOpenCmd` in `zgard/ws/open.go` with `findIDEBinary` for `vscode` and `idea` IDE targets, enforcing a single-window policy.
-
-**Acceptance criteria:**
-- `--ide vscode` calls `code path1 path2 …` once with all valid repo paths as separate arguments (multi-root workspace window).
-- `--ide idea` calls `idea <common-ancestor>` once with the longest common directory prefix of all valid paths.
-- The IDE binary is invoked exactly once per `zgard ws open` execution — never in a loop.
-- Repos not cloned to disk are printed with `⏭` (yellow) to stderr and excluded from the IDE invocation.
-- If all matched repos are un-cloned, a yellow warning is printed and the command exits without launching the IDE.
-- Missing IDE binary produces a red error with installation instructions.
-- No "many windows" warning exists; the single-window policy makes it unnecessary.
-
 ### Story AA4 — README and config.template.yaml updates
 
-Update `README.md` to document the `--tag` flag in the common flags table and add a `ws open` subsection with usage synopsis and examples. Update `config.template.yaml` to demonstrate `tags` at both project and repository levels.
+Update `README.md` to document the `--tag` flag in the common flags table. Update `config.template.yaml` to demonstrate `tags` at both project and repository levels.
 
 **Acceptance criteria:**
 - README shows `--tag` in the common flags table.
-- `ws open` has its own subsection in the README with usage examples.
 - `config.template.yaml` demonstrates tags at both project and repository levels.

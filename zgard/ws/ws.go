@@ -54,6 +54,5 @@ func NewCmd() *cobra.Command {
 	cmd.AddCommand(newSearchCmd())
 	cmd.AddCommand(newDiffCmd())
 	cmd.AddCommand(newStatsCmd())
-	cmd.AddCommand(newOpenCmd())
 	return cmd
 }

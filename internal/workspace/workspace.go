@@ -394,29 +394,3 @@ func pullRepo(ws config.Workspace, proj config.Project, projPath string, repo co
 		Msg: fmt.Sprintf("pulled (%s)", branch),
 	})
 }
-
-// CollectRepoPaths returns the resolved filesystem paths for all repositories
-// in ws that match opts (project, repo-name, and tag filters).
-// Repos not present on disk are included in the list; callers must check
-// existence themselves if needed.
-func CollectRepoPaths(ws config.Workspace, opts RunOptions) ([]string, error) {
-	if err := ValidateFilters(ws, opts); err != nil {
-		return nil, err
-	}
-	wsPath := ExpandHome(ws.Path)
-	var paths []string
-	for _, proj := range ws.Projects {
-		if opts.ProjectName != "" && proj.Name != opts.ProjectName {
-			continue
-		}
-		projPath := filepath.Join(wsPath, proj.Name)
-		for _, repo := range proj.Repositories {
-			if !repoMatchesFilters(proj, repo, opts) {
-				continue
-			}
-			dest := ResolveDestName(projPath, repo.Name, repo.LocalDirName, ws.Structure)
-			paths = append(paths, filepath.Join(projPath, dest))
-		}
-	}
-	return paths, nil
-}

@@ -194,9 +194,6 @@ If the filter matches nothing, `zgard` exits with a **red error**.
 ```bash
 # Run pull only on repositories tagged "backend" or "api"
 zgard ws pull -t backend -t api
-
-# Open all "critical" repos in VS Code
-zgard ws open --ide vscode -t critical
 ```
 
 Project-level tags are **inherited** by all repositories in that project (merged with any repo-specific tags). If `--tag` matches no repositories, `zgard` exits with a **red error**.
@@ -436,34 +433,6 @@ Workspace: myws
 
 ---
 
-#### `zgard ws open`
-
-Launch an IDE for all resolved repository directories in a **single window**. Supports VS Code (`code`) and IntelliJ IDEA (`idea`).
-
-```sh
-zgard ws open --ide vscode                                 # open all repos in default workspace
-zgard ws open --ide idea -p backend                        # all repos in "backend" project
-zgard ws open --ide vscode -t critical                     # only repos tagged "critical"
-zgard ws open --ide vscode -t backend -t api               # repos tagged "backend" OR "api"
-```
-
-- `--ide` is required; supported values: `vscode`, `idea`.
-- **Single-window policy:** the IDE binary is invoked exactly once, never once per repository.
-  - **VS Code:** all paths are passed as separate arguments (`code path1 path2 …`), opening a multi-root workspace window.
-  - **IntelliJ IDEA:** the common ancestor directory of all targeted repos is passed (`idea <common-parent>`), so all repos are visible inside one project.
-- Repositories not yet cloned are listed with `⏭` and skipped; the IDE still opens for the remaining repos.
-- If the IDE binary cannot be found on PATH, an error with install instructions is shown.
-
-Sample output:
-
-```
-Info: Targeting default workspace: /home/alice/ws
-Opening 3 repositories in one VS Code window...
-  ✓ /home/alice/ws/backend/api
-  ✓ /home/alice/ws/backend/auth-service
-  ⏭ /home/alice/ws/backend/gateway — not cloned, skipped
-```
-
 ---
 
 Common flags for `zgard ws` commands:
@@ -483,7 +452,6 @@ Common flags for `zgard ws` commands:
 | `--rescan` | status | Trigger a fresh scan before reporting |
 | `--glob` | search | Match filenames instead of file contents |
 | `--regex` | search | Treat pattern as a Go regular expression |
-| `--ide` | open | IDE to launch: `vscode` or `idea` (required) |
 
 ---
 

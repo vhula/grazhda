@@ -1041,35 +1041,6 @@ Tags are shown after the repo name in `ws status` output, formatted as `[tag1 ta
 
 Printed in red to stderr.
 
-### Error: IDE not found
-
-```
-✗ VS Code CLI 'code' not found on PATH
-  Install VS Code and run: Shell Command → Install 'code' command in PATH
-```
-
-Printed in red to stderr.
-
-### ws open output
-
-```
-Info: Targeting default workspace: /home/user/ws
-Opening 3 repositories in one VS Code window...
-  ✓ /home/user/ws/backend/api
-  ✓ /home/user/ws/backend/auth-service
-  ⏭ /home/user/ws/backend/gateway  — not cloned, skipped
-```
-
-The IDE is launched exactly once after all paths are listed. No interactive prompt is shown.
-
-### Warning: All repos skipped
-
-```
-Warning: all matched repositories are not yet cloned; nothing to open
-```
-
-Printed to stderr (yellow) when every candidate path fails the existence check.
-
 ### Common Rules for Phase 7
 
 - `--tag` appears in help text for all `ws` subcommands via persistent flag inheritance.

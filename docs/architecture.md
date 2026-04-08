@@ -1246,38 +1246,8 @@ Updated:
 
 Updated filter application sites: `runOverRepos` (exec/stash/checkout), `Init`, `Pull`, and all three inspect loops (Search, Diff, Stats jobs).
 
-### IDE Launcher (zgard/ws/open.go)
-
-**Single-window policy:** the IDE binary is invoked exactly once regardless of how many repositories are targeted.
-
-`findIDEBinary(ide string) (string, error)` tries `exec.LookPath` then common hardcoded paths:
-
-| IDE    | Binaries tried                              |
-|--------|---------------------------------------------|
-| vscode | `code`, `code-insiders`                     |
-| idea   | `idea`, `idea.sh`, `/opt/idea/bin/idea.sh`  |
-
-`CollectRepoPaths(ws, opts RunOptions) ([]string, error)` — exported function in `internal/workspace` that returns filesystem paths of all repos matching the targeting filters (existence not checked; callers filter).
-
-**Path aggregation flow (`openCmd`):**
-
-1. Collect all candidate paths via `CollectRepoPaths` for each resolved workspace.
-2. Walk the candidate list — paths where `os.Stat` returns `IsNotExist` are printed with `⏭` and excluded.
-3. If no valid paths remain, print a yellow warning and return.
-4. Call `launchIDE(binary, ide, validPaths)` exactly once.
-
-**`launchIDE` IDE-specific argument mapping:**
-
-- **VS Code:** `exec.Command(binary, validPaths...)` — all paths as separate positional args. VS Code interprets multiple folder arguments as a multi-root workspace and opens them in a single window.
-- **IntelliJ IDEA:** `exec.Command(binary, commonAncestor(validPaths))` — computes the longest common directory prefix of all valid paths and passes that single directory. This ensures one project window covers all targeted repositories.
-
-**`commonAncestor(paths []string) string`** — O(n × depth) algorithm: split each path on `filepath.Separator`, walk the first path's segments, truncate at first mismatch with any subsequent path. Falls back to `"/"` if no common prefix exists.
-
-The IDE process is started with `c.Start()` (non-blocking, detached from the zgard process).
-
 ### Cobra Integration (zgard/ws/ws.go)
 
 - `tagFilter []string` package-level var.
 - `cmd.PersistentFlags().StringArrayVarP(&tagFilter, "tag", "t", nil, "Filter by tag (OR logic; repeat for multiple)")`.
-- `AddCommand(newOpenCmd())`.
 - All subcommand RunOptions/InspectOptions structs pass `Tags: tagFilter`.
