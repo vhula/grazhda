@@ -2,39 +2,54 @@ package workspace
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/vhula/grazhda/internal/config"
 )
 
 // repoNameMatches reports whether a repository config name satisfies a filter
-// string, honouring the workspace structure setting.
+// string using case-sensitive substring matching on the full config name.
 //
-// For "list" structure the filter is compared against both the full name and
-// the last slash-delimited segment (with any ".git" suffix stripped), so that
-// a filter of "api" matches a config name of "org/team/api" or "org/team/api.git".
-//
-// For any other structure (including the default "tree") only an exact match is
-// accepted.
-func repoNameMatches(repoConfigName, filter, structure string) bool {
+// The workspace structure setting is ignored — "cool" matches
+// "ORG/PACK/my-cool-backend-lol" regardless of whether the workspace uses
+// "tree" or "list" structure.  An empty filter always matches.
+func repoNameMatches(repoConfigName, filter string) bool {
 	if filter == "" {
 		return true
 	}
-	if repoConfigName == filter {
-		return true
+	return strings.Contains(repoConfigName, filter)
+}
+
+// CountMatchingRepos returns the number of repositories in ws that satisfy
+// opts.RepoName (substring match).  If opts.ProjectName is set only that
+// project's repositories are considered.  Returns 0 when opts.RepoName is
+// empty (no filter active).
+func CountMatchingRepos(ws config.Workspace, opts RunOptions) int {
+	if opts.RepoName == "" {
+		return 0
 	}
-	if structure == config.StructureList && lastSegment(repoConfigName) == filter {
-		return true
+	total := 0
+	for _, proj := range ws.Projects {
+		if opts.ProjectName != "" && proj.Name != opts.ProjectName {
+			continue
+		}
+		for _, repo := range proj.Repositories {
+			if repoNameMatches(repo.Name, opts.RepoName) {
+				total++
+			}
+		}
 	}
-	return false
+	return total
 }
 
 // ValidateFilters returns an error if opts.ProjectName or opts.RepoName
 // does not match any entry in the given workspace's configuration.
 // Validates config structure only — filesystem presence is not checked here.
 //
-// For "list" structure workspaces, opts.RepoName is matched against the last
-// slash-delimited segment of each repository's name (e.g. "api" matches
-// "org/team/api"), in addition to an exact full-name match.
+// opts.RepoName is matched via case-sensitive substring against the full
+// repository config name (e.g. "cool" matches "ORG/PACK/my-cool-backend-lol").
+// Matching more than one repository is valid; the caller is responsible for
+// warning the user when multiple matches are found.
 func ValidateFilters(ws config.Workspace, opts RunOptions) error {
 	if opts.ProjectName == "" {
 		return nil
@@ -45,11 +60,11 @@ func ValidateFilters(ws config.Workspace, opts RunOptions) error {
 				return nil
 			}
 			for _, repo := range proj.Repositories {
-				if repoNameMatches(repo.Name, opts.RepoName, ws.Structure) {
-					return nil
+				if repoNameMatches(repo.Name, opts.RepoName) {
+					return nil // at least one match → valid
 				}
 			}
-			return fmt.Errorf("repository %q not found in project %q", opts.RepoName, opts.ProjectName)
+			return fmt.Errorf("repository filter %q matched no repositories in project %q", opts.RepoName, opts.ProjectName)
 		}
 	}
 	return fmt.Errorf("project %q not found in workspace %q", opts.ProjectName, ws.Name)

@@ -47,6 +47,13 @@ func (r *Reporter) PrintLine(msg string) {
 	fmt.Fprintln(r.out, blue(msg))
 }
 
+// PrintWarn writes a yellow warning line to stdout.
+func (r *Reporter) PrintWarn(msg string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	fmt.Fprintln(r.out, yellow(msg))
+}
+
 // Record appends an operation result and prints the per-repo status line.
 func (r *Reporter) Record(res OpResult) {
 	r.mu.Lock()

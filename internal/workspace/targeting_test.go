@@ -182,52 +182,70 @@ func TestValidateFilters_RepoNotFound(t *testing.T) {
 	}
 }
 
-func makeListFilterWorkspace() config.Workspace {
+
+func makePartialMatchWorkspace() config.Workspace {
 return config.Workspace{
-Name:      "ws",
-Path:      "/tmp/ws",
-Structure: "list",
+Name: "ws",
+Path: "/tmp/ws",
 Projects: []config.Project{
 {
 Name: "backend",
 Repositories: []config.Repository{
-{Name: "org/team/api"},
-{Name: "org/team/auth.git"},
+{Name: "ORG/PACK/my-cool-backend-lol"},
+{Name: "ORG/PACK/other-service"},
 },
 },
 },
 }
 }
 
-func TestValidateFilters_ListStructure_MatchesBySegment(t *testing.T) {
-ws := makeListFilterWorkspace()
-opts := workspace.RunOptions{ProjectName: "backend", RepoName: "api"}
+func TestValidateFilters_PartialMatch_Substring(t *testing.T) {
+ws := makePartialMatchWorkspace()
+for _, filter := range []string{"cool", "backend", "my", "lol", "my-cool-backend-lol", "ORG/PACK/my-cool-backend-lol"} {
+opts := workspace.RunOptions{ProjectName: "backend", RepoName: filter}
 if err := workspace.ValidateFilters(ws, opts); err != nil {
-t.Fatalf("expected nil for list-structure segment match, got %v", err)
+t.Errorf("filter %q: expected nil, got %v", filter, err)
+}
 }
 }
 
-func TestValidateFilters_ListStructure_MatchesBySegmentGitSuffix(t *testing.T) {
-ws := makeListFilterWorkspace()
-opts := workspace.RunOptions{ProjectName: "backend", RepoName: "auth"}
-if err := workspace.ValidateFilters(ws, opts); err != nil {
-t.Fatalf("expected nil for list-structure .git strip match, got %v", err)
-}
-}
-
-func TestValidateFilters_ListStructure_NoMatchForFullPath(t *testing.T) {
-ws := makeListFilterWorkspace()
-// Using full path as filter — still matches via exact name comparison.
-opts := workspace.RunOptions{ProjectName: "backend", RepoName: "org/team/api"}
-if err := workspace.ValidateFilters(ws, opts); err != nil {
-t.Fatalf("exact name should still match: %v", err)
-}
-}
-
-func TestValidateFilters_ListStructure_NoMatch(t *testing.T) {
-ws := makeListFilterWorkspace()
-opts := workspace.RunOptions{ProjectName: "backend", RepoName: "nope"}
+func TestValidateFilters_PartialMatch_NoMatch(t *testing.T) {
+ws := makePartialMatchWorkspace()
+opts := workspace.RunOptions{ProjectName: "backend", RepoName: "zzznope"}
 if err := workspace.ValidateFilters(ws, opts); err == nil {
-t.Fatal("expected error for unmatched repo in list-structure workspace")
+t.Fatal("expected error for unmatched filter")
+}
+}
+
+func TestValidateFilters_PartialMatch_MultipleReposMatchIsValid(t *testing.T) {
+ws := makePartialMatchWorkspace()
+// "service" does not appear in both, but "ORG" does — both repos share the namespace prefix.
+opts := workspace.RunOptions{ProjectName: "backend", RepoName: "PACK"}
+if err := workspace.ValidateFilters(ws, opts); err != nil {
+t.Fatalf("multiple matches must be valid: %v", err)
+}
+}
+
+func TestCountMatchingRepos_Single(t *testing.T) {
+ws := makePartialMatchWorkspace()
+opts := workspace.RunOptions{ProjectName: "backend", RepoName: "lol"}
+if n := workspace.CountMatchingRepos(ws, opts); n != 1 {
+t.Errorf("expected 1, got %d", n)
+}
+}
+
+func TestCountMatchingRepos_Multiple(t *testing.T) {
+ws := makePartialMatchWorkspace()
+opts := workspace.RunOptions{ProjectName: "backend", RepoName: "PACK"}
+if n := workspace.CountMatchingRepos(ws, opts); n != 2 {
+t.Errorf("expected 2 (both repos share PACK namespace), got %d", n)
+}
+}
+
+func TestCountMatchingRepos_NoFilter(t *testing.T) {
+ws := makePartialMatchWorkspace()
+opts := workspace.RunOptions{ProjectName: "backend"}
+if n := workspace.CountMatchingRepos(ws, opts); n != 0 {
+t.Errorf("expected 0 when no RepoName filter, got %d", n)
 }
 }

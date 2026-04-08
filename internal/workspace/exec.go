@@ -25,6 +25,12 @@ func runOverRepos(
 	if err := ValidateFilters(ws, opts); err != nil {
 		return err
 	}
+	if n := CountMatchingRepos(ws, opts); n > 1 {
+		rep.PrintWarn(fmt.Sprintf(
+			"Warning: --repo-name %q matches %d repositories",
+			opts.RepoName, n,
+		))
+	}
 
 	wsPath := ExpandHome(ws.Path)
 	rep.PrintLine("Workspace: " + ws.Name)
@@ -39,7 +45,7 @@ func runOverRepos(
 			rep.PrintLine("  Project: " + proj.Name)
 			projPath := filepath.Join(wsPath, proj.Name)
 			for _, repo := range proj.Repositories {
-				if opts.RepoName != "" && !repoNameMatches(repo.Name, opts.RepoName, ws.Structure) {
+				if opts.RepoName != "" && !repoNameMatches(repo.Name, opts.RepoName) {
 					continue
 				}
 				repo := repo
@@ -64,7 +70,7 @@ func runOverRepos(
 		if opts.Parallel {
 			var wg sync.WaitGroup
 			for _, repo := range proj.Repositories {
-				if opts.RepoName != "" && !repoNameMatches(repo.Name, opts.RepoName, ws.Structure) {
+				if opts.RepoName != "" && !repoNameMatches(repo.Name, opts.RepoName) {
 					continue
 				}
 				repo := repo
@@ -77,7 +83,7 @@ func runOverRepos(
 			wg.Wait()
 		} else {
 			for _, repo := range proj.Repositories {
-				if opts.RepoName != "" && !repoNameMatches(repo.Name, opts.RepoName, ws.Structure) {
+				if opts.RepoName != "" && !repoNameMatches(repo.Name, opts.RepoName) {
 					continue
 				}
 				fn(proj, projPath, repo)

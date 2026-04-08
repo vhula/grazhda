@@ -101,7 +101,12 @@ func Init(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, o
 	if err := ValidateFilters(ws, opts); err != nil {
 		return err
 	}
-
+	if n := CountMatchingRepos(ws, opts); n > 1 {
+		rep.PrintWarn(fmt.Sprintf(
+			"Warning: --repo-name %q matches %d repositories",
+			opts.RepoName, n,
+		))
+	}
 	rep.PrintLine("Workspace: " + ws.Name)
 	wsPath := ExpandHome(ws.Path)
 
@@ -132,7 +137,7 @@ func Init(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, o
 			rep.PrintLine("  Project: " + proj.Name)
 			projPath := filepath.Join(wsPath, proj.Name)
 			for _, repo := range proj.Repositories {
-				if opts.RepoName != "" && !repoNameMatches(repo.Name, opts.RepoName, ws.Structure) {
+				if opts.RepoName != "" && !repoNameMatches(repo.Name, opts.RepoName) {
 					continue
 				}
 				repo := repo
@@ -158,7 +163,7 @@ func Init(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, o
 		if opts.Parallel {
 			var wg sync.WaitGroup
 			for _, repo := range proj.Repositories {
-				if opts.RepoName != "" && !repoNameMatches(repo.Name, opts.RepoName, ws.Structure) {
+				if opts.RepoName != "" && !repoNameMatches(repo.Name, opts.RepoName) {
 					continue
 				}
 				repo := repo
@@ -171,7 +176,7 @@ func Init(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, o
 			wg.Wait()
 		} else {
 			for _, repo := range proj.Repositories {
-				if opts.RepoName != "" && !repoNameMatches(repo.Name, opts.RepoName, ws.Structure) {
+				if opts.RepoName != "" && !repoNameMatches(repo.Name, opts.RepoName) {
 					continue
 				}
 				cloneRepo(ws, proj, projPath, repo, exec, rep, opts)
@@ -307,7 +312,12 @@ func Pull(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, o
 	if err := ValidateFilters(ws, opts); err != nil {
 		return err
 	}
-
+	if n := CountMatchingRepos(ws, opts); n > 1 {
+		rep.PrintWarn(fmt.Sprintf(
+			"Warning: --repo-name %q matches %d repositories",
+			opts.RepoName, n,
+		))
+	}
 	rep.PrintLine("Workspace: " + ws.Name)
 	wsPath := ExpandHome(ws.Path)
 
@@ -321,7 +331,7 @@ func Pull(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, o
 			rep.PrintLine("  Project: " + proj.Name)
 			projPath := filepath.Join(wsPath, proj.Name)
 			for _, repo := range proj.Repositories {
-				if opts.RepoName != "" && !repoNameMatches(repo.Name, opts.RepoName, ws.Structure) {
+				if opts.RepoName != "" && !repoNameMatches(repo.Name, opts.RepoName) {
 					continue
 				}
 				repo := repo
@@ -346,7 +356,7 @@ func Pull(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, o
 		if opts.Parallel {
 			var wg sync.WaitGroup
 			for _, repo := range proj.Repositories {
-				if opts.RepoName != "" && !repoNameMatches(repo.Name, opts.RepoName, ws.Structure) {
+				if opts.RepoName != "" && !repoNameMatches(repo.Name, opts.RepoName) {
 					continue
 				}
 				repo := repo
@@ -359,7 +369,7 @@ func Pull(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, o
 			wg.Wait()
 		} else {
 			for _, repo := range proj.Repositories {
-				if opts.RepoName != "" && !repoNameMatches(repo.Name, opts.RepoName, ws.Structure) {
+				if opts.RepoName != "" && !repoNameMatches(repo.Name, opts.RepoName) {
 					continue
 				}
 				pullRepo(ws, proj, projPath, repo, exec, rep, opts)
