@@ -23,7 +23,6 @@ func inspectRunOpts(opts InspectOptions) RunOptions {
 		RepoName:    opts.RepoName,
 		Tags:        opts.Tags,
 		Parallel:    opts.Parallel,
-		ParallelAll: opts.ParallelAll,
 		Verbose:     opts.Verbose,
 	}
 }
@@ -99,7 +98,7 @@ func Search(ws config.Workspace, opts SearchOptions, out io.Writer) error {
 		results[i] = matches
 	}
 
-	if opts.ParallelAll || opts.Parallel {
+	if opts.Parallel {
 		var wg sync.WaitGroup
 		for i, j := range jobs {
 			i, j := i, j
@@ -265,7 +264,7 @@ func Diff(ws config.Workspace, exec executor.Executor, opts InspectOptions, out 
 			rows[i] = collectDiffRow(j.repoPath, lastSegment(j.repo.Name), exec)
 		}
 
-		if opts.ParallelAll || opts.Parallel {
+		if opts.Parallel {
 			var wg sync.WaitGroup
 			for i, j := range jobs {
 				i, j := i, j
@@ -416,7 +415,7 @@ func Stats(ws config.Workspace, exec executor.Executor, opts InspectOptions, out
 			rows[i] = collectStatsRow(j.repoPath, lastSegment(j.repo.Name), exec)
 		}
 
-		if opts.ParallelAll || opts.Parallel {
+		if opts.Parallel {
 			var wg sync.WaitGroup
 			for i, j := range jobs {
 				i, j := i, j

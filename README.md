@@ -224,8 +224,7 @@ Clone all repositories for a workspace. Skips repos that already exist. Continue
 ```bash
 zgard ws init                                       # default workspace (shows info)
 zgard ws init -n myws                               # named workspace, no info message
-zgard ws init --all --parallel-all                  # all workspaces, all repos concurrently
-zgard ws init --all --parallel                      # all workspaces, per-project concurrency
+zgard ws init --all --parallel                      # all workspaces, concurrently
 zgard ws init -p backend                            # only clone backend project
 zgard ws init -p backend -r api                     # repos whose name contains "api"
 zgard ws init --clone-delay-seconds=5               # sleep 5s after each clone
@@ -237,7 +236,7 @@ Run `git pull --rebase` for every repo in a workspace. Skips repos that haven't 
 
 ```bash
 zgard ws pull                                       # default workspace (shows info)
-zgard ws pull --all --parallel-all                  # all workspaces, all repos concurrently
+zgard ws pull --all --parallel                      # all workspaces, concurrently
 zgard ws pull -p backend                            # only pull backend project
 zgard ws pull -p backend -r api                     # repos whose name contains "api"
 zgard ws pull --dry-run                             # preview without executing
@@ -290,7 +289,7 @@ zgard ws exec --all "echo hi"                              # every workspace
 zgard ws exec -p backend "make test"                       # one project only
 zgard ws exec -p backend -r api "go build ./..."           # repos whose name contains "api"
 zgard ws exec -p backend -r service "go build ./..."       # all repos containing "service"
-zgard ws exec --parallel "make test"                       # parallel per project
+zgard ws exec --parallel "make test"                       # run concurrently
 zgard ws exec --dry-run "make test"                        # preview without executing
 ```
 
@@ -314,7 +313,7 @@ Run `git stash push` in every repository. Useful before coordinated branch switc
 
 ```bash
 zgard ws stash                                             # default workspace
-zgard ws stash --all --parallel-all                        # all workspaces, concurrently
+zgard ws stash --all --parallel                        # all workspaces, concurrently
 zgard ws stash -p backend                                  # one project only
 zgard ws stash -p backend -r service                       # repos containing "service"
 zgard ws stash --dry-run                                   # preview without executing
@@ -340,7 +339,7 @@ zgard ws checkout main                                     # default workspace â
 zgard ws checkout --name myws feature-x                    # named workspace
 zgard ws checkout -p backend feature-x                     # one project only
 zgard ws checkout -p backend -r api feature-x             # repos containing "api"
-zgard ws checkout --all --parallel-all main                # all workspaces, concurrently
+zgard ws checkout --all --parallel main                # all workspaces, concurrently
 zgard ws checkout --dry-run feature-x                      # preview without executing
 ```
 
@@ -368,7 +367,7 @@ zgard ws search --glob "*.go"                              # filename glob
 zgard ws search --regex "^func\s"                          # Go regex on file contents
 zgard ws search -p backend "TODO"                          # one project only
 zgard ws search -p backend -r api "TODO"                   # repos containing "api"
-zgard ws search --parallel "TODO"                          # parallel per project
+zgard ws search --parallel "TODO"                          # search concurrently
 ```
 
 Sample output:
@@ -391,7 +390,7 @@ Show per-repo Git state in aligned, project-grouped tables. Rows are colour-code
 zgard ws diff                                              # default workspace
 zgard ws diff --name myws                                  # named workspace
 zgard ws diff -p backend                                   # one project only
-zgard ws diff --all --parallel-all                         # all workspaces, concurrently
+zgard ws diff --all --parallel                         # all workspaces, concurrently
 ```
 
 Sample output:
@@ -419,7 +418,7 @@ Show aggregated repository metadata in aligned, project-grouped tables: last com
 zgard ws stats                                             # default workspace
 zgard ws stats --name myws                                 # named workspace
 zgard ws stats -p backend                                  # one project only
-zgard ws stats --all --parallel-all                        # all workspaces, concurrently
+zgard ws stats --all --parallel                        # all workspaces, concurrently
 ```
 
 Sample output:
@@ -475,8 +474,7 @@ Common flags for `zgard ws` commands:
 | `-r, --repo-name <name>` | all | Substring filter on repo names â€” requires `-p`; may match multiple repos (persistent, inherited) |
 | `-t, --tag <tag>` | all | Filter by tag (OR logic; repeat for multiple: `-t backend -t api`) (persistent, inherited) |
 | `--dry-run` | init, pull, exec, stash, checkout, purge | Print actions without executing |
-| `--parallel` | init, pull, exec, stash, checkout, search, diff, stats | Run repos within each project concurrently |
-| `--parallel-all` | init, pull, exec, stash, checkout, search, diff, stats | Run all repos across all projects concurrently |
+| `--parallel` | init, pull, exec, stash, checkout, search, diff, stats | Run all repositories concurrently |
 | `--clone-delay-seconds=N` | init | Sleep N seconds after each clone command |
 | `-v, --verbose` | init, pull, exec, stash, checkout, diff, stats, purge | Print the rendered command before each operation |
 | `--no-confirm` | init, purge | Skip the confirmation prompt |

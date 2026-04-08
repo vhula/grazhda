@@ -13,7 +13,9 @@ import (
 )
 
 // runOverRepos iterates all matching repos in a workspace and calls fn for each,
-// honouring opts.Parallel, opts.ParallelAll, opts.ProjectName, and opts.RepoName.
+// honouring opts.Parallel, opts.ProjectName, and opts.RepoName.
+// When opts.Parallel is true, all matching repositories across all projects run
+// concurrently in a single goroutine pool.
 // "Workspace:" and per-project "Project:" headers are printed to rep.
 // Returns an error if opts.ProjectName or opts.RepoName matches nothing in config.
 func runOverRepos(
@@ -35,7 +37,7 @@ func runOverRepos(
 	wsPath := ExpandHome(ws.Path)
 	rep.PrintLine("Workspace: " + ws.Name)
 
-	if opts.ParallelAll {
+	if opts.Parallel {
 		var wg sync.WaitGroup
 		for _, proj := range ws.Projects {
 			if opts.ProjectName != "" && proj.Name != opts.ProjectName {
@@ -67,27 +69,11 @@ func runOverRepos(
 		rep.PrintLine("  Project: " + proj.Name)
 		projPath := filepath.Join(wsPath, proj.Name)
 
-		if opts.Parallel {
-			var wg sync.WaitGroup
-			for _, repo := range proj.Repositories {
-				if !repoMatchesFilters(proj, repo, opts) {
-					continue
-				}
-				repo := repo
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					fn(proj, projPath, repo)
-				}()
+		for _, repo := range proj.Repositories {
+			if !repoMatchesFilters(proj, repo, opts) {
+				continue
 			}
-			wg.Wait()
-		} else {
-			for _, repo := range proj.Repositories {
-				if !repoMatchesFilters(proj, repo, opts) {
-					continue
-				}
-				fn(proj, projPath, repo)
-			}
+			fn(proj, projPath, repo)
 		}
 	}
 	return nil

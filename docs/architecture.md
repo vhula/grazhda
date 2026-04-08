@@ -1155,7 +1155,7 @@ Both functions are extended to honour `opts.ProjectName` and `opts.RepoName`:
 2. Directory creation in `Init` is scoped to matching projects.
 3. The repo iteration loops in both functions skip non-matching projects/repos with `continue`.
 
-The filtering logic is identical to the existing `runOverRepos` helper (three mode branches: `ParallelAll`, `Parallel`, sequential).
+The filtering logic is identical to the existing `runOverRepos` helper (three mode branches: `Parallel`, `Parallel`, sequential).
 
 ### Architectural Invariants
 
@@ -1172,7 +1172,7 @@ Three new exported functions in `internal/workspace/inspect.go`: `Search`, `Diff
 ### New Types (internal/workspace/options.go)
 
 ```go
-InspectOptions { Parallel bool, ParallelAll bool, ProjectName string, RepoName string, Verbose bool }
+InspectOptions { Parallel bool, Parallel bool, ProjectName string, RepoName string, Verbose bool }
 SearchOptions  { InspectOptions (embedded), Pattern string, Glob bool, Regex bool }
 ```
 
@@ -1181,7 +1181,7 @@ SearchOptions  { InspectOptions (embedded), Pattern string, Glob bool, Regex boo
 All three functions use the same "collect jobs then fan-out" pattern:
 
 1. Collect matching repos into a `[]job` slice (respecting project/repo filters, skipping missing dirs).
-2. If `opts.Parallel || opts.ParallelAll`: launch one goroutine per job with `sync.WaitGroup`; results written to a pre-allocated slice indexed by job position (no mutex needed on the slice itself).
+2. If `opts.Parallel || opts.Parallel`: launch one goroutine per job with `sync.WaitGroup`; results written to a pre-allocated slice indexed by job position (no mutex needed on the slice itself).
 3. Otherwise: iterate sequentially.
 
 For Search results a `sync.Mutex` guards appending to the shared matches slice; results are sorted deterministically after all goroutines finish.

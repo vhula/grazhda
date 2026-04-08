@@ -13,7 +13,6 @@ func newCheckoutCmd() *cobra.Command {
 	var dryRun bool
 	var verbose bool
 	var parallel bool
-	var parallelAll bool
 
 	cmd := &cobra.Command{
 		Use:   "checkout <branch>",
@@ -46,7 +45,6 @@ present on disk are skipped. Use --dry-run to preview the operations.`,
 				DryRun:      dryRun,
 				Verbose:     verbose,
 				Parallel:    parallel,
-				ParallelAll: parallelAll,
 				ProjectName: projectName,
 				RepoName:    repoName,
 				Tags:        tagFilter,
@@ -70,8 +68,7 @@ present on disk are skipped. Use --dry-run to preview the operations.`,
 
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print actions without executing them")
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
-	cmd.Flags().BoolVar(&parallel, "parallel", false, "Checkout within each project concurrently")
-	cmd.Flags().BoolVar(&parallelAll, "parallel-all", false, "Checkout across all projects concurrently")
+	cmd.Flags().BoolVar(&parallel, "parallel", false, "Checkout all repositories concurrently")
 
 	return cmd
 }

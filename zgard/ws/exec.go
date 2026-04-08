@@ -14,7 +14,6 @@ func newExecCmd() *cobra.Command {
 	var dryRun bool
 	var verbose bool
 	var parallel bool
-	var parallelAll bool
 
 	cmd := &cobra.Command{
 		Use:   "exec <command> [args...]",
@@ -47,7 +46,6 @@ directories would be targeted.`,
 				DryRun:      dryRun,
 				Verbose:     verbose,
 				Parallel:    parallel,
-				ParallelAll: parallelAll,
 				ProjectName: projectName,
 				RepoName:    repoName,
 				Tags:        tagFilter,
@@ -71,8 +69,7 @@ directories would be targeted.`,
 
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print actions without executing them")
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
-	cmd.Flags().BoolVar(&parallel, "parallel", false, "Execute within each project concurrently")
-	cmd.Flags().BoolVar(&parallelAll, "parallel-all", false, "Execute across all projects concurrently")
+	cmd.Flags().BoolVar(&parallel, "parallel", false, "Execute across all repositories concurrently")
 
 	return cmd
 }

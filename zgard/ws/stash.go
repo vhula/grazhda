@@ -13,7 +13,6 @@ func newStashCmd() *cobra.Command {
 	var dryRun bool
 	var verbose bool
 	var parallel bool
-	var parallelAll bool
 
 	cmd := &cobra.Command{
 		Use:   "stash",
@@ -43,7 +42,6 @@ which repositories would be stashed.`,
 				DryRun:      dryRun,
 				Verbose:     verbose,
 				Parallel:    parallel,
-				ParallelAll: parallelAll,
 				ProjectName: projectName,
 				RepoName:    repoName,
 				Tags:        tagFilter,
@@ -67,8 +65,7 @@ which repositories would be stashed.`,
 
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print actions without executing them")
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
-	cmd.Flags().BoolVar(&parallel, "parallel", false, "Stash within each project concurrently")
-	cmd.Flags().BoolVar(&parallelAll, "parallel-all", false, "Stash across all projects concurrently")
+	cmd.Flags().BoolVar(&parallel, "parallel", false, "Stash all repositories concurrently")
 
 	return cmd
 }

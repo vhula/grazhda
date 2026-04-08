@@ -167,7 +167,7 @@ func TestInit_Parallel(t *testing.T) {
 	}
 }
 
-func TestInit_ParallelAll(t *testing.T) {
+func TestInit_ParallelMultiProject(t *testing.T) {
 	tmp := t.TempDir()
 	ws := config.Workspace{
 		Name:                 "test-ws",
@@ -196,9 +196,9 @@ func TestInit_ParallelAll(t *testing.T) {
 	rep := reporter.NewReporter(&out, &errOut)
 	mock := &executor.MockExecutor{}
 
-	err := workspace.Init(ws, mock, rep, workspace.RunOptions{ParallelAll: true})
+	err := workspace.Init(ws, mock, rep, workspace.RunOptions{Parallel: true})
 	if err != nil {
-		t.Fatalf("Init parallel-all error: %v", err)
+		t.Fatalf("Init parallel error: %v", err)
 	}
 	if len(mock.Calls) != 3 {
 		t.Errorf("expected 3 clone calls (all repos across all projects), got %d", len(mock.Calls))
@@ -303,7 +303,7 @@ func TestPull_DryRun(t *testing.T) {
 	}
 }
 
-func TestPull_ParallelAll(t *testing.T) {
+func TestPull_Parallel(t *testing.T) {
 	tmp := t.TempDir()
 	ws := config.Workspace{
 		Name:                 "test-ws",
@@ -342,9 +342,9 @@ func TestPull_ParallelAll(t *testing.T) {
 	rep := reporter.NewReporter(&out, &errOut)
 	mock := &executor.MockExecutor{}
 
-	err := workspace.Pull(ws, mock, rep, workspace.RunOptions{ParallelAll: true})
+	err := workspace.Pull(ws, mock, rep, workspace.RunOptions{Parallel: true})
 	if err != nil {
-		t.Fatalf("Pull parallel-all error: %v", err)
+		t.Fatalf("Pull parallel error: %v", err)
 	}
 	if len(mock.Calls) != 3 {
 		t.Errorf("expected 3 pull calls (all repos across all projects), got %d", len(mock.Calls))

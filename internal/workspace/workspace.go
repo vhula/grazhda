@@ -86,10 +86,9 @@ func ResolveDestNamesForProject(repos []config.Repository, structure string) []s
 
 // Init initializes the workspace by creating directory structure and cloning all repositories.
 //
-// When opts.ParallelAll is true, all repositories across every project are
+// When opts.Parallel is true, all repositories across every project are
 // cloned concurrently in a single goroutine pool (directories are created
-// before the pool starts). When opts.Parallel is true (and ParallelAll is
-// false), repositories within each project are cloned concurrently.
+// before the pool starts).
 // opts.CloneDelaySeconds introduces a per-repo sleep after each clone
 // command; it is applied even in parallel mode (each goroutine sleeps after
 // its own clone).
@@ -126,8 +125,7 @@ func Init(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, o
 		}
 	}
 
-	if opts.ParallelAll {
-		// Flat goroutine pool across matching projects in this workspace.
+	if opts.Parallel {
 		var wg sync.WaitGroup
 		for _, proj := range ws.Projects {
 			if opts.ProjectName != "" && proj.Name != opts.ProjectName {
@@ -152,7 +150,7 @@ func Init(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, o
 		return nil
 	}
 
-	// Sequential (or per-project parallel) path.
+	// Sequential path.
 	for _, proj := range ws.Projects {
 		if opts.ProjectName != "" && proj.Name != opts.ProjectName {
 			continue
@@ -160,27 +158,11 @@ func Init(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, o
 		rep.PrintLine("  Project: " + proj.Name)
 		projPath := filepath.Join(wsPath, proj.Name)
 
-		if opts.Parallel {
-			var wg sync.WaitGroup
-			for _, repo := range proj.Repositories {
-				if !repoMatchesFilters(proj, repo, opts) {
-					continue
-				}
-				repo := repo
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					cloneRepo(ws, proj, projPath, repo, exec, rep, opts)
-				}()
+		for _, repo := range proj.Repositories {
+			if !repoMatchesFilters(proj, repo, opts) {
+				continue
 			}
-			wg.Wait()
-		} else {
-			for _, repo := range proj.Repositories {
-				if !repoMatchesFilters(proj, repo, opts) {
-					continue
-				}
-				cloneRepo(ws, proj, projPath, repo, exec, rep, opts)
-			}
+			cloneRepo(ws, proj, projPath, repo, exec, rep, opts)
 		}
 	}
 	return nil
@@ -300,10 +282,8 @@ func Purge(ws config.Workspace, rep *reporter.Reporter, opts RunOptions) error {
 
 // Pull runs git pull --rebase for each repository in the workspace.
 //
-// When opts.ParallelAll is true, all repositories across every project are
-// pulled concurrently in a single goroutine pool. When opts.Parallel is true
-// (and ParallelAll is false), repositories within each project are pulled
-// concurrently.
+// When opts.Parallel is true, all repositories across every project are
+// pulled concurrently in a single goroutine pool.
 //
 // When opts.ProjectName or opts.RepoName are set, only matching projects/repos
 // are pulled. ValidateFilters is called first so unmatched filters return an
@@ -321,7 +301,7 @@ func Pull(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, o
 	rep.PrintLine("Workspace: " + ws.Name)
 	wsPath := ExpandHome(ws.Path)
 
-	if opts.ParallelAll {
+	if opts.Parallel {
 		var wg sync.WaitGroup
 		for _, proj := range ws.Projects {
 			if opts.ProjectName != "" && proj.Name != opts.ProjectName {
@@ -353,27 +333,11 @@ func Pull(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, o
 		rep.PrintLine("  Project: " + proj.Name)
 		projPath := filepath.Join(wsPath, proj.Name)
 
-		if opts.Parallel {
-			var wg sync.WaitGroup
-			for _, repo := range proj.Repositories {
-				if !repoMatchesFilters(proj, repo, opts) {
-					continue
-				}
-				repo := repo
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					pullRepo(ws, proj, projPath, repo, exec, rep, opts)
-				}()
+		for _, repo := range proj.Repositories {
+			if !repoMatchesFilters(proj, repo, opts) {
+				continue
 			}
-			wg.Wait()
-		} else {
-			for _, repo := range proj.Repositories {
-				if !repoMatchesFilters(proj, repo, opts) {
-					continue
-				}
-				pullRepo(ws, proj, projPath, repo, exec, rep, opts)
-			}
+			pullRepo(ws, proj, projPath, repo, exec, rep, opts)
 		}
 	}
 	return nil

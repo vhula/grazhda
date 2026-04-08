@@ -13,14 +13,13 @@ func newPullCmd() *cobra.Command {
 	var dryRun bool
 	var verbose bool
 	var parallel bool
-	var parallelAll bool
 
 	cmd := &cobra.Command{
 		Use:   "pull",
 		Short: "Pull latest changes for all repositories in a workspace",
 		Long: `Run "git pull --rebase" on every repository in the targeted workspace.
 
-Repositories not yet cloned are skipped. Use --parallel or --parallel-all
+Repositories not yet cloned are skipped. Use --parallel
 for concurrent pulls, and --dry-run to preview the operations.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := loadConfig()
@@ -43,7 +42,6 @@ for concurrent pulls, and --dry-run to preview the operations.`,
 				DryRun:      dryRun,
 				Verbose:     verbose,
 				Parallel:    parallel,
-				ParallelAll: parallelAll,
 				ProjectName: projectName,
 				RepoName:    repoName,
 				Tags:        tagFilter,
@@ -67,8 +65,7 @@ for concurrent pulls, and --dry-run to preview the operations.`,
 
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print actions without executing them")
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
-	cmd.Flags().BoolVar(&parallel, "parallel", false, "Pull repositories within each project concurrently")
-	cmd.Flags().BoolVar(&parallelAll, "parallel-all", false, "Pull all repositories across all projects concurrently")
+	cmd.Flags().BoolVar(&parallel, "parallel", false, "Pull all repositories concurrently")
 
 	return cmd
 }

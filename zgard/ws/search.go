@@ -11,7 +11,6 @@ func newSearchCmd() *cobra.Command {
 	var glob bool
 	var regex bool
 	var parallel bool
-	var parallelAll bool
 
 	cmd := &cobra.Command{
 		Use:   "search <pattern>",
@@ -40,7 +39,6 @@ Binary files and .git directories are automatically skipped.`,
 			opts := workspace.SearchOptions{
 				InspectOptions: workspace.InspectOptions{
 					Parallel:    parallel,
-					ParallelAll: parallelAll,
 					ProjectName: projectName,
 					RepoName:    repoName,
 					Tags:        tagFilter,
@@ -61,8 +59,7 @@ Binary files and .git directories are automatically skipped.`,
 
 	cmd.Flags().BoolVar(&glob, "glob", false, "Match filenames instead of file contents")
 	cmd.Flags().BoolVar(&regex, "regex", false, "Treat pattern as a Go regular expression")
-	cmd.Flags().BoolVar(&parallel, "parallel", false, "Search within each project concurrently")
-	cmd.Flags().BoolVar(&parallelAll, "parallel-all", false, "Search across all projects concurrently")
+	cmd.Flags().BoolVar(&parallel, "parallel", false, "Search all repositories concurrently")
 
 	return cmd
 }

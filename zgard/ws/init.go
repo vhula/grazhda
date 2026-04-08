@@ -13,7 +13,6 @@ func newInitCmd() *cobra.Command {
 	var dryRun bool
 	var verbose bool
 	var parallel bool
-	var parallelAll bool
 	var cloneDelaySeconds int
 	var noConfirm bool
 
@@ -23,7 +22,7 @@ func newInitCmd() *cobra.Command {
 		Long: `Clone every repository listed in the workspace configuration.
 
 Directories are created before cloning begins. Repositories that already
-exist on disk are skipped. Use --parallel or --parallel-all to clone
+exist on disk are skipped. Use --parallel to clone
 concurrently, and --dry-run to preview without making changes.
 Use --no-confirm to skip the confirmation prompt.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -47,7 +46,6 @@ Use --no-confirm to skip the confirmation prompt.`,
 				DryRun:            dryRun,
 				Verbose:           verbose,
 				Parallel:          parallel,
-				ParallelAll:       parallelAll,
 				NoConfirm:         noConfirm,
 				CloneDelaySeconds: cloneDelaySeconds,
 				ProjectName:       projectName,
@@ -73,8 +71,7 @@ Use --no-confirm to skip the confirmation prompt.`,
 
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print actions without executing them")
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
-	cmd.Flags().BoolVar(&parallel, "parallel", false, "Clone repositories within each project concurrently")
-	cmd.Flags().BoolVar(&parallelAll, "parallel-all", false, "Clone all repositories across all projects concurrently")
+	cmd.Flags().BoolVar(&parallel, "parallel", false, "Clone all repositories concurrently")
 	cmd.Flags().IntVar(&cloneDelaySeconds, "clone-delay-seconds", 0, "Seconds to sleep after each clone command (0 = disabled)")
 	cmd.Flags().BoolVar(&noConfirm, "no-confirm", false, "Skip confirmation prompts")
 

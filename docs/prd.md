@@ -84,7 +84,7 @@ classification:
 - `zgard ws init` — initializes the default workspace (or `--name <name>` / `--all`); creates project directories; clones repos via Go-templated clone commands; skips already-cloned repos; continues on clone failure; reports failures at end; validates config up-front.
 - `zgard ws purge` — removes the targeted workspace directory; requires explicit `--name <name>` or `--all`; interactive Y/N confirmation; `--dry-run` support.
 - `zgard ws pull` — runs `git pull --rebase` on each repo's configured branch; same targeting flags as `ws init`.
-- Shared flags across all commands: `--dry-run`, `--verbose` / `-v`, `--no-confirm`, `--parallel`, `--parallel-all` (init only), `--clone-delay-seconds` (init only).
+- Shared flags across all commands: `--dry-run`, `--verbose` / `-v`, `--no-confirm`, `--parallel`, `--parallel` (init only), `--clone-delay-seconds` (init only).
 - Config model: workspaces → projects → repositories (branch + optional `local_dir_name` per repo); Go template variables `{{.Branch}}`, `{{.RepoName}}`, `{{.DestDir}}`.
 
 **MVP must-have justifications:**
@@ -368,7 +368,7 @@ workspaces:
 - **FR34:** Users can suppress all interactive prompts for non-interactive scripts and CI pipelines (`--no-confirm`).
 - **FR35:** The system writes error and failure messages to stderr and progress/info messages to stdout.
 - **FR36:** Users can enable parallel repository operations for `ws init` and `ws pull` via `--parallel` (per-project concurrency) to reduce total execution time.
-- **FR37:** Users can enable full concurrency across all repos in all projects via `--parallel-all` on `ws init` and `ws pull`, running every operation as a goroutine in a single flat pool.
+- **FR37:** Users can enable full concurrency across all repos in all projects via `--parallel` on `ws init` and `ws pull`, running every operation as a goroutine in a single flat pool.
 - **FR38:** Users can introduce a delay between sequential clone commands via `--clone-delay-seconds=N` on `ws init` to throttle connections to git hosts with rate limits.
 
 ## Non-Functional Requirements
@@ -378,7 +378,7 @@ workspaces:
 - **NFR1:** Config file loading and validation must complete in under 500ms for configs with up to 10 workspaces and 100 repositories total.
 - **NFR2:** Directory creation and pre-clone setup (all filesystem work excluding actual git clone/pull network operations) must complete in under 1 second.
 - **NFR3:** By default, repository operations (clone, pull) execute sequentially to avoid overwhelming the network or git host with concurrent connections.
-- **NFR4:** Users can enable parallel repository operations via `--parallel` (per-project) or `--parallel-all` (all repos at once) to reduce total wall-clock time when network bandwidth allows.
+- **NFR4:** Users can enable parallel repository operations via `--parallel` (per-project) or `--parallel` (all repos at once) to reduce total wall-clock time when network bandwidth allows.
 
 ### Reliability
 
@@ -539,7 +539,7 @@ Phase 4 extends `zgard` with three commands that fan out actions to all reposito
 
 #### Shared Flags
 
-- **FR-X10:** All three new commands support `--dry-run`, `--verbose` (`-v`), `--parallel`, `--parallel-all`, `--name`, and `--all`.
+- **FR-X10:** All three new commands support `--dry-run`, `--verbose` (`-v`), `--parallel`, `--parallel`, `--name`, and `--all`.
 - **FR-X11:** `--dry-run` prints what would be executed without running any command, using the same `[DRY RUN]` prefix convention.
 - **FR-X12:** The end-of-run summary uses the same format as existing commands: `✓ N succeeded  ⏭ N skipped  ✗ N failed`.
 - **FR-X13:** The system exits with code 0 only if all operations succeeded; otherwise exits non-zero.
@@ -617,7 +617,7 @@ Phase 6 introduces three read-only `zgard ws` subcommands — `search`, `diff`, 
 #### Execution Standards
 
 - **FR-I20:** All three commands inherit universal targeting flags and respect filtering and validation.
-- **FR-I21:** All three support `--parallel` (per-project) and `--parallel-all` (all repos).
+- **FR-I21:** All three support `--parallel` (per-project) and `--parallel` (all repos).
 - **FR-I22:** Default workspace info message shown when no explicit target is provided.
 - **FR-I23:** Errors (missing project, no match for `--repo-name`) are printed in red.
 

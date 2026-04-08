@@ -10,7 +10,6 @@ import (
 
 func newDiffCmd() *cobra.Command {
 	var parallel bool
-	var parallelAll bool
 	var verbose bool
 
 	cmd := &cobra.Command{
@@ -38,7 +37,6 @@ Repos not yet cloned are shown as '(not cloned)'.`,
 
 			opts := workspace.InspectOptions{
 				Parallel:    parallel,
-				ParallelAll: parallelAll,
 				ProjectName: projectName,
 				RepoName:    repoName,
 				Verbose:     verbose,
@@ -55,8 +53,7 @@ Repos not yet cloned are shown as '(not cloned)'.`,
 		},
 	}
 
-	cmd.Flags().BoolVar(&parallel, "parallel", false, "Query repos within each project concurrently")
-	cmd.Flags().BoolVar(&parallelAll, "parallel-all", false, "Query repos across all projects concurrently")
+	cmd.Flags().BoolVar(&parallel, "parallel", false, "Query all repositories concurrently")
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
 
 	return cmd

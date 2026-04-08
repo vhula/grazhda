@@ -1178,14 +1178,14 @@ So that it behaves consistently with `ws init` for targeting, output, exit codes
 
 ### Story Z1 — ws search: content and filename search
 
-Implement `zgard ws search <pattern>` with streaming line-by-line content grep (`bufio.Scanner`) and filename glob mode (`--glob`). Binary files (detected via null-byte scan of first 512 bytes) are silently skipped. `.git` directories are excluded from traversal. Output follows the `[project/repo] filepath:lineno: matched line` format (content) or `[project/repo] filepath` (glob). A summary line `N match(es) across M repo(s)` is always printed. Parallel scanning is supported via `--parallel` / `--parallel-all`.
+Implement `zgard ws search <pattern>` with streaming line-by-line content grep (`bufio.Scanner`) and filename glob mode (`--glob`). Binary files (detected via null-byte scan of first 512 bytes) are silently skipped. `.git` directories are excluded from traversal. Output follows the `[project/repo] filepath:lineno: matched line` format (content) or `[project/repo] filepath` (glob). A summary line `N match(es) across M repo(s)` is always printed. Parallel scanning is supported via `--parallel` / `--parallel`.
 
 **Acceptance criteria:**
 - Content search finds matching lines in text files across all resolved repos.
 - `--glob` mode finds matching filenames without reading file contents.
 - Binary files are silently skipped; no error is emitted.
 - `.git` directories are never traversed.
-- `--parallel` / `--parallel-all` flags produce identical results to sequential mode.
+- `--parallel` / `--parallel` flags produce identical results to sequential mode.
 - Multi-repo `--repo-name` match emits a yellow warning before results.
 
 ### Story Z2 — ws diff: per-repo Git state table
@@ -1208,7 +1208,7 @@ Implement `zgard ws stats` that renders a project-grouped table with LAST COMMIT
 - 30D COMMITS count derived from `--since="30 days ago"`.
 - CONTRIBUTORS = count of unique author emails across full history.
 - Missing repos render `(not cloned)` with `-` values without aborting.
-- `--parallel` / `--parallel-all` flags work correctly.
+- `--parallel` / `--parallel` flags work correctly.
 
 ### Story Z4 — Universal targeting integration
 
