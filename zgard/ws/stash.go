@@ -19,8 +19,23 @@ func newStashCmd() *cobra.Command {
 		Short: "Stash local changes in all repositories in a workspace",
 		Long: `Run "git stash" in every repository that has uncommitted changes.
 
-Clean repositories are reported as skipped. Use --dry-run to preview
-which repositories would be stashed.`,
+Repositories with a clean working tree are automatically **skipped** and
+reported as such. Use **--parallel** to stash concurrently and **--dry-run**
+to preview which repositories have changes that would be stashed.`,
+		Example: `  # Stash all repos in the default workspace
+  zgard ws stash
+
+  # Stash a named workspace
+  zgard ws stash -n myworkspace
+
+  # Stash all workspaces concurrently
+  zgard ws stash --all --parallel
+
+  # Preview which repos have changes to stash
+  zgard ws stash -n myworkspace --dry-run
+
+  # Stash only a specific project's repositories
+  zgard ws stash -n myworkspace -p backend`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := loadConfig()
 			if err != nil {

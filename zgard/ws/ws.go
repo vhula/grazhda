@@ -21,7 +21,22 @@ func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ws",
 		Short: "Workspace operations",
-		Long:  "Manage workspace lifecycle: initialize, purge, pull, or run coordinated operations across repositories.",
+		Long: `Manage workspace lifecycle: initialize, pull, purge, and run coordinated
+operations across all repositories defined in your grazhda configuration.
+
+## Targeting flags (available for every ws subcommand)
+
+| Flag                    | Description                                       |
+|-------------------------|---------------------------------------------------|
+| **-n / --name**         | Target a named workspace                          |
+| **--all**               | Operate on all workspaces                         |
+| **-p / --project-name** | Filter to a specific project                      |
+| **-r / --repo-name**    | Narrow to a repository (requires -p)              |
+| **-t / --tag**          | Filter by tag — repeatable for OR logic           |
+
+With no flag, zgard uses the **default** workspace and prints a notice.
+
+> **Note:** ws purge is an exception — it always requires an explicit target.`,
 		// Validate cross-flag constraints before any subcommand runs.
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			if repoName != "" && projectName == "" {

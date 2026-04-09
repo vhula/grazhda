@@ -21,10 +21,34 @@ func newInitCmd() *cobra.Command {
 		Short: "Initialize a workspace by cloning all repositories",
 		Long: `Clone every repository listed in the workspace configuration.
 
-Directories are created before cloning begins. Repositories that already
-exist on disk are skipped. Use --parallel to clone
-concurrently, and --dry-run to preview without making changes.
-Use --no-confirm to skip the confirmation prompt.`,
+Project directories are created on disk before cloning begins. Repositories
+that already exist are **skipped** without error — re-running init is safe.
+
+Use **--parallel** to clone concurrently (recommended for large workspaces),
+and **--dry-run** to preview actions without touching the filesystem.`,
+		Example: `  # Initialize the default workspace
+  zgard ws init
+
+  # Initialize a specific named workspace
+  zgard ws init -n myworkspace
+
+  # Clone all workspaces concurrently
+  zgard ws init --all --parallel
+
+  # Preview what would be cloned (no changes made)
+  zgard ws init --all --dry-run
+
+  # Only clone repositories in a specific project
+  zgard ws init -n myworkspace -p backend
+
+  # Only clone a single repository
+  zgard ws init -n myworkspace -p backend -r api-service
+
+  # Add a delay between clones (useful for rate-limited hosts)
+  zgard ws init --all --clone-delay-seconds 2
+
+  # CI-friendly: parallel, no confirmation prompts
+  zgard ws init --all --parallel --no-confirm`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := loadConfig()
 			if err != nil {

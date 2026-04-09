@@ -1253,3 +1253,44 @@ Update `README.md` to document the `--tag` flag in the common flags table. Updat
 **Acceptance criteria:**
 - README shows `--tag` in the common flags table.
 - `config.template.yaml` demonstrates tags at both project and repository levels.
+
+## Epic 8 — Self-Documenting CLI & Terminal Markdown
+
+**Goal:** Embed comprehensive usage documentation into the binary so that `zgard --help` is a complete offline reference. Integrate glamour for rich terminal Markdown rendering.
+
+### Story AB1 — internal/ui Render helper
+
+Create `internal/ui/render.go` with `Render(md string) string`. Wraps glamour with auto-style and notty fallback, word-wrap 100. Add `github.com/charmbracelet/glamour` to `internal/go.mod`.
+
+**Acceptance criteria:**
+- `Render("")` returns empty string without error.
+- `Render("**hello**")` returns styled output on a colour terminal and plain text in notty mode.
+- Package compiles; all existing tests pass.
+
+### Story AB2 — Cobra help function override
+
+In `zgard/root.go`, call `rootCmd.SetHelpFunc` to render `cmd.Long` via `ui.Render`, then print `cmd.UsageString()`. Respect `--no-color` via `clr.IsDisabled()`.
+
+**Acceptance criteria:**
+- `zgard ws init --help` displays glamour-rendered Long description followed by usage/flags/examples.
+- `zgard ws init --help --no-color` displays plain text (notty style) without ANSI codes.
+- All 10 subcommands inherit the custom help function.
+
+### Story AB3 — Example fields for all 10 subcommands
+
+Populate `Example` field for: init, pull, purge, exec, stash, checkout, search, diff, stats, status. Each must include ≥3 scenarios covering basic usage, targeting flags, and at least one composition pattern for commands that support it.
+
+**Acceptance criteria:**
+- `zgard ws <command> --help` displays non-empty Examples section for all 10 commands.
+- Composition examples in exec and checkout demonstrate stash+checkout+pull workflow.
+- Examples align with scenarios in `docs/CLI.md`.
+
+### Story AB4 — Markdown Long descriptions for all subcommands
+
+Convert all `Long` fields from plain text to proper Markdown. Include bold flag names, bullet lists for column descriptions, blockquotes for destructive-command warnings, and tables for reference data.
+
+**Acceptance criteria:**
+- All Long fields use at least two Markdown formatting constructs.
+- `ws purge --help` includes a visible warning blockquote.
+- `ws diff --help` and `ws stats --help` describe their columns via bullet lists.
+- `ws --help` shows the targeting flags table.

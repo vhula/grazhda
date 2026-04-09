@@ -15,11 +15,33 @@ func newSearchCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "search <pattern>",
 		Short: "Search for a pattern across repositories in a workspace",
-		Long: `Search files across all resolved repositories.
+		Long: `Search file contents or filenames across all resolved repositories.
 
-By default, performs a case-sensitive substring grep of file contents.
-Use --glob to match filenames instead, or --regex to treat the pattern as a Go regular expression.
-Binary files and .git directories are automatically skipped.`,
+Three search modes are available:
+
+- **Default (grep):** case-sensitive substring match of file contents
+- **--glob:** match filenames using glob syntax (e.g. "*.go", "Makefile")
+- **--regex:** treat the pattern as a Go regular expression
+
+Binary files and **.git** directories are automatically skipped.
+Use targeting flags to narrow the search scope to a project or repository.`,
+		Example: `  # Search for a string in all file contents (default grep mode)
+  zgard ws search "TODO: remove"
+
+  # Find all Go source files by name
+  zgard ws search --glob "*.go"
+
+  # Search using a regular expression
+  zgard ws search --regex "func.*Handler"
+
+  # Narrow search to a specific project
+  zgard ws search -p backend "connectionString"
+
+  # Search only a specific repository
+  zgard ws search -p backend -r api-service "db.Connect"
+
+  # Find all YAML config files across all workspaces
+  zgard ws search --all --glob "*.yaml"`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := loadConfig()

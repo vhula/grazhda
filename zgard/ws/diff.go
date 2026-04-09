@@ -15,11 +15,28 @@ func newDiffCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "diff",
 		Short: "Show Git state (uncommitted, ahead, behind) across repositories",
-		Long: `Display a per-repository Git state summary in aligned project-grouped tables.
+		Long: `Display a per-repository Git state summary in aligned, project-grouped tables.
 
-Columns: REPO, UNCOMMITTED (file count), AHEAD (commits), BEHIND (commits).
-Repos without an upstream tracking branch show '--' for AHEAD/BEHIND.
-Repos not yet cloned are shown as '(not cloned)'.`,
+Columns reported for each repository:
+
+- **REPO** — repository name
+- **UNCOMMITTED** — count of modified / untracked files
+- **AHEAD** — local commits not yet pushed to the upstream branch
+- **BEHIND** — upstream commits available to pull
+
+Repos without a tracking branch show "--" for AHEAD/BEHIND.
+Repos not yet cloned are listed as "(not cloned)".`,
+		Example: `  # Show diff summary for the default workspace
+  zgard ws diff
+
+  # Show diff for a named workspace
+  zgard ws diff -n myworkspace
+
+  # Collect diff data in parallel across all workspaces
+  zgard ws diff --all --parallel
+
+  # Filter to a specific project
+  zgard ws diff -n myworkspace -p backend`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := loadConfig()
 			if err != nil {

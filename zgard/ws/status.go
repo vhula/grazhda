@@ -19,11 +19,25 @@ func newStatusCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Show workspace health as monitored by dukh",
-		Long: `Query the running dukh server and display branch alignment status
+		Long: `Query the running **dukh** health monitor and display branch alignment status
 for every repository in the targeted workspace.
 
-If dukh is not running it is auto-started. Use --rescan to trigger a
-fresh scan before reporting.`,
+**dukh** is automatically started if it is not already running. Use **--rescan**
+to force a fresh filesystem scan before the report is displayed.
+
+Each repository is shown as one of:
+
+- **aligned** — the actual branch matches the configured branch (green ✓)
+- **drifted** — branch mismatch detected (yellow ⚠)
+- **missing** — repository directory does not exist on disk (red ✗)`,
+		Example: `  # Show status for the default workspace
+  zgard ws status
+
+  # Show status for a named workspace
+  zgard ws status -n myworkspace
+
+  # Force a fresh workspace scan before reporting
+  zgard ws status --rescan`,
 		RunE:  runWsStatus,
 	}
 	cmd.Flags().Bool("rescan", false, "Trigger a fresh workspace rescan before reporting (waits for completion)")

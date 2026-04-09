@@ -1045,3 +1045,63 @@ Printed in red to stderr.
 
 - `--tag` appears in help text for all `ws` subcommands via persistent flag inheritance.
 - Tag values in YAML are free-form strings; the UX never validates casing.
+
+## Phase 8 — Self-Documenting CLI & Terminal Markdown
+
+### Rich Help Layout
+
+The help output for every `zgard ws` subcommand follows this structure:
+
+```
+<glamour-rendered Long description>
+
+Usage:
+  zgard ws <command> [flags]
+
+Examples:
+  # comment describing the scenario
+  zgard ws <command> [flags]
+
+  # another scenario
+  zgard ws <command> --flag value
+
+Flags:
+  ...
+
+Global Flags:
+  ...
+```
+
+### Glamour Theme
+
+- **Auto style:** glamour auto-detects the terminal's light/dark background and applies the appropriate built-in style.
+- **No-color mode:** when `--no-color` or `NO_COLOR` is active, the "notty" style is used — plain text with Markdown syntax stripped.
+- **Word wrap:** 100 characters — matches the target terminal width for comfortable reading.
+
+### Long Description Formatting Conventions
+
+| Markdown element | Usage |
+|------------------|-------|
+| `**bold**`       | Flag names, key terms, safety warnings |
+| `- bullet`       | Column/field lists, feature lists |
+| `> blockquote`   | Safety warnings (e.g., purge, destructive operations) |
+| `| table |`      | Multi-column reference data (e.g., targeting flags) |
+| Plain paragraphs | Primary description — kept to 3–5 sentences max |
+
+### Example Block Formatting Standard
+
+- Each example is prefixed with a `# comment` that describes the scenario in plain English.
+- Commands are left-indented by 2 spaces.
+- Groups of related examples are separated by a blank line.
+- Examples cover: basic usage, named workspace targeting, parallel mode, dry-run preview, project/repo filtering, and at least one composition pattern per command.
+
+### Verbose Timing Display
+
+When `--verbose` is active, each repo operation line appends an elapsed time:
+
+```
+  ✓  api-service                         [1.2s]
+  ✓  auth-service                        [850ms]
+```
+
+The time is right-aligned in dim/grey colour (or plain `[Xs]` in no-color mode).

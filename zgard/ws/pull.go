@@ -19,8 +19,26 @@ func newPullCmd() *cobra.Command {
 		Short: "Pull latest changes for all repositories in a workspace",
 		Long: `Run "git pull --rebase" on every repository in the targeted workspace.
 
-Repositories not yet cloned are skipped. Use --parallel
-for concurrent pulls, and --dry-run to preview the operations.`,
+Repositories that are not yet cloned are automatically **skipped**.
+Use **--parallel** to pull concurrently across all repos, and **--dry-run**
+to preview which repositories would be updated.`,
+		Example: `  # Pull the default workspace
+  zgard ws pull
+
+  # Pull a named workspace
+  zgard ws pull -n myworkspace
+
+  # Pull all workspaces concurrently
+  zgard ws pull --all --parallel
+
+  # Preview which repos would be pulled
+  zgard ws pull -n myworkspace --dry-run
+
+  # Pull only a specific project's repositories
+  zgard ws pull -n myworkspace -p backend
+
+  # Pull repositories tagged 'api'
+  zgard ws pull -t api --parallel`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := loadConfig()
 			if err != nil {

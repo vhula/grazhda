@@ -657,3 +657,29 @@ Phase 7 extends zgard's targeting model with tag-based filtering, allowing users
 ### Non-Functional Requirements
 
 - **NFR-T1:** Tag lookups must be O(n) where n is total repos — no preprocessing index needed at current workspace sizes.
+
+## Phase 8 — Self-Documenting CLI & Terminal Markdown
+
+### Executive Summary
+
+Phase 8 embeds comprehensive documentation directly into the zgard binary by populating `Example` fields for all 10 `ws` subcommands and integrating `glamour` to render `Long` descriptions as rich, styled Markdown in the terminal. The goal is an "offline-first" CLI where the binary itself is a complete reference.
+
+### Functional Requirements
+
+#### Offline-First Documentation
+
+- **FR-D1:** Every `ws` subcommand must have an `Example` field with at least three real-world scenarios, covering targeting combinations, `--dry-run`, `--parallel`, and composition patterns.
+- **FR-D2:** All `Long` fields must use proper Markdown syntax (headings, bold, bullets, tables, blockquotes) rather than plain text.
+- **FR-D3:** `zgard <command> --help` must serve as a complete reference without requiring access to external documentation.
+
+#### Terminal Markdown Rendering
+
+- **FR-D4:** `Long` descriptions must be rendered through `glamour` when `--help` is invoked.
+- **FR-D5:** The glamour style must respect the `--no-color` flag and `NO_COLOR` env var, falling back to unstyled "notty" output.
+- **FR-D6:** The rendered help must include the `Usage`, `Flags`, `Examples`, and (where applicable) `Available Commands` sections produced by Cobra's `UsageString()`.
+
+### Non-Functional Requirements
+
+- **NFR-D1:** Glamour rendering must not add measurable latency to command execution; rendering applies only to `--help` invocations.
+- **NFR-D2:** If glamour fails to initialise or render, the raw markdown string is used as a graceful fallback.
+- **NFR-D3:** `Example` fields in Go source must remain synchronized with `docs/CLI.md` (single source of truth for reference docs).

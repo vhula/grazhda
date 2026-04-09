@@ -15,10 +15,27 @@ func newStatsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "stats",
 		Short: "Show repository metadata (last commit, 30-day commits, contributors)",
-		Long: `Display aggregated repository metadata in aligned project-grouped tables.
+		Long: `Display aggregated repository metadata in aligned, project-grouped tables.
 
-Columns: REPO, LAST COMMIT (YYYY-MM-DD HH:MM), 30D COMMITS, CONTRIBUTORS.
-Repos not yet cloned are shown as '(not cloned)' with '-' values.`,
+Columns reported for each repository:
+
+- **REPO** — repository name
+- **LAST COMMIT** — timestamp of the most recent commit (YYYY-MM-DD HH:MM)
+- **30D COMMITS** — commit count over the past 30 days
+- **CONTRIBUTORS** — unique author count across all commits
+
+Repos not yet cloned are listed as "(not cloned)" with "-" for all values.`,
+		Example: `  # Show commit stats for the default workspace
+  zgard ws stats
+
+  # Show stats for a named workspace
+  zgard ws stats -n myworkspace
+
+  # Collect stats in parallel across all workspaces
+  zgard ws stats --all --parallel
+
+  # Filter stats to a specific project
+  zgard ws stats -n myworkspace -p backend`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := loadConfig()
 			if err != nil {

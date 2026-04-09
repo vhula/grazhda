@@ -1251,3 +1251,53 @@ Updated filter application sites: `runOverRepos` (exec/stash/checkout), `Init`, 
 - `tagFilter []string` package-level var.
 - `cmd.PersistentFlags().StringArrayVarP(&tagFilter, "tag", "t", nil, "Filter by tag (OR logic; repeat for multiple)")`.
 - All subcommand RunOptions/InspectOptions structs pass `Tags: tagFilter`.
+
+## Phase 8 — Self-Documenting CLI & Terminal Markdown
+
+### internal/ui Package
+
+A new `internal/ui` package provides a reusable `Render(md string) string` function that wraps `glamour` for terminal Markdown rendering.
+
+**Package location:** `internal/ui/render.go`
+**Import path:** `github.com/vhula/grazhda/internal/ui`
+
+```go
+func Render(md string) string
+```
+
+- Uses `glamour.WithAutoStyle()` for automatic light/dark terminal detection.
+- Falls back to `glamour.WithStandardStyle("notty")` when `color.IsDisabled()` is true.
+- Applies `glamour.WithWordWrap(100)` for consistent line width.
+- Gracefully returns the raw string if glamour initialisation or rendering fails.
+
+### Cobra Help Function Override
+
+`zgard/root.go` overrides the default Cobra help function on `rootCmd` via `SetHelpFunc`. Cobra propagates this to all descendant commands unless they define their own help function.
+
+```
+Help call flow:
+  zgard ws init --help
+    → Cobra invokes rootCmd's helpFn(cmd=initCmd)
+    → ui.Render(cmd.Long) → glamour-rendered Markdown → stdout
+    → cmd.UsageString()   → Usage/Flags/Examples/Subcommands → stdout
+```
+
+**Color precedence:** `--no-color` flag → `NO_COLOR` env → TTY auto-detection (glamour default)
+
+### Dependency Management
+
+- `github.com/charmbracelet/glamour v1.0.0` is added to `internal/go.mod`.
+- Glamour's transitive dependencies (goldmark, chroma, bluemonday, reflow) are managed via `go mod tidy` in the `internal` module.
+- `zgard/go.mod` requires no changes — it inherits `internal` via the go.work workspace.
+
+### Example Field Strategy
+
+`Example` fields are the authoritative embedded reference. `docs/CLI.md` is the human-readable mirror. When command usage changes, both must be updated together. The `Example` field follows the Cobra convention:
+
+```
+  # Description of what this example does
+  zgard ws <command> [flags]
+
+  # Another scenario
+  zgard ws <command> --flag value
+```

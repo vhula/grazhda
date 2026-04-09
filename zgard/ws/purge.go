@@ -21,9 +21,21 @@ func newPurgeCmd() *cobra.Command {
 		Short: "Purge a workspace by removing all cloned repositories",
 		Long: `Remove workspace directories from disk.
 
-Purge requires an explicit target (--name or --all) and cannot fall back
-to the default workspace. A confirmation prompt is shown unless
---no-confirm is passed. Use --dry-run to preview the removal.`,
+> **Warning:** This command permanently deletes repository directories.
+> It requires an **explicit target** (--name or --all) and refuses to run
+> with the implicit default workspace.
+
+A confirmation prompt is always shown unless **--no-confirm** is passed.
+Use **--dry-run** to preview which directories would be deleted without
+actually removing anything.`,
+		Example: `  # Preview which directories would be removed (safe — makes no changes)
+  zgard ws purge -n myworkspace --dry-run
+
+  # Purge a named workspace (prompts for confirmation)
+  zgard ws purge -n myworkspace
+
+  # Purge all workspaces without prompting (for CI pipelines)
+  zgard ws purge --all --no-confirm`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// ws purge requires explicit targeting — no implicit default.
 			if wsName == "" && !wsAll {

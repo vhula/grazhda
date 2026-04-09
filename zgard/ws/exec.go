@@ -18,11 +18,39 @@ func newExecCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "exec <command> [args...]",
 		Short: "Fan out a shell command to all repositories in a workspace",
-		Long: `Execute an arbitrary shell command inside every targeted repository.
+		Long: `Execute an arbitrary shell command inside every targeted repository directory.
 
-The command and its arguments are passed after "--". Each repository's
-output is prefixed with its name. Use --dry-run to preview which
-directories would be targeted.`,
+The command and its arguments are passed as positional arguments after the
+subcommand name. Each repository's output is prefixed with its name for easy
+scanning. Use **--parallel** to run concurrently, **--dry-run** to preview,
+and targeting flags to narrow the scope.
+
+**Tip:** combine stash + checkout + pull + exec for a full workspace refresh:
+
+  zgard ws stash && zgard ws checkout main && zgard ws pull --parallel && zgard ws exec --parallel make build`,
+		Example: `  # Run 'git status' in all default workspace repos
+  zgard ws exec git status
+
+  # Build all repos in parallel
+  zgard ws exec --parallel make build
+
+  # Run a command only in repos tagged 'backend'
+  zgard ws exec -t backend npm install
+
+  # Run in a specific project
+  zgard ws exec -p frontend npm ci
+
+  # Preview what would run without executing
+  zgard ws exec --dry-run make test
+
+  # Run in a specific repository
+  zgard ws exec -p backend -r api-service go test ./...
+
+  # Cross-workspace fan-out
+  zgard ws exec --all --parallel docker compose pull
+
+  # Full workspace refresh composition
+  zgard ws stash && zgard ws checkout main && zgard ws pull --parallel && zgard ws exec --parallel make build`,
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := loadConfig()
