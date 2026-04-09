@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/vhula/grazhda/internal/config"
 	"github.com/vhula/grazhda/internal/executor"
@@ -38,6 +39,23 @@ func runOverRepos(
 	rep.PrintLine("Workspace: " + ws.Name)
 
 	if opts.Parallel {
+		// Count total matching repos so the reporter can show progress (N/total).
+		total := 0
+		for _, proj := range ws.Projects {
+			if opts.ProjectName != "" && proj.Name != opts.ProjectName {
+				continue
+			}
+			for _, repo := range proj.Repositories {
+				if repoMatchesFilters(proj, repo, opts) {
+					total++
+				}
+			}
+		}
+		if total > 0 {
+			rep.SetTotal(total)
+			defer rep.SetTotal(0)
+		}
+
 		var wg sync.WaitGroup
 		for _, proj := range ws.Projects {
 			if opts.ProjectName != "" && proj.Name != opts.ProjectName {
@@ -136,6 +154,7 @@ func execRepo(
 		rep.PrintLine(fmt.Sprintf("  → %s: %s", repo.Name, command))
 	}
 
+	start := time.Now()
 	output, err := exec.RunCapture(repoPath, command)
 
 	var outputLines []string
@@ -148,14 +167,14 @@ func execRepo(
 	if err != nil {
 		rep.Record(reporter.OpResult{
 			Workspace: ws.Name, Project: proj.Name, Repo: repo.Name,
-			Err: err, OutputLines: outputLines,
+			Err: err, OutputLines: outputLines, Elapsed: time.Since(start),
 		})
 		return
 	}
 
 	rep.Record(reporter.OpResult{
 		Workspace: ws.Name, Project: proj.Name, Repo: repo.Name,
-		Msg: "done", OutputLines: outputLines,
+		Msg: "done", OutputLines: outputLines, Elapsed: time.Since(start),
 	})
 }
 
@@ -198,15 +217,18 @@ func stashRepo(
 		rep.PrintLine(fmt.Sprintf("  → %s: git stash push", repo.Name))
 	}
 
+	start := time.Now()
 	if err := exec.Run(repoPath, "git stash push"); err != nil {
 		rep.Record(reporter.OpResult{
-			Workspace: ws.Name, Project: proj.Name, Repo: repo.Name, Err: err,
+			Workspace: ws.Name, Project: proj.Name, Repo: repo.Name,
+			Err: err, Elapsed: time.Since(start),
 		})
 		return
 	}
 
 	rep.Record(reporter.OpResult{
-		Workspace: ws.Name, Project: proj.Name, Repo: repo.Name, Msg: "stashed",
+		Workspace: ws.Name, Project: proj.Name, Repo: repo.Name,
+		Msg: "stashed", Elapsed: time.Since(start),
 	})
 }
 
@@ -252,15 +274,17 @@ func checkoutRepo(
 		rep.PrintLine(fmt.Sprintf("  → %s: %s", repo.Name, cmd))
 	}
 
+	start := time.Now()
 	if err := exec.Run(repoPath, cmd); err != nil {
 		rep.Record(reporter.OpResult{
-			Workspace: ws.Name, Project: proj.Name, Repo: repo.Name, Err: err,
+			Workspace: ws.Name, Project: proj.Name, Repo: repo.Name,
+			Err: err, Elapsed: time.Since(start),
 		})
 		return
 	}
 
 	rep.Record(reporter.OpResult{
 		Workspace: ws.Name, Project: proj.Name, Repo: repo.Name,
-		Msg: fmt.Sprintf("checked out %s", branch),
+		Msg: fmt.Sprintf("checked out %s", branch), Elapsed: time.Since(start),
 	})
 }

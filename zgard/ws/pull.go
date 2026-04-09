@@ -38,6 +38,7 @@ for concurrent pulls, and --dry-run to preview the operations.`,
 
 			exec := executor.OsExecutor{}
 			rep := reporter.NewReporter(os.Stdout, os.Stderr)
+			rep.ShowElapsed = verbose
 			opts := workspace.RunOptions{
 				DryRun:      dryRun,
 				Verbose:     verbose,

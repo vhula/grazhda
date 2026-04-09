@@ -42,6 +42,7 @@ directories would be targeted.`,
 			command := strings.Join(args, " ")
 			exec := executor.OsExecutor{}
 			rep := reporter.NewReporter(os.Stdout, os.Stderr)
+			rep.ShowElapsed = verbose
 			opts := workspace.RunOptions{
 				DryRun:      dryRun,
 				Verbose:     verbose,

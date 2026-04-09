@@ -9,6 +9,8 @@ import (
 	"github.com/vhula/grazhda/zgard/ws"
 )
 
+var noColor bool
+
 var rootCmd = &cobra.Command{
 	Use:           "zgard",
 	Short:         "Workspace lifecycle manager",
@@ -39,5 +41,11 @@ func Execute() {
 }
 
 func init() {
+	rootCmd.PersistentFlags().BoolVar(&noColor, "no-color", false, "Disable all colored output (overrides NO_COLOR env)")
+	cobra.OnInitialize(func() {
+		if noColor {
+			clr.Disable()
+		}
+	})
 	rootCmd.AddCommand(ws.NewCmd())
 }

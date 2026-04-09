@@ -126,6 +126,23 @@ func Init(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, o
 	}
 
 	if opts.Parallel {
+		// Count total matching repos so the reporter can show progress (N/total).
+		total := 0
+		for _, proj := range ws.Projects {
+			if opts.ProjectName != "" && proj.Name != opts.ProjectName {
+				continue
+			}
+			for _, repo := range proj.Repositories {
+				if repoMatchesFilters(proj, repo, opts) {
+					total++
+				}
+			}
+		}
+		if total > 0 {
+			rep.SetTotal(total)
+			defer rep.SetTotal(0)
+		}
+
 		var wg sync.WaitGroup
 		for _, proj := range ws.Projects {
 			if opts.ProjectName != "" && proj.Name != opts.ProjectName {
@@ -221,6 +238,7 @@ func cloneRepo(ws config.Workspace, proj config.Project, projPath string, repo c
 	}
 
 	var success bool
+	start := time.Now()
 	defer func() {
 		if !success {
 			os.RemoveAll(repoPath) //nolint:errcheck
@@ -229,7 +247,8 @@ func cloneRepo(ws config.Workspace, proj config.Project, projPath string, repo c
 
 	if err := exec.Run(projPath, cmd); err != nil {
 		rep.Record(reporter.OpResult{
-			Workspace: ws.Name, Project: proj.Name, Repo: repo.Name, Err: err,
+			Workspace: ws.Name, Project: proj.Name, Repo: repo.Name,
+			Err: err, Elapsed: time.Since(start),
 		})
 		return
 	}
@@ -237,7 +256,7 @@ func cloneRepo(ws config.Workspace, proj config.Project, projPath string, repo c
 	success = true
 	rep.Record(reporter.OpResult{
 		Workspace: ws.Name, Project: proj.Name, Repo: repo.Name,
-		Msg: fmt.Sprintf("cloned (%s)", branch),
+		Msg: fmt.Sprintf("cloned (%s)", branch), Elapsed: time.Since(start),
 	})
 
 	if opts.CloneDelaySeconds > 0 {
@@ -302,6 +321,23 @@ func Pull(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, o
 	wsPath := ExpandHome(ws.Path)
 
 	if opts.Parallel {
+		// Count total matching repos so the reporter can show progress (N/total).
+		total := 0
+		for _, proj := range ws.Projects {
+			if opts.ProjectName != "" && proj.Name != opts.ProjectName {
+				continue
+			}
+			for _, repo := range proj.Repositories {
+				if repoMatchesFilters(proj, repo, opts) {
+					total++
+				}
+			}
+		}
+		if total > 0 {
+			rep.SetTotal(total)
+			defer rep.SetTotal(0)
+		}
+
 		var wg sync.WaitGroup
 		for _, proj := range ws.Projects {
 			if opts.ProjectName != "" && proj.Name != opts.ProjectName {
@@ -382,15 +418,17 @@ func pullRepo(ws config.Workspace, proj config.Project, projPath string, repo co
 		rep.PrintLine(fmt.Sprintf("  → %s", cmd))
 	}
 
+	start := time.Now()
 	if err := exec.Run(repoPath, cmd); err != nil {
 		rep.Record(reporter.OpResult{
-			Workspace: ws.Name, Project: proj.Name, Repo: repo.Name, Err: err,
+			Workspace: ws.Name, Project: proj.Name, Repo: repo.Name,
+			Err: err, Elapsed: time.Since(start),
 		})
 		return
 	}
 
 	rep.Record(reporter.OpResult{
 		Workspace: ws.Name, Project: proj.Name, Repo: repo.Name,
-		Msg: fmt.Sprintf("pulled (%s)", branch),
+		Msg: fmt.Sprintf("pulled (%s)", branch), Elapsed: time.Since(start),
 	})
 }

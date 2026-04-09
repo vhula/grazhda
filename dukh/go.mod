@@ -5,7 +5,7 @@ go 1.26.1
 require (
 	github.com/charmbracelet/log v1.0.0
 	github.com/spf13/cobra v1.10.2
-	github.com/vhula/grazhda/internal v0.0.0-20260405211310-d6ee0cbc2b73
+	github.com/vhula/grazhda/internal v0.0.0-20260408174752-4e67068b9105
 	google.golang.org/grpc v1.80.0
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"time"
 
 	clr "github.com/vhula/grazhda/internal/color"
 )
@@ -23,21 +24,35 @@ type OpResult struct {
 	Repo        string
 	Skipped     bool
 	Err         error
-	Msg         string   // human-readable description, e.g. "cloned (main)", "already exists, skipped"
-	OutputLines []string // optional per-repo command output printed after the status line
+	Msg         string        // human-readable description, e.g. "cloned (main)", "already exists, skipped"
+	OutputLines []string      // optional per-repo command output printed after the status line
+	Elapsed     time.Duration // duration of the operation; 0 means not measured
 }
 
 // Reporter accumulates operation results and produces structured progress output.
 type Reporter struct {
-	out     io.Writer
-	errOut  io.Writer
-	mu      sync.Mutex
-	results []OpResult
+	out         io.Writer
+	errOut      io.Writer
+	mu          sync.Mutex
+	results     []OpResult
+	total       int  // expected total for parallel progress (0 = disabled)
+	done        int  // number of completed operations
+	ShowElapsed bool // when true, print elapsed time per repo after the status message
 }
 
 // NewReporter creates a Reporter that writes progress to out and errors to errOut.
 func NewReporter(out, errOut io.Writer) *Reporter {
 	return &Reporter{out: out, errOut: errOut}
+}
+
+// SetTotal configures the parallel progress counter. Call before launching
+// goroutines with the total number of repositories that will be processed.
+// Pass 0 to disable progress tracking (the default).
+func (r *Reporter) SetTotal(n int) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.total = n
+	r.done = 0
 }
 
 // PrintLine writes an informational line (blue) to stdout, e.g. section headers.
@@ -79,7 +94,18 @@ func (r *Reporter) Record(res OpResult) {
 		displayMsg = green(displayMsg)
 	}
 
-	fmt.Fprintf(r.out, "    %s %-14s — %s\n", symbol, res.Repo, displayMsg)
+	line := fmt.Sprintf("    %s %-14s — %s", symbol, res.Repo, displayMsg)
+
+	if r.ShowElapsed && res.Elapsed > 0 {
+		line += fmt.Sprintf("  [%s]", fmtDuration(res.Elapsed))
+	}
+
+	if r.total > 0 {
+		r.done++
+		line += fmt.Sprintf("  (%d/%d)", r.done, r.total)
+	}
+
+	fmt.Fprintln(r.out, line)
 
 	for _, line := range res.OutputLines {
 		fmt.Fprintf(r.out, "      %s\n", line)
@@ -131,4 +157,12 @@ func (r *Reporter) ExitCode() int {
 		}
 	}
 	return 0
+}
+
+// fmtDuration formats an elapsed duration as "1.2s" or "345ms".
+func fmtDuration(d time.Duration) string {
+	if d >= time.Second {
+		return fmt.Sprintf("%.1fs", d.Seconds())
+	}
+	return fmt.Sprintf("%dms", d.Milliseconds())
 }

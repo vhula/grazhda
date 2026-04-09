@@ -11,6 +11,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/charmbracelet/lipgloss"
+	fc "github.com/fatih/color"
 	clr "github.com/vhula/grazhda/internal/color"
 	"github.com/vhula/grazhda/internal/config"
 	"github.com/vhula/grazhda/internal/executor"
@@ -503,10 +505,10 @@ func nonEmptyLines(s string) []string {
 	return out
 }
 
-// printTable prints a column-aligned table with a header row, a ─ separator line,
-// and data rows. indent is prepended to every line.
-// rowColors may be nil; otherwise rowColors[i] (if non-nil) colorises the entire
-// formatted data row string after padding is applied.
+// printTable prints a column-aligned table with a bold header row, a styled
+// separator, and data rows. indent is prepended to every line.
+// rowColors may be nil; otherwise rowColors[i] (if non-nil) colourises the
+// entire formatted data row string after padding is applied.
 func printTable(out io.Writer, indent string, headers []string, rows [][]string, rowColors []func(string) string) {
 	if len(rows) == 0 {
 		return
@@ -524,14 +526,21 @@ func printTable(out io.Writer, indent string, headers []string, rows [][]string,
 		}
 	}
 
-	// header row
+	headerStyle := lipgloss.NewStyle().Bold(true)
+	sepStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+
+	// header row — bold unless colors are disabled
 	var hdr strings.Builder
 	hdr.WriteString(indent)
 	for i, h := range headers {
-		if i < len(headers)-1 {
-			fmt.Fprintf(&hdr, "%-*s  ", widths[i], h)
+		padded := fmt.Sprintf("%-*s", widths[i], h)
+		if !fc.NoColor {
+			hdr.WriteString(headerStyle.Render(padded))
 		} else {
-			hdr.WriteString(h)
+			hdr.WriteString(padded)
+		}
+		if i < len(headers)-1 {
+			hdr.WriteString("  ")
 		}
 	}
 	fmt.Fprintln(out, hdr.String())
@@ -544,7 +553,12 @@ func printTable(out io.Writer, indent string, headers []string, rows [][]string,
 			total += 2
 		}
 	}
-	fmt.Fprintf(out, "%s%s\n", indent, strings.Repeat("─", total))
+	sep := strings.Repeat("─", total)
+	if !fc.NoColor {
+		fmt.Fprintf(out, "%s%s\n", indent, sepStyle.Render(sep))
+	} else {
+		fmt.Fprintf(out, "%s%s\n", indent, sep)
+	}
 
 	// data rows
 	for ri, row := range rows {

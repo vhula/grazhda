@@ -11,3 +11,13 @@ var (
 	Yellow = color.New(color.FgYellow).SprintFunc()
 	Blue   = color.New(color.FgHiBlue).SprintFunc()
 )
+
+// Disable turns off all terminal colors. It should be called once when
+// the --no-color flag is supplied. Both fatih/color and any package that
+// reads the NO_COLOR environment variable (e.g. lipgloss) will comply.
+func Disable() {
+	color.NoColor = true
+}
+
+// IsDisabled reports whether color output is currently disabled.
+func IsDisabled() bool { return color.NoColor }

@@ -5,7 +5,7 @@ go 1.26.1
 require (
 	github.com/spf13/cobra v1.10.2
 	github.com/vhula/grazhda/dukh v0.0.0-20260408152430-0f8844b429f0
-	github.com/vhula/grazhda/internal v0.0.0-20260405211310-d6ee0cbc2b73
+	github.com/vhula/grazhda/internal v0.0.0-20260408174752-4e67068b9105
 	google.golang.org/grpc v1.80.0
 )
 

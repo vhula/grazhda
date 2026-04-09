@@ -38,6 +38,7 @@ which repositories would be stashed.`,
 
 			exec := executor.OsExecutor{}
 			rep := reporter.NewReporter(os.Stdout, os.Stderr)
+			rep.ShowElapsed = verbose
 			opts := workspace.RunOptions{
 				DryRun:      dryRun,
 				Verbose:     verbose,
