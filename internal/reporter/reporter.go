@@ -55,6 +55,15 @@ func (r *Reporter) SetTotal(n int) {
 	r.done = 0
 }
 
+// PrintDryRunBanner writes a prominent "[DRY RUN] Preview" header to stdout.
+// Call this at the start of any mutating command when --dry-run is active.
+func (r *Reporter) PrintDryRunBanner() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	fmt.Fprintln(r.out, yellow("[DRY RUN] Preview — no changes will be made."))
+	fmt.Fprintln(r.out)
+}
+
 // PrintLine writes an informational line (blue) to stdout, e.g. section headers.
 func (r *Reporter) PrintLine(msg string) {
 	r.mu.Lock()

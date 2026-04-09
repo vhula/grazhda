@@ -67,6 +67,9 @@ and **--dry-run** to preview actions without touching the filesystem.`,
 			exec := executor.OsExecutor{}
 			rep := reporter.NewReporter(os.Stdout, os.Stderr)
 			rep.ShowElapsed = verbose
+			if dryRun {
+				rep.PrintDryRunBanner()
+			}
 			opts := workspace.RunOptions{
 				DryRun:            dryRun,
 				Verbose:           verbose,

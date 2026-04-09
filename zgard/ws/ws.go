@@ -36,7 +36,12 @@ operations across all repositories defined in your grazhda configuration.
 
 With no flag, zgard uses the **default** workspace and prints a notice.
 
-> **Note:** ws purge is an exception — it always requires an explicit target.`,
+> **Note:** ws purge is an exception — it always requires an explicit target.</p>
+
+## Discovery commands
+
+Use **ws list** to see real-time clone status for all repositories.
+Use **zgard config list** to inspect the raw workspace hierarchy from config.`,
 		// Validate cross-flag constraints before any subcommand runs.
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			if repoName != "" && projectName == "" {
@@ -69,5 +74,6 @@ With no flag, zgard uses the **default** workspace and prints a notice.
 	cmd.AddCommand(newSearchCmd())
 	cmd.AddCommand(newDiffCmd())
 	cmd.AddCommand(newStatsCmd())
+	cmd.AddCommand(newListCmd())
 	return cmd
 }

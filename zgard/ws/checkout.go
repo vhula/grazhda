@@ -64,6 +64,9 @@ to switch branches concurrently and **--dry-run** to preview the operations.
 			exec := executor.OsExecutor{}
 			rep := reporter.NewReporter(os.Stdout, os.Stderr)
 			rep.ShowElapsed = verbose
+			if dryRun {
+				rep.PrintDryRunBanner()
+			}
 			opts := workspace.RunOptions{
 				DryRun:      dryRun,
 				Verbose:     verbose,

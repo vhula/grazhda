@@ -66,6 +66,9 @@ actually removing anything.`,
 			}
 
 			rep := reporter.NewReporter(os.Stdout, os.Stderr)
+			if dryRun {
+				rep.PrintDryRunBanner()
+			}
 			opts := workspace.RunOptions{
 				DryRun:    dryRun,
 				Verbose:   verbose,

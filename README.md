@@ -69,8 +69,10 @@ $EDITOR "$GRAZHDA_DIR/config.yaml"
 ```bash
 zgard ws init            # clone everything in the default workspace
 zgard ws pull            # pull latest on all repos
+zgard ws list            # show clone status for all repos
 dukh start               # start background workspace health monitor
 zgard ws status          # check workspace health
+zgard config validate    # validate configuration
 ```
 
 > **Prerequisites:** `bash`, `curl`, `git`, `just`, `protoc`, Go `1.26+`

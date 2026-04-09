@@ -332,6 +332,94 @@ Workspace: myws
 
 ---
 
+#### `zgard ws list`
+
+Display a tree-formatted view of all repositories in a workspace with real-time clone status.
+
+```bash
+zgard ws list                              # list default workspace
+zgard ws list -n myws                      # list a named workspace
+zgard ws list --all                        # list all workspaces
+zgard ws list -p backend                   # list only backend project
+zgard ws list -t api                       # list repos tagged "api"
+```
+
+Sample output:
+
+```
+Workspace: myws  (~/.grazhda/ws/myws)
+  Project: backend
+    ✓  api                     ~/workspaces/myws/api
+    ✓  auth-service             ~/workspaces/myws/auth-service
+    ✗  gateway                  ~/workspaces/myws/gateway
+
+  Project: frontend
+    ✓  web-app                  ~/workspaces/myws/web-app
+    ✗  design-system            ~/workspaces/myws/design-system
+
+Summary: 3 cloned, 2 not cloned (5 total)
+```
+
+✓ = directory exists on disk; ✗ = not yet cloned.
+
+---
+
+### `zgard config` — Configuration Inspection
+
+Inspect, validate, and query the loaded configuration without opening the file.
+
+#### `zgard config path`
+
+Print the resolved path of the active configuration file.
+
+```bash
+zgard config path
+# Output: /home/alice/.grazhda/config.yaml
+```
+
+#### `zgard config validate`
+
+Load the configuration and report any validation errors. Exits 0 on success.
+
+```bash
+zgard config validate
+# Output (success): ✓ Configuration is valid.
+# Output (error):   ✗ Configuration error: ...
+```
+
+#### `zgard config list`
+
+List all workspaces and their projects from the configuration file (no filesystem access).
+
+```bash
+zgard config list
+```
+
+Sample output:
+
+```
+Workspaces in /home/alice/.grazhda/config.yaml:
+
+  myws
+    backend  (3 repos)
+    frontend (2 repos)
+
+  devws
+    services (5 repos)
+```
+
+#### `zgard config get <key>`
+
+Get a specific configuration value using a dotted-path key (based on YAML field names).
+
+```bash
+zgard config get dukh.port         # e.g. "50501"
+zgard config get install_dir       # e.g. "/home/alice/.grazhda"
+zgard config get workspaces.0.name # first workspace name
+```
+
+---
+
 ### Common Flags
 
 | Flag | Commands | Description |
@@ -341,7 +429,7 @@ Workspace: myws
 | `-p, --project-name <name>` | all | Filter to a specific project (persistent, inherited) |
 | `-r, --repo-name <name>` | all | Substring filter on repo names — requires `-p`; may match multiple repos (persistent, inherited) |
 | `-t, --tag <tag>` | all | Filter by tag (OR logic; repeat for multiple: `-t backend -t api`) (persistent, inherited) |
-| `--dry-run` | init, pull, exec, stash, checkout, purge | Print actions without executing |
+| `--dry-run` | init, pull, exec, stash, checkout, purge | Print actions without executing; shows `[DRY RUN]` banner |
 | `--parallel` | init, pull, exec, stash, checkout, search, diff, stats | Run all repositories concurrently |
 | `--clone-delay-seconds=N` | init | Sleep N seconds after each clone command |
 | `-v, --verbose` | init, pull, exec, stash, checkout, diff, stats, purge | Print the rendered command before each operation |

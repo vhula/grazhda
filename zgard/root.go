@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 	clr "github.com/vhula/grazhda/internal/color"
 	"github.com/vhula/grazhda/internal/ui"
+	"github.com/vhula/grazhda/zgard/cfgcmd"
 	"github.com/vhula/grazhda/zgard/ws"
 )
 
@@ -37,7 +38,18 @@ All commands live under ` + "`zgard ws`" + `:
 | ` + "`diff`" + `       | Show uncommitted changes and upstream sync status      |
 | ` + "`stats`" + `      | Aggregate commit metadata across repositories          |
 
-Run ` + "`zgard ws <command> --help`" + ` for full documentation of any subcommand.`,
+Run ` + "`zgard ws <command> --help`" + ` for full documentation of any subcommand.
+
+## Configuration commands
+
+Use **zgard config** to inspect, validate, and query the configuration file:
+
+| Command                  | Description                                          |
+|--------------------------|------------------------------------------------------|
+| ` + "`config path`" + `     | Print the resolved configuration file path           |
+| ` + "`config validate`" + ` | Validate the configuration and report errors         |
+| ` + "`config list`" + `     | List all workspaces and projects from the config     |
+| ` + "`config get <key>`" + `| Get a specific value by dotted-path (e.g. dukh.port) |`,
 	SilenceErrors: true,
 	SilenceUsage:  true,
 }
@@ -74,4 +86,5 @@ func init() {
 	})
 
 	rootCmd.AddCommand(ws.NewCmd())
+	rootCmd.AddCommand(cfgcmd.NewCmd())
 }

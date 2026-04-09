@@ -54,6 +54,9 @@ to preview which repositories have changes that would be stashed.`,
 			exec := executor.OsExecutor{}
 			rep := reporter.NewReporter(os.Stdout, os.Stderr)
 			rep.ShowElapsed = verbose
+			if dryRun {
+				rep.PrintDryRunBanner()
+			}
 			opts := workspace.RunOptions{
 				DryRun:      dryRun,
 				Verbose:     verbose,
