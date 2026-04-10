@@ -91,6 +91,9 @@ func runOverRepos(
 			if !repoMatchesFilters(proj, repo, opts) {
 				continue
 			}
+			if err := opts.ctx().Err(); err != nil {
+				return fmt.Errorf("%w: %w", ErrCancelled, err)
+			}
 			fn(proj, projPath, repo)
 		}
 	}
@@ -155,7 +158,7 @@ func execRepo(
 	}
 
 	start := time.Now()
-	output, err := exec.RunCapture(repoPath, command)
+	output, err := exec.RunCaptureContext(opts.ctx(), repoPath, command)
 
 	var outputLines []string
 	if output != "" {
@@ -218,7 +221,7 @@ func stashRepo(
 	}
 
 	start := time.Now()
-	if err := exec.Run(repoPath, "git stash push"); err != nil {
+	if err := exec.RunContext(opts.ctx(), repoPath, "git stash push"); err != nil {
 		rep.Record(reporter.OpResult{
 			Workspace: ws.Name, Project: proj.Name, Repo: repo.Name,
 			Err: err, Elapsed: time.Since(start),
@@ -275,7 +278,7 @@ func checkoutRepo(
 	}
 
 	start := time.Now()
-	if err := exec.Run(repoPath, cmd); err != nil {
+	if err := exec.RunContext(opts.ctx(), repoPath, cmd); err != nil {
 		rep.Record(reporter.OpResult{
 			Workspace: ws.Name, Project: proj.Name, Repo: repo.Name,
 			Err: err, Elapsed: time.Since(start),

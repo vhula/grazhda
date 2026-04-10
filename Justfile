@@ -17,6 +17,7 @@ help:
     echo "  test           - Run tests for all modules"
     echo "  fmt            - Format Go source across all modules"
     echo "  tidy           - Tidy all modules"
+    echo "  man            - Generate man pages into man/man1/"
     echo "  help           - Show this help message"
 
 generate:
@@ -37,7 +38,7 @@ build: generate build-zgard build-dukh copy-scripts
 build-zgard:
     echo "Building Zgard..."
     mkdir -p bin
-    cd zgard && go build -o ../bin/zgard .
+    cd zgard && go build -ldflags "-X main.version=$(git describe --tags --always --dirty 2>/dev/null || echo dev)" -o ../bin/zgard .
     echo "✓ bin/zgard built"
 
 build-dukh:
@@ -62,13 +63,14 @@ test:
     echo "Running tests..."
     cd internal && go test ./...
     cd zgard && go test ./...
+    cd dukh && go test ./...
     echo "✓ Tests passed"
 
 tidy:
     echo "Tidying modules..."
     cd internal && go mod tidy
-    cd zgard && go mod tidy -e
-    cd dukh && go mod tidy -e
+    cd zgard && go mod tidy
+    cd dukh && go mod tidy
     echo "✓ Go modules tidied"
 
 fmt:
@@ -77,3 +79,9 @@ fmt:
     cd zgard && go fmt ./...
     cd dukh && go fmt ./...
     echo "✓ Go modules formatted"
+
+man:
+    echo "Generating man pages..."
+    mkdir -p man/man1
+    cd zgard && go run ../tools/gen-manpages/main.go
+    echo "✓ Man pages written to man/man1/"

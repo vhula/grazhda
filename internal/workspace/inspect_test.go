@@ -2,6 +2,7 @@ package workspace
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -28,6 +29,10 @@ func (m *captureMock) Run(dir, command string) error {
 	return nil
 }
 
+func (m *captureMock) RunContext(ctx context.Context, dir, command string) error {
+	return m.Run(dir, command)
+}
+
 func (m *captureMock) RunCapture(dir, command string) (string, error) {
 	m.mu.Lock()
 	m.Calls = append(m.Calls, command)
@@ -38,6 +43,10 @@ func (m *captureMock) RunCapture(dir, command string) (string, error) {
 		return fn(dir, command)
 	}
 	return def, nil
+}
+
+func (m *captureMock) RunCaptureContext(ctx context.Context, dir, command string) (string, error) {
+	return m.RunCapture(dir, command)
 }
 
 // ─────────────────────────────── helpers ────────────────────────────────────

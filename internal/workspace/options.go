@@ -1,7 +1,10 @@
 package workspace
 
+import "context"
+
 // RunOptions controls the behaviour of workspace operations.
 type RunOptions struct {
+	Context           context.Context // optional; defaults to context.Background()
 	DryRun            bool
 	Verbose           bool
 	Parallel          bool
@@ -12,13 +15,30 @@ type RunOptions struct {
 	Tags              []string // filter: only operate on repos matching any of these tags (empty = all)
 }
 
+// ctx returns opts.Context, falling back to context.Background() if nil.
+func (opts RunOptions) ctx() context.Context {
+	if opts.Context != nil {
+		return opts.Context
+	}
+	return context.Background()
+}
+
 // InspectOptions controls inspection commands (diff, stats, search).
 type InspectOptions struct {
+	Context     context.Context // optional; defaults to context.Background()
 	Parallel    bool
 	ProjectName string
 	RepoName    string
 	Tags        []string // filter: only repos matching any of these tags (empty = all)
 	Verbose     bool
+}
+
+// ctx returns opts.Context, falling back to context.Background() if nil.
+func (opts InspectOptions) ctx() context.Context {
+	if opts.Context != nil {
+		return opts.Context
+	}
+	return context.Background()
 }
 
 // SearchOptions extends InspectOptions with search-specific configuration.

@@ -1,5 +1,7 @@
 # Grazhda
 
+> Declare your multi-repo workspace in YAML, then `zgard ws init` clones everything, `zgard ws pull` keeps it current, and `dukh` watches for drift — all from a single config file.
+
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Go](https://img.shields.io/badge/Go-1.26+-00ADD8?logo=go&logoColor=white)](https://go.dev)
 [![Phase](https://img.shields.io/badge/Phase-2%20%E2%80%94%20dukh-brightgreen)](https://github.com/vhula/grazhda)

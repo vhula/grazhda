@@ -39,8 +39,7 @@ actually removing anything.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// ws purge requires explicit targeting — no implicit default.
 			if wsName == "" && !wsAll {
-				fmt.Fprintln(os.Stderr, clr.Red("ws purge requires --name <name> or --all"))
-				os.Exit(1)
+				return fmt.Errorf("ws purge requires --name <name> or --all")
 			}
 
 			cfg, err := loadConfig()
@@ -66,10 +65,13 @@ actually removing anything.`,
 			}
 
 			rep := reporter.NewReporter(os.Stdout, os.Stderr)
+			rep.JSONMode = rootFlag(cmd, "json")
+			rep.Quiet = rootFlag(cmd, "quiet")
 			if dryRun {
 				rep.PrintDryRunBanner()
 			}
 			opts := workspace.RunOptions{
+				Context:   cmd.Context(),
 				DryRun:    dryRun,
 				Verbose:   verbose,
 				NoConfirm: noConfirm,
@@ -86,7 +88,9 @@ actually removing anything.`,
 				label = "would remove"
 			}
 			rep.Summary(label, dryRun)
-			os.Exit(rep.ExitCode())
+			if code := rep.ExitCode(); code != 0 {
+				return reporter.ExitError{Code: code}
+			}
 			return nil
 		},
 	}
@@ -94,6 +98,7 @@ actually removing anything.`,
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print actions without executing them")
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
 	cmd.Flags().BoolVar(&noConfirm, "no-confirm", false, "Skip confirmation prompts")
+	cmd.Flags().BoolVarP(&noConfirm, "yes", "y", false, "Skip confirmation prompts (alias for --no-confirm)")
 
 	return cmd
 }

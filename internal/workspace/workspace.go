@@ -179,6 +179,10 @@ func Init(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, o
 			if !repoMatchesFilters(proj, repo, opts) {
 				continue
 			}
+			// Check cancellation between repos in sequential mode.
+			if err := opts.ctx().Err(); err != nil {
+				return fmt.Errorf("%w: %w", ErrCancelled, err)
+			}
 			cloneRepo(ws, proj, projPath, repo, exec, rep, opts)
 		}
 	}
@@ -245,7 +249,7 @@ func cloneRepo(ws config.Workspace, proj config.Project, projPath string, repo c
 		}
 	}()
 
-	if err := exec.Run(projPath, cmd); err != nil {
+	if err := exec.RunContext(opts.ctx(), projPath, cmd); err != nil {
 		rep.Record(reporter.OpResult{
 			Workspace: ws.Name, Project: proj.Name, Repo: repo.Name,
 			Err: err, Elapsed: time.Since(start),
@@ -373,6 +377,9 @@ func Pull(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, o
 			if !repoMatchesFilters(proj, repo, opts) {
 				continue
 			}
+			if err := opts.ctx().Err(); err != nil {
+				return fmt.Errorf("%w: %w", ErrCancelled, err)
+			}
 			pullRepo(ws, proj, projPath, repo, exec, rep, opts)
 		}
 	}
@@ -419,7 +426,7 @@ func pullRepo(ws config.Workspace, proj config.Project, projPath string, repo co
 	}
 
 	start := time.Now()
-	if err := exec.Run(repoPath, cmd); err != nil {
+	if err := exec.RunContext(opts.ctx(), repoPath, cmd); err != nil {
 		rep.Record(reporter.OpResult{
 			Workspace: ws.Name, Project: proj.Name, Repo: repo.Name,
 			Err: err, Elapsed: time.Since(start),

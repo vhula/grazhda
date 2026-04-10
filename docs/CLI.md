@@ -62,13 +62,34 @@ Usage:
 
 Available Commands:
   completion  Generate the autocompletion script for the specified shell
+  config      Inspect and validate configuration
   help        Help about any command
   ws          Workspace operations
 
 Flags:
-  -h, --help   help for zgard
+  -h, --help       help for zgard
+      --json       Output results as JSON Lines (machine-readable)
+      --no-color   Disable all colored output (overrides NO_COLOR env)
+  -q, --quiet      Suppress all output except errors
+  -v, --version    Print zgard version and exit
 
 Use "zgard [command] --help" for more information about a command.
+```
+
+### Global flags
+
+These persistent flags apply to every `zgard` subcommand:
+
+| Flag          | Short | Description                                            |
+|---------------|-------|--------------------------------------------------------|
+| `--no-color`  |       | Disable ANSI colour (overrides `NO_COLOR` env var)     |
+| `--json`      |       | Emit JSON Lines to stdout (machine-readable, for `jq`) |
+| `--quiet`     | `-q`  | Suppress all output except errors                      |
+| `--version`   | `-v`  | Print the binary version and exit                      |
+
+**JSON output** emits one object per repository event:
+```json
+{"workspace":"home","project":"dotfiles","repo":"nvim","skipped":false,"message":"already up to date","elapsed_ms":42}
 ```
 
 ### Targeting Logic

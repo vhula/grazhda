@@ -67,10 +67,13 @@ and **--dry-run** to preview actions without touching the filesystem.`,
 			exec := executor.OsExecutor{}
 			rep := reporter.NewReporter(os.Stdout, os.Stderr)
 			rep.ShowElapsed = verbose
+			rep.JSONMode = rootFlag(cmd, "json")
+			rep.Quiet = rootFlag(cmd, "quiet")
 			if dryRun {
 				rep.PrintDryRunBanner()
 			}
 			opts := workspace.RunOptions{
+				Context:           cmd.Context(),
 				DryRun:            dryRun,
 				Verbose:           verbose,
 				Parallel:          parallel,
@@ -92,7 +95,9 @@ and **--dry-run** to preview actions without touching the filesystem.`,
 				label = "would clone"
 			}
 			rep.Summary(label, dryRun)
-			os.Exit(rep.ExitCode())
+			if code := rep.ExitCode(); code != 0 {
+				return reporter.ExitError{Code: code}
+			}
 			return nil
 		},
 	}
@@ -102,6 +107,7 @@ and **--dry-run** to preview actions without touching the filesystem.`,
 	cmd.Flags().BoolVar(&parallel, "parallel", false, "Clone all repositories concurrently")
 	cmd.Flags().IntVar(&cloneDelaySeconds, "clone-delay-seconds", 0, "Seconds to sleep after each clone command (0 = disabled)")
 	cmd.Flags().BoolVar(&noConfirm, "no-confirm", false, "Skip confirmation prompts")
+	cmd.Flags().BoolVarP(&noConfirm, "yes", "y", false, "Skip confirmation prompts (alias for --no-confirm)")
 
 	return cmd
 }

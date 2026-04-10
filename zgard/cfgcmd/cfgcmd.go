@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	clr "github.com/vhula/grazhda/internal/color"
 	"github.com/vhula/grazhda/internal/config"
+	"github.com/vhula/grazhda/internal/reporter"
 )
 
 // NewCmd returns the `config` parent command with all subcommands registered.
@@ -99,8 +100,7 @@ Exits with status **0** on success and status **1** if any errors are found.`,
 			cfgPath := resolveConfigPath()
 			cfg, err := config.Load(cfgPath)
 			if err != nil {
-				fmt.Fprintln(os.Stderr, clr.Red("✗ "+err.Error()))
-				os.Exit(1)
+				return fmt.Errorf("%s", clr.Red("✗ "+err.Error()))
 			}
 
 			errs := config.Validate(cfg)
@@ -115,8 +115,7 @@ Exits with status **0** on success and status **1** if any errors are found.`,
 			}
 			fmt.Fprintf(os.Stderr, "\n%s %d error(s) found in %s\n",
 				clr.Red("✗"), len(errs), cfgPath)
-			os.Exit(1)
-			return nil
+			return reporter.ExitError{Code: 1}
 		},
 	}
 }
@@ -222,8 +221,7 @@ Exits with status **1** if the key does not exist.`,
 
 			val, err := config.GetByPath(cfg, args[0])
 			if err != nil {
-				fmt.Fprintln(os.Stderr, clr.Red("✗ "+err.Error()))
-				os.Exit(1)
+				return fmt.Errorf("%s", clr.Red("✗ "+err.Error()))
 			}
 			fmt.Fprintln(cmd.OutOrStdout(), val)
 			return nil

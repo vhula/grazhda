@@ -113,3 +113,17 @@ repositories:
 | `branch` | — | Overrides the project-level branch |
 | `local_dir_name` | — | Explicit clone destination name; overrides both `name` and `structure` |
 | `tags` | — | List of string tags (merged with project-level tags) |
+
+---
+
+## Environment Variables
+
+| Variable           | Description                                              | Default              |
+|--------------------|----------------------------------------------------------|----------------------|
+| `GRAZHDA_DIR`      | Installation root for grazhda (required for `dukh`)     | `~/.grazhda`         |
+| `GRAZHDA_EDITOR`   | Override the editor for `grazhda config --edit`         | config `editor` field |
+| `DUKH_HOST`        | Override the dukh gRPC server host                       | `localhost`          |
+| `DUKH_PORT`        | Override the dukh gRPC server port                       | `50501`              |
+| `NO_COLOR`         | Disable all ANSI colour output (any non-empty value)     | unset                |
+
+> You can also pass `--no-color` as a flag to `zgard` for the same effect.

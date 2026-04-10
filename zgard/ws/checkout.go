@@ -64,10 +64,13 @@ to switch branches concurrently and **--dry-run** to preview the operations.
 			exec := executor.OsExecutor{}
 			rep := reporter.NewReporter(os.Stdout, os.Stderr)
 			rep.ShowElapsed = verbose
+			rep.JSONMode = rootFlag(cmd, "json")
+			rep.Quiet = rootFlag(cmd, "quiet")
 			if dryRun {
 				rep.PrintDryRunBanner()
 			}
 			opts := workspace.RunOptions{
+				Context:     cmd.Context(),
 				DryRun:      dryRun,
 				Verbose:     verbose,
 				Parallel:    parallel,
@@ -87,7 +90,9 @@ to switch branches concurrently and **--dry-run** to preview the operations.
 				label = "would checkout"
 			}
 			rep.Summary(label, dryRun)
-			os.Exit(rep.ExitCode())
+			if code := rep.ExitCode(); code != 0 {
+				return reporter.ExitError{Code: code}
+			}
 			return nil
 		},
 	}

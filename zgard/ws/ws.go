@@ -64,6 +64,68 @@ Use **zgard config list** to inspect the raw workspace hierarchy from config.`,
 	cmd.PersistentFlags().StringVarP(&repoName, "repo-name", "r", "", "Filter to a specific repository (requires --project-name / -p)")
 	cmd.PersistentFlags().StringArrayVarP(&tagFilter, "tag", "t", nil, "Filter by tag (OR logic; repeat for multiple: -t backend -t api)")
 
+	// Dynamic shell completions for targeting flags.
+	cmd.RegisterFlagCompletionFunc("name", func(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) { //nolint:errcheck
+		cfg, err := loadConfig()
+		if err != nil {
+			return nil, cobra.ShellCompDirectiveError
+		}
+		var names []string
+		for _, w := range cfg.Workspaces {
+			if toComplete == "" || len(w.Name) >= len(toComplete) && w.Name[:len(toComplete)] == toComplete {
+				names = append(names, w.Name)
+			}
+		}
+		return names, cobra.ShellCompDirectiveNoFileComp
+	})
+	cmd.RegisterFlagCompletionFunc("project-name", func(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) { //nolint:errcheck
+		cfg, err := loadConfig()
+		if err != nil {
+			return nil, cobra.ShellCompDirectiveError
+		}
+		seen := map[string]bool{}
+		var names []string
+		for _, w := range cfg.Workspaces {
+			for _, p := range w.Projects {
+				if seen[p.Name] {
+					continue
+				}
+				if toComplete == "" || len(p.Name) >= len(toComplete) && p.Name[:len(toComplete)] == toComplete {
+					seen[p.Name] = true
+					names = append(names, p.Name)
+				}
+			}
+		}
+		return names, cobra.ShellCompDirectiveNoFileComp
+	})
+	cmd.RegisterFlagCompletionFunc("tag", func(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) { //nolint:errcheck
+		cfg, err := loadConfig()
+		if err != nil {
+			return nil, cobra.ShellCompDirectiveError
+		}
+		seen := map[string]bool{}
+		var tags []string
+		for _, w := range cfg.Workspaces {
+			for _, p := range w.Projects {
+				for _, t := range p.Tags {
+					if !seen[t] && (toComplete == "" || len(t) >= len(toComplete) && t[:len(toComplete)] == toComplete) {
+						seen[t] = true
+						tags = append(tags, t)
+					}
+				}
+				for _, r := range p.Repositories {
+					for _, t := range r.Tags {
+						if !seen[t] && (toComplete == "" || len(t) >= len(toComplete) && t[:len(toComplete)] == toComplete) {
+							seen[t] = true
+							tags = append(tags, t)
+						}
+					}
+				}
+			}
+		}
+		return tags, cobra.ShellCompDirectiveNoFileComp
+	})
+
 	cmd.AddCommand(newInitCmd())
 	cmd.AddCommand(newPurgeCmd())
 	cmd.AddCommand(newPullCmd())

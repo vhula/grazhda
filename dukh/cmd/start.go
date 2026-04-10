@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -107,6 +109,15 @@ func runServer() error {
 
 	srv := server.New(monitor, logger)
 	logger.Info("dukh starting", "addr", addr, "config", configPath)
+
+	// Handle OS signals for graceful shutdown.
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		sig := <-sigCh
+		logger.Info("signal received, shutting down", "signal", sig)
+		srv.GracefulStop()
+	}()
 
 	if err := srv.ListenAndServe(addr); err != nil {
 		logger.Info("dukh stopped", "reason", err)
