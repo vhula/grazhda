@@ -8,3 +8,5 @@ case ":$PATH:" in
     *":$GRAZHDA_DIR/bin:"*) ;;
     *) export PATH="$GRAZHDA_DIR/bin:$PATH" ;;
 esac
+mkdir -p "$GRAZHDA_DIR/pkgs"
+source "$GRAZHDA_DIR/grazhda-env.sh" 2>/dev/null || true

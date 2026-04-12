@@ -32,7 +32,7 @@ generate:
       proto/dukh.proto
     echo "✓ dukh/proto/ generated"
 
-build: generate build-zgard build-dukh copy-scripts
+build: generate build-zgard build-dukh copy-scripts copy-configs
     echo "✓ All modules built successfully"
 
 build-zgard:
@@ -53,6 +53,12 @@ copy-scripts:
     cp grazhda-init.sh ./bin/
     chmod +x ./bin/grazhda ./bin/grazhda-init.sh
     echo "✓ Scripts copied to bin/"
+
+copy-configs:
+    echo "Copying config files..."
+    cp .grazhda.env ./bin/
+    cp .grazhda.pkgs.yaml ./bin/
+    echo "✓ Config files copied to bin/"
 
 clean:
     echo "Cleaning up..."

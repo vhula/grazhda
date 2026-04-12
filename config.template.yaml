@@ -6,6 +6,12 @@
 # Resolved in order: this field → $VISUAL → $EDITOR → vi
 editor: vim
 
+packages:
+  - name: sdkman
+    version: latest
+  - name: jdk
+    version: 17.0.8-tem
+
 # Dukh gRPC Server Configuration
 dukh:
   host: localhost
