@@ -7,6 +7,12 @@ registry:
       curl -s "https://get.sdkman.io" | bash
     post_install: |
       [[ -s "$SDKMAN_DIR/bin/sdkman-init.sh" ]] && source "$SDKMAN_DIR/bin/sdkman-init.sh"
+    # env block is sourced on every shell startup via .grazhda.env
+    env: |
+      export SDKMAN_DIR="$GRAZHDA_DIR/pkgs/sdkman"
+      [[ -s "$SDKMAN_DIR/bin/sdkman-init.sh" ]] && source "$SDKMAN_DIR/bin/sdkman-init.sh"
+    purge: |
+      rm -rf "$GRAZHDA_DIR/pkgs/sdkman"
   - name: jdk
     version: 17.0.8-tem
     pre_create_dir: false
@@ -14,3 +20,5 @@ registry:
       - sdkman
     install: |
       sdk install java 17.0.8-tem
+    purge: |
+      sdk uninstall java 17.0.8-tem || true
