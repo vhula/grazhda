@@ -179,6 +179,24 @@ create_config() {
     echo -e "${GREEN}✓ Configuration file created: $config_file${NC}"
 }
 
+copy_pkgs_registry() {
+    local pkgs_file="$GRAZHDA_DIR/.grazhda.pkgs.yaml"
+
+    if [ -f "$pkgs_file" ]; then
+        echo -e "${YELLOW}⚠ Package registry already exists: $pkgs_file${NC}"
+        _log "Package registry already exists, skipping: $pkgs_file"
+        return
+    fi
+
+    echo -e "${BLUE}Copying package registry...${NC}"
+    _log "=== Copying package registry: $pkgs_file ==="
+
+    cp "$GRAZHDA_DIR/sources/.grazhda.pkgs.yaml" "$pkgs_file"
+
+    _log "Package registry copied: $pkgs_file"
+    echo -e "${GREEN}✓ Package registry copied: $pkgs_file${NC}"
+}
+
 main() {
     echo ""
     echo -e "${BLUE}╔═══════════════════════════════════════╗${NC}"
@@ -220,6 +238,8 @@ main() {
 
     create_config
 
+    copy_pkgs_registry
+
     if ! grep -q 'grazhda-init.sh' "$bashrc_path"; then
         printf '\n%s\n' "$grazhda_init_snippet" >> "$bashrc_path"
         echo "Added Grazhda init snippet to $bashrc_path"
@@ -239,6 +259,7 @@ main() {
     echo -e "${BLUE}Sources:              $GRAZHDA_DIR_DISPLAY/sources${NC}"
     echo -e "${BLUE}Binaries:             $GRAZHDA_DIR_DISPLAY/bin${NC}"
     echo -e "${BLUE}Configuration:        $GRAZHDA_DIR_DISPLAY/config.yaml${NC}"
+    echo -e "${BLUE}Package registry:     $GRAZHDA_DIR_DISPLAY/.grazhda.pkgs.yaml${NC}"
     echo -e "${BLUE}Install log:          $GRAZHDA_DIR_DISPLAY/logs/install.log${NC}"
     echo ""
     echo "To get started:"
