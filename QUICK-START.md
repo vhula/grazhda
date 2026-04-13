@@ -21,7 +21,7 @@ If you manage multiple repositories across projects, Grazhda automates the repet
 Grazhda installs itself from source and places all binaries in `~/.grazhda/bin/`.
 
 ```bash
-curl -s https://raw.githubusercontent.com/vhula/grazhda/refs/heads/main/grazhda.sh | bash
+curl -s https://raw.githubusercontent.com/vhula/grazhda/refs/heads/main/grazhda-install.sh | bash
 ```
 
 The installer will:

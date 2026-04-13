@@ -1675,7 +1675,7 @@ tidy:
 | Command | What it does |
 | :--- | :--- |
 | `just build-zgard` | Compiles `bin/zgard` (the production binary) |
-| `just build` | Builds `bin/zgard` + copies `grazhda.sh` bash scripts to `bin/` |
+| `just build` | Builds `bin/zgard` + copies `grazhda-install.sh` bash scripts to `bin/` |
 | `just test` | Runs `go test ./...` for both modules |
 | `just fmt` | Auto-formats all `.go` files with `gofmt` (the standard formatter) |
 | `just tidy` | `go mod tidy` for each module — removes unused dependencies and adds missing ones |

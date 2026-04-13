@@ -1,7 +1,7 @@
 {"version": 2, "width": 133, "height": 48, "timestamp": 1775587571, "env": {"SHELL": "/bin/bash", "TERM": "xterm-256color"}}
 [1.117615, "o", "\u001b[?2004h\u001b]0;jake@Zenbook: ~\u0007\u001b[01;32mjake@Zenbook\u001b[00m:\u001b[01;34m~\u001b[00m$ "]
-[4.415121, "o", "\u001b[7mcurl -s https://raw.githubusercontent.com/vhula/grazhda/refs/heads/main/grazhda.sh | bash\u001b[27m"]
-[4.945779, "o", "\r\u001b[C\u001b[C\u001b[C\u001b[C\u001b[C\u001b[C\u001b[C\u001b[C\u001b[C\u001b[C\u001b[C\u001b[C\u001b[C\u001b[C\u001b[C\u001b[Ccurl -s https://raw.githubusercontent.com/vhula/grazhda/refs/heads/main/grazhda.sh | bash"]
+[4.415121, "o", "\u001b[7mcurl -s https://raw.githubusercontent.com/vhula/grazhda/refs/heads/main/grazhda-install.sh | bash\u001b[27m"]
+[4.945779, "o", "\r\u001b[C\u001b[C\u001b[C\u001b[C\u001b[C\u001b[C\u001b[C\u001b[C\u001b[C\u001b[C\u001b[C\u001b[C\u001b[C\u001b[C\u001b[C\u001b[Ccurl -s https://raw.githubusercontent.com/vhula/grazhda/refs/heads/main/grazhda-install.sh | bash"]
 [6.272325, "o", "\r\n\u001b[?2004l\r"]
 [6.57968, "o", "\r\n\u001b[1;34m╔═══════════════════════════════════════╗\u001b[0m\r\n\u001b[1;34m║          Grazhda Installer            ║\u001b[0m\r\n"]
 [6.580109, "o", "\u001b[1;34m╚═══════════════════════════════════════╝\u001b[0m\r\n\r\n"]

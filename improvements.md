@@ -33,7 +33,7 @@ Apply this to `--name`, `--project-name`, `--repo-name`, and `--tag` across all 
 
 ## 2. Distribute as a Single Binary with No Dependencies
 
-**Current state:** ✅ Go compiles static binaries (`bin/zgard`, `bin/dukh`). `grazhda.sh` builds from source. The install script correctly handles `GRAZHDA_DIR`.
+**Current state:** ✅ Go compiles static binaries (`bin/zgard`, `bin/dukh`). `grazhda-install.sh` builds from source. The install script correctly handles `GRAZHDA_DIR`.
 
 **Improvement:**  
 The install script requires users to pre-install **five tools** (`bash`, `curl`, `git`, `just`, `protoc`, Go 1.26+). This is a high barrier for the "just try it out" audience.

@@ -54,7 +54,7 @@ Every failure is reported with the actual git error — no more hunting for `exi
 ### Install
 
 ```bash
-curl -s https://raw.githubusercontent.com/vhula/grazhda/refs/heads/main/grazhda.sh | bash
+curl -s https://raw.githubusercontent.com/vhula/grazhda/refs/heads/main/grazhda-install.sh | bash
 ```
 
 The installer builds `zgard` and `dukh` from source and places them in `$GRAZHDA_DIR/bin/`.

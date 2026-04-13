@@ -2,7 +2,7 @@
 stepsCompleted: [step-01-init, step-02-context, step-03-starter, step-04-decisions, step-05-patterns, step-06-structure, step-07-validation, step-08-complete]
 workflowStatus: complete
 completedAt: '2026-04-05T11:50:23Z'
-inputDocuments: [docs/prd.md, README.md, config.template.yaml, grazhda.sh, grazhda-init.sh, grazhda, Justfile]
+inputDocuments: [docs/prd.md, README.md, config.template.yaml, grazhda-install.sh, grazhda-init.sh, grazhda, Justfile]
 workflowType: 'architecture'
 project_name: 'Grazhda — zgard CLI'
 user_name: 'jake'
@@ -165,7 +165,7 @@ grazhda/                          # repo root (go.work)
 
 **Important Decisions (Shape Architecture):**
 - Parallel execution — `sync.WaitGroup` + goroutines (uncapped, Phase 1)
-- Distribution — source build only via Justfile + grazhda.sh installer
+- Distribution — source build only via Justfile + grazhda-install.sh installer
 
 **Deferred Decisions (Post-MVP):**
 - Worker pool with configurable concurrency (Phase 2 `--parallel` enhancement)
@@ -226,7 +226,7 @@ func (r *Reporter) ExitCode() int // 0 = all success; 1 = any failure
 ### Infrastructure & Distribution
 
 - **Dev build:** `just build-zgard` → `bin/zgard`
-- **User install:** `grazhda.sh` clones repo, runs `just build`, copies to `$GRAZHDA_DIR/bin/`
+- **User install:** `grazhda-install.sh` clones repo, runs `just build`, copies to `$GRAZHDA_DIR/bin/`
 - **Phase 1:** source-build only — no pre-built binaries or GitHub Releases
 
 ## Implementation Patterns & Consistency Rules
@@ -563,7 +563,7 @@ No global state. No package-level variables. All dependencies are injected.
 - **Build:** `just build-zgard` → compiles `zgard/` → outputs `bin/zgard`
 - **Test:** `just test` → `go test ./...` across `cmd/`, `internal/`, `zgard/`
 - **Format/Tidy:** `just fmt` + `just tidy` → runs per-module
-- **Install:** `grazhda.sh` → clone → `just build` → copy `bin/zgard` to `$GRAZHDA_DIR/bin/`
+- **Install:** `grazhda-install.sh` → clone → `just build` → copy `bin/zgard` to `$GRAZHDA_DIR/bin/`
 
 ## Architecture Validation Results
 
