@@ -57,41 +57,58 @@ func (inst *Installer) installOne(ctx context.Context, pkg Package) error {
 	}
 
 	runner := newRunner(inst.grazhdaDir, pkg, inst.out, inst.errOut)
+	envPath := EnvPath(inst.grazhdaDir)
 
-	phases := []struct {
-		label  string
-		script string
-	}{
-		{"pre-install", pkg.PreInstall},
-		{"install", pkg.Install},
-		{"post-install", pkg.PostInstall},
+	// Write pre-install env block and source the env file so the install
+	// script sees the exported variables.
+	if pkg.PreInstallEnv != "" {
+		if err := UpsertBlock(envPath, pkg.Name+":pre", pkg.PreInstallEnv); err != nil {
+			return fmt.Errorf("write pre-install-env block for %q: %w", pkg.Name, err)
+		}
+		fmt.Fprintf(inst.out, "    %s wrote pre-install-env block to %s\n", dimArrow(), envPath)
+		if err := runner.RunPhase(ctx, "source env", sourceEnvScript()); err != nil {
+			return fmt.Errorf("package %q source env after pre-install-env: %w", pkg.Name, err)
+		}
+		fmt.Fprintf(inst.out, "    %s sourced %s\n", dimArrow(), envPath)
 	}
 
-	for _, phase := range phases {
-		if phase.script == "" {
-			continue
-		}
-		spin := NewSpinner(inst.errOut, fmt.Sprintf("[%s] running…", phase.label))
-		err := runner.RunPhase(ctx, phase.label, phase.script)
+	// Run the install script. Always prepend a source of .grazhda.env so any
+	// variables written by pre_install_env are available to the script.
+	if pkg.Install != "" {
+		script := sourceEnvScript() + "\n" + pkg.Install
+		spin := NewSpinner(inst.errOut, "[install] running…")
+		err := runner.RunPhase(ctx, "install", script)
 		if err != nil {
-			spin.Stop(clr.Red("✗"), fmt.Sprintf("[%s] failed", phase.label))
-			return fmt.Errorf("package %q %s: %w", pkg.Name, phase.label, err)
+			spin.Stop(clr.Red("✗"), "[install] failed")
+			return fmt.Errorf("package %q install: %w", pkg.Name, err)
 		}
-		spin.Stop(clr.Green("✓"), fmt.Sprintf("[%s] done", phase.label))
+		spin.Stop(clr.Green("✓"), "[install] done")
 	}
 
-	// Write env block if defined.
-	if pkg.Env != "" {
-		envPath := EnvPath(inst.grazhdaDir)
-		if err := UpsertBlock(envPath, pkg.Name, pkg.Env); err != nil {
-			return fmt.Errorf("write env block for %q: %w", pkg.Name, err)
+	// Write post-install env block and source the env file so subsequent
+	// packages see the exported variables.
+	if pkg.PostInstallEnv != "" {
+		if err := UpsertBlock(envPath, pkg.Name+":post", pkg.PostInstallEnv); err != nil {
+			return fmt.Errorf("write post-install-env block for %q: %w", pkg.Name, err)
 		}
-		fmt.Fprintf(inst.out, "    %s wrote env block to %s\n", dimArrow(), envPath)
+		fmt.Fprintf(inst.out, "    %s wrote post-install-env block to %s\n", dimArrow(), envPath)
+		if err := runner.RunPhase(ctx, "source env", sourceEnvScript()); err != nil {
+			return fmt.Errorf("package %q source env after post-install-env: %w", pkg.Name, err)
+		}
+		fmt.Fprintf(inst.out, "    %s sourced %s\n", dimArrow(), envPath)
 	}
 
 	fmt.Fprintf(inst.out, "  %s %s installed\n",
 		clr.Green("✓"), clr.Green(label))
 	return nil
+}
+
+// sourceEnvScript returns a bash snippet that sources .grazhda.env when present.
+// It is prepended to the install script so pre_install_env variables are
+// available, and also run as a standalone phase after each env block write to
+// provide visible confirmation that the file was sourced.
+func sourceEnvScript() string {
+	return `[ -f "$GRAZHDA_DIR/.grazhda.env" ] && source "$GRAZHDA_DIR/.grazhda.env" || true`
 }
 
 func dimArrow() string { return "→" }

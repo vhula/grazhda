@@ -40,6 +40,15 @@ After installation, shell environment variables are written into
 **` + "`$GRAZHDA_DIR/.grazhda.env`" + `** inside idempotent named blocks so they are
 available in every new shell session.
 
+Each package supports two env blocks:
+
+- **` + "`pre_install_env`" + `** — written before the install script runs, then
+  ` + "`$GRAZHDA_DIR/.grazhda.env`" + ` is sourced so the install script sees the
+  exported variables (e.g. ` + "`SDKMAN_DIR`" + ` before installing via sdkman).
+- **` + "`post_install_env`" + `** — written after the install script succeeds, then
+  ` + "`$GRAZHDA_DIR/.grazhda.env`" + ` is sourced so subsequent packages see the
+  exported variables.
+
 ## Subcommands
 
 | Command                    | Description                                       |

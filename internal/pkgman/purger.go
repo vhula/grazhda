@@ -68,12 +68,14 @@ func (p *Purger) purgeOne(ctx context.Context, pkg Package) error {
 		fmt.Fprintf(p.out, "    %s removed %s\n", dimArrow(), dir)
 	}
 
-	// Excise env block from .grazhda.env.
+	// Excise both env blocks from .grazhda.env.
 	envPath := EnvPath(p.grazhdaDir)
-	if removed, err := removeBlockIfPresent(envPath, pkg.Name); err != nil {
-		return fmt.Errorf("remove env block for %q: %w", pkg.Name, err)
-	} else if removed {
-		fmt.Fprintf(p.out, "    %s removed env block from %s\n", dimArrow(), envPath)
+	for _, blockName := range []string{pkg.Name + ":pre", pkg.Name + ":post"} {
+		if removed, err := removeBlockIfPresent(envPath, blockName); err != nil {
+			return fmt.Errorf("remove env block %q for package %q: %w", blockName, pkg.Name, err)
+		} else if removed {
+			fmt.Fprintf(p.out, "    %s removed env block %q from %s\n", dimArrow(), blockName, envPath)
+		}
 	}
 
 	fmt.Fprintf(p.out, "  %s %s purged\n",

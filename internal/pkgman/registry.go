@@ -40,18 +40,18 @@ type Package struct {
 	// DependsOn lists package names that must be installed before this one.
 	DependsOn []string `yaml:"depends_on,omitempty"`
 
-	// PreInstall runs before the main install script (setup, assertions, exports).
-	PreInstall string `yaml:"pre_install,omitempty"`
+	// PreInstallEnv holds shell statements written into .grazhda.env (inside a
+	// named ":pre" block) before the install script runs. After writing, the env
+	// file is sourced so the install script sees the exported variables.
+	PreInstallEnv string `yaml:"pre_install_env,omitempty"`
 
 	// Install is the primary installation script.
 	Install string `yaml:"install,omitempty"`
 
-	// PostInstall runs after a successful install (sourcing init files, PATH fixes).
-	PostInstall string `yaml:"post_install,omitempty"`
-
-	// Env holds shell statements written into .grazhda.env inside a named block
-	// so the tool is available in every new shell session after install.
-	Env string `yaml:"env,omitempty"`
+	// PostInstallEnv holds shell statements written into .grazhda.env (inside a
+	// named ":post" block) after a successful install. After writing, the env
+	// file is sourced so subsequent packages see the exported variables.
+	PostInstallEnv string `yaml:"post_install_env,omitempty"`
 
 	// Purge is an optional script executed during `zgard pkg purge` before the
 	// package directory is removed from disk.
