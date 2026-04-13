@@ -199,6 +199,16 @@ cmd_upgrade() {
     chmod +x "$BIN_DIR/zgard" "$BIN_DIR/dukh" "$BIN_DIR/grazhda" "$BIN_DIR/grazhda-init.sh"
 
     verbose "Binaries installed to: $BIN_DIR"
+
+    verbose "Updating package registry..."
+    local pkgs_src="$SOURCES_DIR/.grazhda.pkgs.yaml"
+    local pkgs_dst="$GRAZHDA_DIR/.grazhda.pkgs.yaml"
+    if [ -f "$pkgs_src" ]; then
+        cp "$pkgs_src" "$pkgs_dst"
+        success "Package registry updated: $pkgs_dst"
+    else
+        warn "Package registry not found in sources, skipping: $pkgs_src"
+    fi
     echo ""
     info "╔═══════════════════════════════════════╗"
     info "║         Upgrade Successful!           ║"

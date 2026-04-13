@@ -182,12 +182,6 @@ create_config() {
 copy_pkgs_registry() {
     local pkgs_file="$GRAZHDA_DIR/.grazhda.pkgs.yaml"
 
-    if [ -f "$pkgs_file" ]; then
-        echo -e "${YELLOW}⚠ Package registry already exists: $pkgs_file${NC}"
-        _log "Package registry already exists, skipping: $pkgs_file"
-        return
-    fi
-
     echo -e "${BLUE}Copying package registry...${NC}"
     _log "=== Copying package registry: $pkgs_file ==="
 
