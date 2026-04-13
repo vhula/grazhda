@@ -2418,6 +2418,28 @@ grazhda config --edit
 
 **Why `exec`?** Using `exec` instead of just running the editor command means the shell process is replaced by the editor. Signals (Ctrl+C, window resize) go directly to the editor, not to a wrapper shell. The shell's return code is the editor's return code.
 
+### `grazhda uninstall` — How It Works
+
+```bash
+grazhda uninstall
+```
+
+1. Prints a warning banner and prompts `Are you sure? (y/n)`; exits 0 on non-`y`
+2. Stops `dukh` gracefully via `stop_dukh_if_running` (same helper as `upgrade`)
+3. Detects `~/.bashrc.user` or `~/.bashrc` (same logic as the installer)
+4. Removes lines matching `grazhda-init\.sh` and `export GRAZHDA_DIR=` using `grep -v` into a temp file, then copies back
+5. Runs `find $GRAZHDA_DIR -mindepth 1 -maxdepth 1 ! -name 'config.yaml' -exec rm -rf {} +` — deletes all top-level entries inside `$GRAZHDA_DIR` except `config.yaml`
+
+**Why keep `config.yaml`?** The user's workspace layout is non-trivial to recreate. Preserving it means `grazhda-install.sh` can be re-run and immediately pick up the existing configuration without any manual editing.
+
+### `grazhda purge` — How It Works
+
+```bash
+grazhda purge
+```
+
+Same flow as `uninstall`, but the final step is `rm -rf "${GRAZHDA_DIR:?}"` — the entire directory is removed, including `config.yaml`. Intended for a clean slate when Grazhda is no longer needed.
+
 ### YAML Parsing in Bash
 
 A minimal helper extracts flat top-level scalar keys from YAML:

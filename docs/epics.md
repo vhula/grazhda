@@ -956,6 +956,46 @@ So that it behaves consistently with `ws init` for targeting, output, exit codes
 
 ---
 
+## Epic G3 — grazhda uninstall and purge
+
+**Goal:** Allow users to cleanly remove Grazhda from their system, with the choice to preserve their workspace configuration (`uninstall`) or wipe everything (`purge`).
+
+**Acceptance Criteria:**
+- `grazhda uninstall` prompts for confirmation, cleans up the shell profile, and removes all `$GRAZHDA_DIR` contents except `config.yaml`.
+- `grazhda purge` prompts for confirmation, cleans up the shell profile, and deletes `$GRAZHDA_DIR` entirely.
+- Both commands stop `dukh` gracefully if it is running before removing files.
+- Both commands cancel cleanly (exit 0, no changes) if the user does not confirm.
+
+### Story G3.1 — Implement `grazhda uninstall` command
+
+**As a** developer
+**I want to** run `grazhda uninstall`
+**So that** Grazhda is removed from my system but my workspace configuration is preserved for a future reinstall.
+
+**Given** `grazhda uninstall` is run and the user confirms with `y`
+**When** the command executes
+**Then** dukh is stopped if running, init lines are removed from the shell profile, all contents of `$GRAZHDA_DIR` except `config.yaml` are deleted, and a success message is printed
+
+**Given** `grazhda uninstall` is run and the user enters anything other than `y`/`Y`
+**When** the confirmation prompt is answered
+**Then** the command exits 0 with message `Uninstall cancelled.` and no files are modified
+
+### Story G3.2 — Implement `grazhda purge` command
+
+**As a** developer
+**I want to** run `grazhda purge`
+**So that** Grazhda is completely removed from my system, including my configuration.
+
+**Given** `grazhda purge` is run and the user confirms with `y`
+**When** the command executes
+**Then** dukh is stopped if running, init lines are removed from the shell profile, and `$GRAZHDA_DIR` is deleted entirely (including `config.yaml`)
+
+**Given** `grazhda purge` is run and the user enters anything other than `y`/`Y`
+**When** the confirmation prompt is answered
+**Then** the command exits 0 with message `Purge cancelled.` and no files are modified
+
+---
+
 ## Epic X — Cross-Repository Operations
 
 **Goal:** Extend `zgard` with fan-out commands that execute actions across all repositories in a workspace in a single invocation: `ws exec` (arbitrary shell), `ws stash`, and `ws checkout`.

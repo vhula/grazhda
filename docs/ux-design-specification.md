@@ -810,6 +810,80 @@ This is particularly useful when the user has not set `editor:` in their config 
 
 ---
 
+### `grazhda uninstall`
+
+#### Behaviour
+
+Removes all Grazhda files while preserving `config.yaml`, so the user can reinstall without losing their workspace configuration.
+
+```
+╔═══════════════════════════════════════╗
+║        Grazhda Uninstaller            ║
+╚═══════════════════════════════════════╝
+
+⚠ This will remove all Grazhda files from /home/user/.grazhda (keeping config.yaml)
+⚠ and remove the Grazhda init lines from your shell profile.
+
+Are you sure you want to uninstall Grazhda? (y/n) y
+
+Removing Grazhda init lines from /home/user/.bashrc...
+✓ Removed Grazhda init lines from /home/user/.bashrc
+Removing Grazhda files from /home/user/.grazhda (keeping config.yaml)...
+✓ Removed Grazhda files (config.yaml preserved at /home/user/.grazhda/config.yaml)
+
+✓ Grazhda has been uninstalled.
+  Your config.yaml has been preserved. Run grazhda-install.sh to reinstall.
+⚠ Open a new terminal or re-source your shell profile for the changes to take effect.
+```
+
+Entering anything other than `y`/`Y` cancels with no changes made.
+
+#### Error States
+
+| Condition | Output | Exit Code |
+|---|---|---|
+| User enters anything other than `y`/`Y` | `Uninstall cancelled.` | 0 |
+| `$GRAZHDA_DIR` does not exist | `⚠ Directory not found: …` | 0 |
+
+---
+
+### `grazhda purge`
+
+#### Behaviour
+
+Completely removes Grazhda, including `config.yaml`. Intended for a clean slate when the user no longer wants Grazhda at all.
+
+```
+╔═══════════════════════════════════════╗
+║          Grazhda Purge                ║
+╚═══════════════════════════════════════╝
+
+⚠ This will permanently delete /home/user/.grazhda entirely,
+⚠ including config.yaml, and remove the Grazhda init lines
+⚠ from your shell profile.
+
+Are you sure you want to completely purge Grazhda? (y/n) y
+
+Removing Grazhda init lines from /home/user/.bashrc...
+✓ Removed Grazhda init lines from /home/user/.bashrc
+Deleting /home/user/.grazhda...
+✓ Deleted /home/user/.grazhda
+
+✓ Grazhda has been completely purged.
+⚠ Open a new terminal or re-source your shell profile for the changes to take effect.
+```
+
+Entering anything other than `y`/`Y` cancels with no changes made.
+
+#### Error States
+
+| Condition | Output | Exit Code |
+|---|---|---|
+| User enters anything other than `y`/`Y` | `Purge cancelled.` | 0 |
+| `$GRAZHDA_DIR` does not exist | `⚠ Directory not found: …` | 0 |
+
+---
+
 ### `grazhda help` / Unknown Command
 
 ```
@@ -819,6 +893,8 @@ Usage: grazhda <command> [options]
 
 Commands:
   upgrade          Pull latest sources and rebuild all binaries
+  uninstall        Remove Grazhda files, keep config.yaml (prompts for confirmation)
+  purge            Remove Grazhda completely including config.yaml (prompts for confirmation)
   config --edit    Open config.yaml in the configured editor
   help             Show this help message
 

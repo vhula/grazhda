@@ -50,6 +50,34 @@ Editor resolution order:
 3. `$EDITOR` environment variable
 4. `vi` (fallback)
 
+### `grazhda uninstall`
+Remove all Grazhda files while preserving `config.yaml`. Prompts for confirmation.
+
+```bash
+grazhda uninstall
+```
+
+What it does:
+1. Stops `dukh` gracefully if it is currently running
+2. Removes the `export GRAZHDA_DIR` and `grazhda-init.sh` source lines from `~/.bashrc.user` (or `~/.bashrc`)
+3. Deletes everything inside `$GRAZHDA_DIR` **except** `config.yaml`
+
+> **Note:** `config.yaml` is intentionally kept so that reinstalling (`grazhda-install.sh`) can reuse your existing workspace configuration.
+
+### `grazhda purge`
+Completely remove Grazhda, including `config.yaml`. Prompts for confirmation.
+
+```bash
+grazhda purge
+```
+
+What it does:
+1. Stops `dukh` gracefully if it is currently running
+2. Removes the `export GRAZHDA_DIR` and `grazhda-init.sh` source lines from `~/.bashrc.user` (or `~/.bashrc`)
+3. Deletes `$GRAZHDA_DIR` entirely (including `config.yaml`)
+
+> **Warning:** This is irreversible. Use `grazhda uninstall` if you want to keep your configuration.
+
 ---
 
 ## `zgard` — Workspace CLI

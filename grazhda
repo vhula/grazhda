@@ -84,7 +84,8 @@ usage() {
     echo ""
     echo "Commands:"
     echo "  upgrade          Pull latest sources and rebuild all binaries"
-    echo "  uninstall        Remove Grazhda completely (prompts for confirmation)"
+    echo "  uninstall        Remove Grazhda files, keep config.yaml (prompts for confirmation)"
+    echo "  purge            Remove Grazhda completely including config.yaml (prompts for confirmation)"
     echo "  config --edit    Open config.yaml in the configured editor"
     echo "  help             Show this help message"
     echo ""
@@ -214,13 +215,75 @@ cmd_uninstall() {
     warn "║        Grazhda Uninstaller            ║"
     warn "╚═══════════════════════════════════════╝"
     echo ""
-    warn "This will permanently delete $GRAZHDA_DIR"
+    warn "This will remove all Grazhda files from $GRAZHDA_DIR (keeping config.yaml)"
     warn "and remove the Grazhda init lines from your shell profile."
     echo ""
     read -r -p "Are you sure you want to uninstall Grazhda? (y/n) " </dev/tty
     echo ""
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
         info "Uninstall cancelled."
+        exit 0
+    fi
+
+    # Stop dukh gracefully before deleting its binary.
+    if [ -f "$GRAZHDA_DIR/run/dukh.pid" ]; then
+        info "Stopping dukh..."
+        stop_dukh_if_running
+    fi
+
+    # Determine which shell profile the installer wrote to.
+    local bashrc_path
+    if [[ -f "${HOME}/.bashrc.user" ]]; then
+        bashrc_path="${HOME}/.bashrc.user"
+    else
+        bashrc_path="${HOME}/.bashrc"
+    fi
+
+    # Remove grazhda-specific lines from the shell profile.
+    if grep -q 'grazhda-init\.sh' "$bashrc_path" 2>/dev/null; then
+        info "Removing Grazhda init lines from $bashrc_path..."
+        local tmp
+        tmp=$(mktemp)
+        grep -v 'grazhda-init\.sh' "$bashrc_path" \
+            | grep -v 'export GRAZHDA_DIR=' > "$tmp"
+        cp "$tmp" "$bashrc_path"
+        rm -f "$tmp"
+        success "Removed Grazhda init lines from $bashrc_path"
+    else
+        info "No Grazhda init lines found in $bashrc_path."
+    fi
+
+    # Delete everything inside GRAZHDA_DIR except config.yaml.
+    if [ -d "$GRAZHDA_DIR" ]; then
+        info "Removing Grazhda files from $GRAZHDA_DIR (keeping config.yaml)..."
+        find "${GRAZHDA_DIR:?}" -mindepth 1 -maxdepth 1 ! -name 'config.yaml' -exec rm -rf {} +
+        success "Removed Grazhda files (config.yaml preserved at $GRAZHDA_DIR/config.yaml)"
+    else
+        warn "Directory not found: $GRAZHDA_DIR"
+    fi
+
+    echo ""
+    success "Grazhda has been uninstalled."
+    info  "Your config.yaml has been preserved. Run grazhda-install.sh to reinstall."
+    warn  "Open a new terminal or re-source your shell profile for the changes to take effect."
+    echo ""
+}
+
+# grazhda purge — completely remove GRAZHDA_DIR and all shell-profile lines.
+cmd_purge() {
+    echo ""
+    warn "╔═══════════════════════════════════════╗"
+    warn "║          Grazhda Purge                ║"
+    warn "╚═══════════════════════════════════════╝"
+    echo ""
+    warn "This will permanently delete $GRAZHDA_DIR entirely,"
+    warn "including config.yaml, and remove the Grazhda init lines"
+    warn "from your shell profile."
+    echo ""
+    read -r -p "Are you sure you want to completely purge Grazhda? (y/n) " </dev/tty
+    echo ""
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        info "Purge cancelled."
         exit 0
     fi
 
@@ -262,7 +325,7 @@ cmd_uninstall() {
     fi
 
     echo ""
-    success "Grazhda has been uninstalled."
+    success "Grazhda has been completely purged."
     warn "Open a new terminal or re-source your shell profile for the changes to take effect."
     echo ""
 }
@@ -331,6 +394,10 @@ main() {
         uninstall)
             shift
             cmd_uninstall "$@"
+            ;;
+        purge)
+            shift
+            cmd_purge "$@"
             ;;
         config)
             shift

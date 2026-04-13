@@ -499,6 +499,20 @@ The `grazhda` management script provides self-management capabilities for the Gr
 
 - **FR-G13:** `config.template.yaml` must include a top-level `editor:` field (default: `vim`) with a comment explaining the resolution order.
 
+#### Uninstall
+
+- **FR-G14:** `grazhda uninstall` must prompt the user for confirmation before making any changes. Entering anything other than `y`/`Y` must cancel without side effects.
+- **FR-G15:** `grazhda uninstall` must stop `dukh` gracefully (same logic as upgrade) before removing any files.
+- **FR-G16:** `grazhda uninstall` must remove the `export GRAZHDA_DIR=` and `grazhda-init.sh` source lines from `~/.bashrc.user` (if it exists) or `~/.bashrc`.
+- **FR-G17:** `grazhda uninstall` must delete all contents of `$GRAZHDA_DIR` **except** `config.yaml`, preserving the user's workspace configuration for potential reinstall.
+
+#### Purge
+
+- **FR-G18:** `grazhda purge` must prompt the user for confirmation before making any changes. Entering anything other than `y`/`Y` must cancel without side effects.
+- **FR-G19:** `grazhda purge` must stop `dukh` gracefully (same logic as upgrade) before removing any files.
+- **FR-G20:** `grazhda purge` must remove the `export GRAZHDA_DIR=` and `grazhda-init.sh` source lines from `~/.bashrc.user` (if it exists) or `~/.bashrc`.
+- **FR-G21:** `grazhda purge` must delete `$GRAZHDA_DIR` entirely, including `config.yaml`.
+
 ### Non-Functional Requirements
 
 - **NFR-G1:** `grazhda upgrade` must be idempotent — running it multiple times must produce the same installed state.
@@ -511,6 +525,8 @@ The `grazhda` management script provides self-management capabilities for the Gr
 - `grazhda config --edit` opens `config.yaml` in the editor specified in the config, falling back gracefully through the resolution chain.
 - Running `grazhda upgrade` twice in a row produces no errors on the second run.
 - The `editor:` field is present in every new installation's `config.yaml` via the template.
+- `grazhda uninstall` removes all files from `$GRAZHDA_DIR` except `config.yaml` and cleans up the shell profile; cancels cleanly on non-`y` input.
+- `grazhda purge` removes `$GRAZHDA_DIR` entirely and cleans up the shell profile; cancels cleanly on non-`y` input.
 
 ---
 
