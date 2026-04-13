@@ -58,6 +58,21 @@ All commands live under ` + "`zgard ws`" + `:
 
 Run ` + "`zgard ws <command> --help`" + ` for full documentation of any subcommand.
 
+## Package management
+
+Use **zgard pkg** to install and manage developer tools (SDKs, CLIs, runtimes)
+inside ` + "`$GRAZHDA_DIR/pkgs/`" + ` — isolated from the host OS. Packages are declared
+in ` + "`$GRAZHDA_DIR/.grazhda.pkgs.yaml`" + ` and their shell environment is written into
+` + "`$GRAZHDA_DIR/.grazhda.env`" + `. Dependencies are resolved automatically in
+topological order.
+
+| Command          | Description                                               |
+|------------------|-----------------------------------------------------------|
+| ` + "`pkg install`" + `   | Install one or all packages (deps resolved automatically) |
+| ` + "`pkg purge`" + `     | Remove packages and excise their env blocks               |
+
+Run ` + "`zgard pkg <command> --help`" + ` for full documentation.
+
 ## Configuration commands
 
 Use **zgard config** to inspect, validate, and query the configuration file:
