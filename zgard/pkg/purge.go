@@ -11,6 +11,7 @@ import (
 func newPurgeCmd() *cobra.Command {
 	var pkgName string
 	var all bool
+	var verbose bool
 
 	cmd := &cobra.Command{
 		Use:   "purge",
@@ -48,7 +49,7 @@ removed before their dependencies. For each package:
 				return fmt.Errorf("load registry: %w", err)
 			}
 
-			purger := pkgman.NewPurger(dir, reg, os.Stdout, os.Stderr)
+			purger := pkgman.NewPurger(dir, reg, os.Stdout, os.Stderr, verbose)
 
 			var names []string
 			if pkgName != "" {
@@ -64,5 +65,6 @@ removed before their dependencies. For each package:
 
 	cmd.Flags().StringVarP(&pkgName, "name", "n", "", "Name of the package to purge")
 	cmd.Flags().BoolVar(&all, "all", false, "Purge all packages listed in the registry")
+	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Stream script output to the terminal")
 	return cmd
 }

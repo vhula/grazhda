@@ -11,6 +11,7 @@ import (
 func newInstallCmd() *cobra.Command {
 	var pkgName string
 	var all bool
+	var verbose bool
 
 	cmd := &cobra.Command{
 		Use:   "install",
@@ -18,21 +19,25 @@ func newInstallCmd() *cobra.Command {
 		Long: `Install packages declared in ` + "`$GRAZHDA_DIR/.grazhda.pkgs.yaml`" + `.
 
 Dependencies are resolved automatically via topological sort (Kahn's algorithm).
-Each package runs through three lifecycle phases in order:
+Each package runs through the following lifecycle:
 
-  1. **pre-install** — environment setup and assertions
-  2. **install**     — primary download / compilation
-  3. **post-install** — init sourcing and PATH fixups
+  1. pre_install_env block is written to ` + "`$GRAZHDA_DIR/.grazhda.env`" + ` (if declared)
+     and the env file is sourced so the install script sees the exported vars.
+  2. **install** script runs (with env file pre-sourced).
+  3. post_install_env block is written to ` + "`$GRAZHDA_DIR/.grazhda.env`" + ` (if declared)
+     and the env file is sourced again for subsequent packages.
 
-After a successful install the package's ` + "`env`" + ` block (if declared) is
-written into ` + "`$GRAZHDA_DIR/.grazhda.env`" + ` between named markers so your shell
-picks it up on next login.`,
+By default, script output is suppressed and a spinner indicates progress.
+Pass --verbose to stream raw script stdout/stderr to the terminal.`,
 
 		Example: `  # Install a single package (deps resolved automatically)
   zgard pkg install --name jdk
 
   # Install all packages in dependency order
-  zgard pkg install --all`,
+  zgard pkg install --all
+
+  # Install all packages with full script output
+  zgard pkg install --all --verbose`,
 
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !all && pkgName == "" {
@@ -52,7 +57,7 @@ picks it up on next login.`,
 				return fmt.Errorf("load registry: %w", err)
 			}
 
-			installer := pkgman.NewInstaller(dir, reg, os.Stdout, os.Stderr)
+			installer := pkgman.NewInstaller(dir, reg, os.Stdout, os.Stderr, verbose)
 
 			var names []string
 			if pkgName != "" {
@@ -68,5 +73,6 @@ picks it up on next login.`,
 
 	cmd.Flags().StringVarP(&pkgName, "name", "n", "", "Name of the package to install")
 	cmd.Flags().BoolVar(&all, "all", false, "Install all packages in the registry")
+	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Stream script output to the terminal")
 	return cmd
 }

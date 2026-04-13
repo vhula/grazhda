@@ -15,11 +15,14 @@ type Installer struct {
 	reg        *Registry
 	out        io.Writer
 	errOut     io.Writer
+	verbose    bool
 }
 
 // NewInstaller returns a new Installer for the given GRAZHDA_DIR.
-func NewInstaller(grazhdaDir string, reg *Registry, out, errOut io.Writer) *Installer {
-	return &Installer{grazhdaDir: grazhdaDir, reg: reg, out: out, errOut: errOut}
+// When verbose is true, script stdout/stderr is streamed to out/errOut.
+// When false, script output is suppressed and a spinner is shown instead.
+func NewInstaller(grazhdaDir string, reg *Registry, out, errOut io.Writer, verbose bool) *Installer {
+	return &Installer{grazhdaDir: grazhdaDir, reg: reg, out: out, errOut: errOut, verbose: verbose}
 }
 
 // Install installs the named packages and their transitive dependencies in
@@ -56,7 +59,7 @@ func (inst *Installer) installOne(ctx context.Context, pkg Package) error {
 		fmt.Fprintf(inst.out, "    %s created %s\n", dimArrow(), dir)
 	}
 
-	runner := newRunner(inst.grazhdaDir, pkg, inst.out, inst.errOut)
+	runner := newRunner(inst.grazhdaDir, pkg, inst.runnerOut(), inst.runnerErrOut())
 	envPath := EnvPath(inst.grazhdaDir)
 
 	// Write pre-install env block and source the env file so the install
@@ -76,13 +79,21 @@ func (inst *Installer) installOne(ctx context.Context, pkg Package) error {
 	// variables written by pre_install_env are available to the script.
 	if pkg.Install != "" {
 		script := sourceEnvScript() + "\n" + pkg.Install
-		spin := NewSpinner(inst.errOut, "[install] running…")
+		var spin *Spinner
+		if !inst.verbose {
+			spin = NewSpinner(inst.errOut, "[install] running…")
+		}
 		err := runner.RunPhase(ctx, "install", script)
+		if !inst.verbose {
+			if err != nil {
+				spin.Stop(clr.Red("✗"), "[install] failed")
+			} else {
+				spin.Stop(clr.Green("✓"), "[install] done")
+			}
+		}
 		if err != nil {
-			spin.Stop(clr.Red("✗"), "[install] failed")
 			return fmt.Errorf("package %q install: %w", pkg.Name, err)
 		}
-		spin.Stop(clr.Green("✓"), "[install] done")
 	}
 
 	// Write post-install env block and source the env file so subsequent
@@ -109,6 +120,23 @@ func (inst *Installer) installOne(ctx context.Context, pkg Package) error {
 // provide visible confirmation that the file was sourced.
 func sourceEnvScript() string {
 	return `[ -f "$GRAZHDA_DIR/.grazhda.env" ] && source "$GRAZHDA_DIR/.grazhda.env" || true`
+}
+
+// runnerOut returns the writer the runner should use for script stdout.
+// When not verbose, output is discarded and the spinner provides feedback.
+func (inst *Installer) runnerOut() io.Writer {
+	if inst.verbose {
+		return inst.out
+	}
+	return io.Discard
+}
+
+// runnerErrOut returns the writer the runner should use for script stderr.
+func (inst *Installer) runnerErrOut() io.Writer {
+	if inst.verbose {
+		return inst.errOut
+	}
+	return io.Discard
 }
 
 func dimArrow() string { return "→" }
