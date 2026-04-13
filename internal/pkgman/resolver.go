@@ -32,8 +32,9 @@ func Resolve(reg *Registry, names []string) ([]Package, error) {
 			inDegree[name] = 0
 		}
 		for _, dep := range selected[name].DependsOn {
+			depName, _ := parseDep(dep)
 			inDegree[name]++
-			deps[dep] = append(deps[dep], name)
+			deps[depName] = append(deps[depName], name)
 		}
 	}
 
@@ -93,7 +94,12 @@ func ResolveReverse(reg *Registry, names []string) ([]Package, error) {
 }
 
 // closure computes the transitive closure of the requested package names,
-// verifying that every referenced package exists in the registry.
+// verifying that every referenced package exists in the registry and that any
+// version constraint specified in a depends_on entry is satisfied.
+//
+// depends_on entries may be plain package names ("sdkman") or versioned
+// references ("sdkman@1.2.3"). A versioned reference is satisfied only when
+// the registry package declares exactly that version.
 func closure(byName map[string]Package, names []string) (map[string]Package, error) {
 	// If no names given, select all.
 	seeds := names
@@ -111,21 +117,49 @@ func closure(byName map[string]Package, names []string) (map[string]Package, err
 		cur := stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
 
-		if _, seen := result[cur]; seen {
+		// cur may itself be a versioned ref (when a dep pushes a versioned name
+		// onto the stack); strip the version for the map key.
+		curName, _ := parseDep(cur)
+
+		if _, seen := result[curName]; seen {
 			continue
 		}
-		p, ok := byName[cur]
+		p, ok := byName[curName]
 		if !ok {
-			return nil, fmt.Errorf("unknown package %q referenced in dependency chain", cur)
+			return nil, fmt.Errorf("unknown package %q referenced in dependency chain", curName)
 		}
-		result[cur] = p
+		result[curName] = p
 		for _, dep := range p.DependsOn {
-			if _, seen := result[dep]; !seen {
-				stack = append(stack, dep)
+			depName, depVer := parseDep(dep)
+			if _, seen := result[depName]; !seen {
+				stack = append(stack, depName)
+			}
+			// Validate version constraint even when the dep is already in the result.
+			if depVer != "" {
+				depPkg, known := byName[depName]
+				if !known {
+					return nil, fmt.Errorf("unknown package %q referenced by %q", depName, curName)
+				}
+				if depPkg.Version != depVer {
+					return nil, fmt.Errorf(
+						"package %q requires %s@%s but registry has %s@%s",
+						curName, depName, depVer, depName, depPkg.Version,
+					)
+				}
 			}
 		}
 	}
 	return result, nil
+}
+
+// parseDep splits a depends_on entry into its package name and optional version.
+// "sdkman"        → ("sdkman", "")
+// "sdkman@1.2.3"  → ("sdkman", "1.2.3")
+func parseDep(s string) (name, version string) {
+	if idx := strings.Index(s, "@"); idx >= 0 {
+		return s[:idx], s[idx+1:]
+	}
+	return s, ""
 }
 
 // sortStrings sorts a string slice in place using insertion sort

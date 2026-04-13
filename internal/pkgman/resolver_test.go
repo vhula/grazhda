@@ -110,7 +110,45 @@ func TestResolve_SubsetExpandsDeps(t *testing.T) {
 	}
 }
 
-// ─── ResolveReverse ──────────────────────────────────────────────────────────
+func pkgV(name, version string, deps ...string) pkgman.Package {
+	return pkgman.Package{Name: name, Version: version, DependsOn: deps}
+}
+
+// ─── Versioned depends_on ────────────────────────────────────────────────────
+
+func TestResolve_VersionedDep_Satisfied(t *testing.T) {
+	// jdk depends on sdkman@1.2.3; sdkman is at 1.2.3 — should resolve.
+	r := reg(pkgV("sdkman", "1.2.3"), pkgV("jdk", "17", "sdkman@1.2.3"))
+	got, err := pkgman.Resolve(r, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	order := names(got)
+	if order[0] != "sdkman" || order[1] != "jdk" {
+		t.Fatalf("expected [sdkman jdk], got %v", order)
+	}
+}
+
+func TestResolve_VersionedDep_Mismatch(t *testing.T) {
+	// jdk requires sdkman@2.0.0 but registry has sdkman@1.2.3 — should error.
+	r := reg(pkgV("sdkman", "1.2.3"), pkgV("jdk", "17", "sdkman@2.0.0"))
+	_, err := pkgman.Resolve(r, nil)
+	if err == nil {
+		t.Fatal("expected version mismatch error, got nil")
+	}
+}
+
+func TestResolve_UnversionedDep_OnVersionedPkg(t *testing.T) {
+	// Unversioned dep on a package that has a version — should still resolve.
+	r := reg(pkgV("sdkman", "1.2.3"), pkgV("jdk", "17", "sdkman"))
+	got, err := pkgman.Resolve(r, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if names(got)[0] != "sdkman" {
+		t.Fatalf("expected sdkman first, got %v", names(got))
+	}
+}
 
 func TestResolveReverse_LinearChain(t *testing.T) {
 	r := reg(pkg("a", "b"), pkg("b", "c"), pkg("c"))
