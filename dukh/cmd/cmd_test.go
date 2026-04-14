@@ -87,3 +87,29 @@ func TestTryGetUptime_NoServer(t *testing.T) {
 		t.Fatalf("expected empty uptime without server, got %q", got)
 	}
 }
+
+func TestStopCmd_HasCorrectUse(t *testing.T) {
+	cmd := stopCmd()
+	if cmd.Use != "stop" {
+		t.Fatalf("stopCmd().Use = %q, want %q", cmd.Use, "stop")
+	}
+}
+
+func TestScanCmd_HasCorrectUse(t *testing.T) {
+	cmd := scanCmd()
+	if cmd.Use != "scan" {
+		t.Fatalf("scanCmd().Use = %q, want %q", cmd.Use, "scan")
+	}
+}
+
+func TestStatusCmd_HasCorrectUse(t *testing.T) {
+	cmd := statusCmd()
+	if cmd.Use != "status" {
+		t.Fatalf("statusCmd().Use = %q, want %q", cmd.Use, "status")
+	}
+}
+
+func TestErrsHelper(t *testing.T) {
+	// Verify printErr doesn't panic when called with a test error.
+	printErr("test error message")
+}

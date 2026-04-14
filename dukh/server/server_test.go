@@ -65,6 +65,45 @@ func TestMonitorLoadPeriodDefaultOnMissingConfig(t *testing.T) {
 	}
 }
 
+func TestNewServer(t *testing.T) {
+	logger := log.New(io.Discard)
+	m := NewMonitor("/unused", logger)
+	s := New(m, logger)
+	if s == nil {
+		t.Fatal("New returned nil")
+	}
+}
+
+func TestServerScanRPC(t *testing.T) {
+	logger := log.New(io.Discard)
+	m := NewMonitor("/unused", logger)
+	s := New(m, logger)
+
+	resp, err := s.Scan(context.Background(), &dukhpb.ScanRequest{})
+	if err != nil {
+		t.Fatalf("Scan RPC error: %v", err)
+	}
+	if resp.Message == "" {
+		t.Fatal("expected non-empty Scan response message")
+	}
+}
+
+func TestInitLogger(t *testing.T) {
+	dir := t.TempDir()
+	logger, cleanup, err := InitLogger(dir)
+	if err != nil {
+		t.Fatalf("InitLogger failed: %v", err)
+	}
+	defer cleanup()
+	if logger == nil {
+		t.Fatal("expected non-nil logger")
+	}
+	logDir := filepath.Join(dir, "logs")
+	if _, err := os.Stat(logDir); os.IsNotExist(err) {
+		t.Fatal("expected log directory to exist")
+	}
+}
+
 func TestServerStatusFromSnapshot(t *testing.T) {
 	logger := log.New(io.Discard)
 	m := NewMonitor("/unused", logger)
