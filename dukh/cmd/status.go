@@ -19,7 +19,36 @@ func statusCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "status",
 		Short: "Show dukh process status (running, PID, uptime)",
-		RunE:  runDukhStatus,
+		Long: `# dukh status
+
+Show whether the dukh daemon is currently running.
+
+## Output
+
+The command checks the PID file at ` + "`$GRAZHDA_DIR/run/dukh.pid`" + ` and
+verifies the process is alive. If reachable, it also queries the gRPC
+endpoint for uptime.
+
+| Symbol | Meaning                         |
+|--------|---------------------------------|
+| ` + "`●`" + `    | Daemon is running (green)       |
+| ` + "`○`" + `    | Daemon is not running (yellow)  |
+
+## Examples
+
+` + "```" + `
+$ dukh status
+●  dukh: running  (pid 48201, uptime: 2h 14m)
+` + "```" + `
+
+` + "```" + `
+$ dukh status
+○  dukh: not running
+` + "```" + `
+
+A stale PID file (process dead) is automatically cleaned up.
+`,
+		RunE: runDukhStatus,
 	}
 }
 

@@ -24,7 +24,35 @@ func startCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "start",
 		Short: "Start the dukh workspace monitor in the background",
-		RunE:  runStart,
+		Long: `# dukh start
+
+Launch the dukh health-monitor daemon as a detached background process.
+
+## How it works
+
+The command re-executes itself with the internal ` + "`DUKH_DAEMON=1`" + `
+environment variable, creating a fully independent process that survives
+terminal close. After launch it prints the daemon PID and exits.
+
+The daemon:
+- Reads ` + "`$GRAZHDA_DIR/config.yaml`" + ` to discover workspaces
+- Writes a PID file to ` + "`$GRAZHDA_DIR/run/dukh.pid`" + `
+- Opens a gRPC listener (default ` + "`:50051`" + `)
+- Scans all repositories on the configured interval
+
+## Prerequisites
+
+` + "`GRAZHDA_DIR`" + ` must be set before starting (typically done by
+` + "`grazhda-init.sh`" + `).
+
+## Example
+
+` + "```" + `
+$ dukh start
+✓ dukh started (pid 48201)
+` + "```" + `
+`,
+		RunE: runStart,
 	}
 }
 

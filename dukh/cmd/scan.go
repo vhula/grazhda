@@ -14,7 +14,26 @@ func scanCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "scan",
 		Short: "Trigger an immediate workspace rescan in dukh",
-		RunE:  runScan,
+		Long: `# dukh scan
+
+Trigger an immediate workspace rescan without waiting for the next
+scheduled interval.
+
+The command sends a gRPC request to the running daemon. The daemon
+re-reads ` + "`$GRAZHDA_DIR/config.yaml`" + `, walks every configured
+repository, and updates its health snapshot.
+
+Use this after adding new repositories to the config or when you want
+fresh results from ` + "`zgard ws status`" + `.
+
+## Example
+
+` + "```" + `
+$ dukh scan
+✓ workspace rescan triggered
+` + "```" + `
+`,
+		RunE: runScan,
 	}
 }
 

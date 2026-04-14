@@ -22,6 +22,39 @@ func TestCommandFactories(t *testing.T) {
 	}
 }
 
+func TestSubcommandsHaveLongDescriptions(t *testing.T) {
+	cmds := []struct {
+		name string
+		long string
+	}{
+		{"start", startCmd().Long},
+		{"stop", stopCmd().Long},
+		{"status", statusCmd().Long},
+		{"scan", scanCmd().Long},
+	}
+	for _, c := range cmds {
+		if c.long == "" {
+			t.Errorf("%s: expected non-empty Long description", c.name)
+		}
+	}
+}
+
+func TestRootHasLongAndVersion(t *testing.T) {
+	if rootCmd.Long == "" {
+		t.Error("root command should have a Long description")
+	}
+	if rootCmd.Version == "" {
+		t.Error("root command should have a Version")
+	}
+}
+
+func TestNoColorFlag(t *testing.T) {
+	f := rootCmd.PersistentFlags().Lookup("no-color")
+	if f == nil {
+		t.Fatal("--no-color flag not registered")
+	}
+}
+
 func TestReadPIDFile(t *testing.T) {
 	dir := t.TempDir()
 	pidPath := filepath.Join(dir, "run")

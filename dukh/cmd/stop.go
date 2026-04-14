@@ -14,7 +14,24 @@ func stopCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "stop",
 		Short: "Stop the running dukh workspace monitor",
-		RunE:  runStop,
+		Long: `# dukh stop
+
+Gracefully stop the running dukh daemon via a gRPC call.
+
+The daemon receives the stop request, finishes any in-flight scan, removes
+its PID file, and exits cleanly.
+
+## Example
+
+` + "```" + `
+$ dukh stop
+✓ dukh stopped
+` + "```" + `
+
+If the daemon is not running, the command prints an error and exits with a
+non-zero code.
+`,
+		RunE: runStop,
 	}
 }
 
