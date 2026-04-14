@@ -468,61 +468,140 @@ zgard config get install_dir       # e.g. "/home/alice/.grazhda"
 zgard config get workspaces.0.name # first workspace name
 ```
 
-### `zgard pkg` — Package Registry Manager
+### `zgard pkg` — Declarative Package Manager
 
-`zgard pkg` manages developer tools using two registries:
+`zgard pkg` installs and purges developer tools (SDKs, CLIs, runtimes) inside `$GRAZHDA_DIR/pkgs/` so they never contaminate the host OS.
 
-1. Global: `$GRAZHDA_DIR/.grazhda.pkgs.yaml` (managed by install/upgrade)
-2. Local: `$GRAZHDA_DIR/registry.pkgs.local.yaml` (user-managed)
+Packages come from two registries:
+
+1. **Global:** `$GRAZHDA_DIR/.grazhda.pkgs.yaml` (managed by install/upgrade)
+2. **Local:** `$GRAZHDA_DIR/registry.pkgs.local.yaml` (user-managed)
 
 For `pkg install` and `pkg purge`, both registries are merged. Local entries override global entries when both `name` and `version` match exactly.
 
+Dependencies are resolved automatically in topological order via a DAG engine, guaranteeing that every dependency is installed before its dependents.
+
+After installation, shell environment variables are written into `$GRAZHDA_DIR/.grazhda.env` inside idempotent named blocks so they are available in every new shell session. Each package supports two env blocks:
+
+- **`pre_install_env`** — written before the install script runs, then `$GRAZHDA_DIR/.grazhda.env` is sourced so the install script sees the exported variables (e.g. `SDKMAN_DIR` before installing via sdkman).
+- **`post_install_env`** — written after the install script succeeds, then `$GRAZHDA_DIR/.grazhda.env` is sourced so subsequent packages see the exported variables.
+
+| Subcommand       | Description                                          |
+|------------------|------------------------------------------------------|
+| `pkg install`    | Install packages from the registry                   |
+| `pkg purge`      | Remove packages and excise their env blocks          |
+| `pkg register`   | Interactively register a local package               |
+| `pkg unregister` | Remove one or all packages from the local registry   |
+
 #### `zgard pkg install`
 
-Install one package (`--name`) or all packages (`--all`) in dependency order.
+Install packages from the merged global + local registries in dependency order (Kahn's algorithm). Each package runs through the following lifecycle:
+
+1. `pre_install_env` block is written to `$GRAZHDA_DIR/.grazhda.env` (if declared) and the env file is sourced so the install script sees the exported vars.
+2. **install** script runs (with env file pre-sourced).
+3. `post_install_env` block is written to `$GRAZHDA_DIR/.grazhda.env` (if declared) and the env file is sourced again for subsequent packages.
+
+By default, script output is suppressed and a spinner indicates progress. Pass `--verbose` to stream raw script stdout/stderr to the terminal.
+
+**Flags:**
+
+| Flag | Short | Default | Description |
+|:-----|:------|:--------|:------------|
+| `--all` | | `false` | Install all packages in the registry (mutually exclusive with `--name`) |
+| `--name <ref>` | `-n` | | Package ref to install: `<name>` or `<name>@<version>` (mutually exclusive with `--all`) |
+| `--verbose` | `-v` | `false` | Stream script output to the terminal instead of showing a spinner |
+
+> **Note:** You must provide either `--name <ref>` or `--all`.
 
 ```bash
+# Install a single package (deps resolved automatically)
 zgard pkg install --name jdk
+
+# Install a single versioned package
 zgard pkg install --name jdk@17.0.8-tem
+
+# Install all packages in dependency order
 zgard pkg install --all
+
+# Install all packages with full script output
 zgard pkg install --all --verbose
 ```
 
 #### `zgard pkg purge`
 
-Purge one package (`--name`) or all packages (`--all`) in reverse dependency order.
+Remove installed packages and clean up their shell environment. Packages are purged in **reverse** topological order so dependents are always removed before their dependencies. For each package:
+
+1. The optional **purge** script runs (unregistering tool versions, etc.)
+2. The package directory `$GRAZHDA_DIR/pkgs/<name>` is deleted (if `pre_create_dir: true`).
+3. The named env block is excised from `$GRAZHDA_DIR/.grazhda.env`.
+
+**Flags:**
+
+| Flag | Short | Default | Description |
+|:-----|:------|:--------|:------------|
+| `--all` | | `false` | Purge all packages listed in the registry (mutually exclusive with `--name`) |
+| `--name <ref>` | `-n` | | Package ref to purge: `<name>` or `<name>@<version>` (mutually exclusive with `--all`) |
+| `--verbose` | `-v` | `false` | Stream script output to the terminal instead of showing a spinner |
+
+> **Note:** You must provide either `--name <ref>` or `--all`.
 
 ```bash
-zgard pkg purge --name jdk
+# Remove a single package (and its env block)
+zgard pkg purge --name sdkman
+
+# Remove a specific versioned package
 zgard pkg purge --name jdk@17.0.8-tem
+
+# Remove every installed package
 zgard pkg purge --all
+
+# Purge all with full script output
+zgard pkg purge --all --verbose
 ```
 
 #### `zgard pkg register`
 
-Interactively add or update a package in the local registry.
+Interactively create or update a package entry in `$GRAZHDA_DIR/registry.pkgs.local.yaml`. The prompt asks for all package fields used by install/purge flows, including env hooks and scripts. Existing packages are listed for `depends_on` selection.
+
+This command has no flags — all input is collected via interactive prompts.
 
 ```bash
 zgard pkg register
 ```
 
-Interactive prompts include:
-1. `name` (required)
-2. `version` (optional)
-3. `pre_create_dir` (y/N)
-4. `depends_on` selected from existing packages (global + local merged list)
-5. `pre_install_env` (multi-line)
-6. `install` script (multi-line)
-7. `post_install_env` (multi-line)
-8. `purge` script (multi-line)
+Interactive prompts:
+
+1. **Package name** (required)
+2. **Version** (optional)
+3. **Pre-create package directory?** (`y/N`)
+4. **depends_on** — selected from existing packages (global + local merged list, numbered selection)
+5. **pre_install_env** (multi-line, finish with empty line)
+6. **install** script (multi-line, finish with empty line)
+7. **post_install_env** (multi-line, finish with empty line)
+8. **purge** script (multi-line, finish with empty line)
 
 #### `zgard pkg unregister`
 
-Remove packages from the local registry.
+Remove one or more packages from the local registry (`$GRAZHDA_DIR/registry.pkgs.local.yaml`). This does **not** uninstall the package — use `zgard pkg purge` first if the package is currently installed.
+
+**Flags:**
+
+| Flag | Short | Default | Description |
+|:-----|:------|:--------|:------------|
+| `--name <name>` | | | Package name to remove (removes all versions unless `--version` is also given) |
+| `--version <version>` | | | Exact version for name+version removal (requires `--name`) |
+| `--all` | | `false` | Remove all local registry entries (mutually exclusive with `--name`/`--version`) |
+
+> **Note:** You must provide `--name <name>` or `--all`. The `--version` flag requires `--name`.
 
 ```bash
+# Remove all versions of a package from the local registry
 zgard pkg unregister --name jdk
+
+# Remove an exact name+version entry
 zgard pkg unregister --name jdk --version 17.0.8-tem
+
+# Remove all local registry entries
 zgard pkg unregister --all
 ```
 
