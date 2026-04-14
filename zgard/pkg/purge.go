@@ -32,11 +32,8 @@ removed before their dependencies. For each package:
   zgard pkg purge --all`,
 
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if !all && pkgName == "" {
-				return fmt.Errorf("provide --name <pkg> or --all")
-			}
-			if all && pkgName != "" {
-				return fmt.Errorf("--all and --name are mutually exclusive")
+			if err := validateNameOrAll(pkgName, all); err != nil {
+				return err
 			}
 
 			dir, err := grazhdaDir()

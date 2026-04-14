@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 	dukhpb "github.com/vhula/grazhda/dukh/proto"
@@ -38,14 +37,14 @@ non-zero code.
 func runStop(_ *cobra.Command, _ []string) error {
 	conn, client, err := dial()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, icolor.Red("✗ "+err.Error()))
+		printErr(err.Error())
 		return err
 	}
 	defer conn.Close()
 
 	resp, err := client.Stop(context.Background(), &dukhpb.StopRequest{})
 	if err != nil {
-		fmt.Fprintln(os.Stderr, icolor.Red("✗ dukh stop failed: "+err.Error()))
+		printErr("dukh stop failed: " + err.Error())
 		return err
 	}
 

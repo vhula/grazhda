@@ -98,7 +98,6 @@ actually removing anything.`,
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print actions without executing them")
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
 	cmd.Flags().BoolVar(&noConfirm, "no-confirm", false, "Skip confirmation prompts")
-	cmd.Flags().BoolVarP(&noConfirm, "yes", "y", false, "Skip confirmation prompts (alias for --no-confirm)")
 
 	return cmd
 }

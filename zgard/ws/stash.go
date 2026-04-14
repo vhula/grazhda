@@ -1,9 +1,8 @@
 package ws
 
 import (
-	"os"
-
 	"github.com/spf13/cobra"
+	"github.com/vhula/grazhda/internal/config"
 	"github.com/vhula/grazhda/internal/executor"
 	"github.com/vhula/grazhda/internal/reporter"
 	"github.com/vhula/grazhda/internal/workspace"
@@ -37,53 +36,16 @@ to preview which repositories have changes that would be stashed.`,
   # Stash only a specific project's repositories
   zgard ws stash -n myworkspace -p backend`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := loadConfig()
-			if err != nil {
-				return err
-			}
-
-			workspaces, err := workspace.Resolve(cfg, wsName, wsAll)
-			if err != nil {
-				return err
-			}
-
-			if wsName == "" && !wsAll {
-				warnDefaultTarget(os.Stderr, workspaces[0])
-			}
-
-			exec := executor.OsExecutor{}
-			rep := reporter.NewReporter(os.Stdout, os.Stderr)
-			rep.ShowElapsed = verbose
-			rep.JSONMode = rootFlag(cmd, "json")
-			rep.Quiet = rootFlag(cmd, "quiet")
-			if dryRun {
-				rep.PrintDryRunBanner()
-			}
-			opts := workspace.RunOptions{
-				Context:     cmd.Context(),
+			return runWorkspaceOp(cmd, workspace.RunOptions{
 				DryRun:      dryRun,
 				Verbose:     verbose,
 				Parallel:    parallel,
 				ProjectName: projectName,
 				RepoName:    repoName,
 				Tags:        tagFilter,
-			}
-
-			for _, ws := range workspaces {
-				if err := workspace.Stash(ws, exec, rep, opts); err != nil {
-					return err
-				}
-			}
-
-			label := "stashed"
-			if dryRun {
-				label = "would stash"
-			}
-			rep.Summary(label, dryRun)
-			if code := rep.ExitCode(); code != 0 {
-				return reporter.ExitError{Code: code}
-			}
-			return nil
+			}, "stashed", "would stash", func(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, opts workspace.RunOptions) error {
+				return workspace.Stash(ws, exec, rep, opts)
+			})
 		},
 	}
 

@@ -1,9 +1,8 @@
 package ws
 
 import (
-	"os"
-
 	"github.com/spf13/cobra"
+	"github.com/vhula/grazhda/internal/config"
 	"github.com/vhula/grazhda/internal/executor"
 	"github.com/vhula/grazhda/internal/reporter"
 	"github.com/vhula/grazhda/internal/workspace"
@@ -43,57 +42,19 @@ to switch branches concurrently and **--dry-run** to preview the operations.
 
   # Safe branch-switch: stash changes then checkout
   zgard ws stash -n myworkspace && zgard ws checkout -n myworkspace main`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			branch := args[0]
-
-			cfg, err := loadConfig()
-			if err != nil {
-				return err
-			}
-
-			workspaces, err := workspace.Resolve(cfg, wsName, wsAll)
-			if err != nil {
-				return err
-			}
-
-			if wsName == "" && !wsAll {
-				warnDefaultTarget(os.Stderr, workspaces[0])
-			}
-
-			exec := executor.OsExecutor{}
-			rep := reporter.NewReporter(os.Stdout, os.Stderr)
-			rep.ShowElapsed = verbose
-			rep.JSONMode = rootFlag(cmd, "json")
-			rep.Quiet = rootFlag(cmd, "quiet")
-			if dryRun {
-				rep.PrintDryRunBanner()
-			}
-			opts := workspace.RunOptions{
-				Context:     cmd.Context(),
+			return runWorkspaceOp(cmd, workspace.RunOptions{
 				DryRun:      dryRun,
 				Verbose:     verbose,
 				Parallel:    parallel,
 				ProjectName: projectName,
 				RepoName:    repoName,
 				Tags:        tagFilter,
-			}
-
-			for _, ws := range workspaces {
-				if err := workspace.Checkout(ws, branch, exec, rep, opts); err != nil {
-					return err
-				}
-			}
-
-			label := "checked out"
-			if dryRun {
-				label = "would checkout"
-			}
-			rep.Summary(label, dryRun)
-			if code := rep.ExitCode(); code != 0 {
-				return reporter.ExitError{Code: code}
-			}
-			return nil
+			}, "checked out", "would checkout", func(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, opts workspace.RunOptions) error {
+				return workspace.Checkout(ws, branch, exec, rep, opts)
+			})
 		},
 	}
 

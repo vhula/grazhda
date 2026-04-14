@@ -44,11 +44,8 @@ Pass --verbose to stream raw script stdout/stderr to the terminal.`,
   zgard pkg install --all --verbose`,
 
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if !all && pkgName == "" {
-				return fmt.Errorf("provide --name <pkg> or --all")
-			}
-			if all && pkgName != "" {
-				return fmt.Errorf("--all and --name are mutually exclusive")
+			if err := validateNameOrAll(pkgName, all); err != nil {
+				return err
 			}
 
 			dir, err := grazhdaDir()

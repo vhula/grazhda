@@ -17,10 +17,7 @@ type RunOptions struct {
 
 // ctx returns opts.Context, falling back to context.Background() if nil.
 func (opts RunOptions) ctx() context.Context {
-	if opts.Context != nil {
-		return opts.Context
-	}
-	return context.Background()
+	return ctxOr(opts.Context)
 }
 
 // InspectOptions controls inspection commands (diff, stats, search).
@@ -35,10 +32,7 @@ type InspectOptions struct {
 
 // ctx returns opts.Context, falling back to context.Background() if nil.
 func (opts InspectOptions) ctx() context.Context {
-	if opts.Context != nil {
-		return opts.Context
-	}
-	return context.Background()
+	return ctxOr(opts.Context)
 }
 
 // SearchOptions extends InspectOptions with search-specific configuration.
@@ -47,4 +41,12 @@ type SearchOptions struct {
 	Pattern string
 	Glob    bool // match filenames instead of content
 	Regex   bool // treat Pattern as a regular expression
+}
+
+// ctxOr returns ctx if non-nil, otherwise context.Background().
+func ctxOr(ctx context.Context) context.Context {
+	if ctx != nil {
+		return ctx
+	}
+	return context.Background()
 }

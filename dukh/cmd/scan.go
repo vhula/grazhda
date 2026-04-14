@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 	dukhpb "github.com/vhula/grazhda/dukh/proto"
@@ -40,14 +39,14 @@ $ dukh scan
 func runScan(_ *cobra.Command, _ []string) error {
 	conn, client, err := dial()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, icolor.Red("✗ "+err.Error()))
+		printErr(err.Error())
 		return err
 	}
 	defer conn.Close()
 
 	resp, err := client.Scan(context.Background(), &dukhpb.ScanRequest{})
 	if err != nil {
-		fmt.Fprintln(os.Stderr, icolor.Red("✗ dukh scan failed: "+err.Error()))
+		printErr("dukh scan failed: " + err.Error())
 		return err
 	}
 
