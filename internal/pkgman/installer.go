@@ -42,10 +42,7 @@ func (inst *Installer) Install(ctx context.Context, names []string) error {
 }
 
 func (inst *Installer) installOne(ctx context.Context, pkg Package) error {
-	label := pkg.Name
-	if pkg.Version != "" {
-		label = pkg.Name + "@" + pkg.Version
-	}
+	label := PkgLabel(pkg)
 
 	fmt.Fprintf(inst.out, "\n%s Installing %s\n",
 		clr.Blue("▶"), clr.Blue(label))

@@ -69,6 +69,30 @@ check_binary() {
     fi
 }
 
+# remove_shell_profile_lines — detect the shell profile and strip Grazhda
+# init lines (grazhda-init.sh source and GRAZHDA_DIR export).
+remove_shell_profile_lines() {
+    local bashrc_path
+    if [[ -f "${HOME}/.bashrc.user" ]]; then
+        bashrc_path="${HOME}/.bashrc.user"
+    else
+        bashrc_path="${HOME}/.bashrc"
+    fi
+
+    if grep -q 'grazhda-init\.sh' "$bashrc_path" 2>/dev/null; then
+        info "Removing Grazhda init lines from $bashrc_path..."
+        local tmp
+        tmp=$(mktemp)
+        grep -v 'grazhda-init\.sh' "$bashrc_path" \
+            | grep -v 'export GRAZHDA_DIR=' > "$tmp"
+        cp "$tmp" "$bashrc_path"
+        rm -f "$tmp"
+        success "Removed Grazhda init lines from $bashrc_path"
+    else
+        info "No Grazhda init lines found in $bashrc_path."
+    fi
+}
+
 # ---------------------------------------------------------------------------
 # Commands
 # ---------------------------------------------------------------------------
@@ -241,27 +265,7 @@ cmd_uninstall() {
         stop_dukh_if_running
     fi
 
-    # Determine which shell profile the installer wrote to.
-    local bashrc_path
-    if [[ -f "${HOME}/.bashrc.user" ]]; then
-        bashrc_path="${HOME}/.bashrc.user"
-    else
-        bashrc_path="${HOME}/.bashrc"
-    fi
-
-    # Remove grazhda-specific lines from the shell profile.
-    if grep -q 'grazhda-init\.sh' "$bashrc_path" 2>/dev/null; then
-        info "Removing Grazhda init lines from $bashrc_path..."
-        local tmp
-        tmp=$(mktemp)
-        grep -v 'grazhda-init\.sh' "$bashrc_path" \
-            | grep -v 'export GRAZHDA_DIR=' > "$tmp"
-        cp "$tmp" "$bashrc_path"
-        rm -f "$tmp"
-        success "Removed Grazhda init lines from $bashrc_path"
-    else
-        info "No Grazhda init lines found in $bashrc_path."
-    fi
+    remove_shell_profile_lines
 
     # Delete everything inside GRAZHDA_DIR except config.yaml.
     if [ -d "$GRAZHDA_DIR" ]; then
@@ -303,27 +307,7 @@ cmd_purge() {
         stop_dukh_if_running
     fi
 
-    # Determine which shell profile the installer wrote to.
-    local bashrc_path
-    if [[ -f "${HOME}/.bashrc.user" ]]; then
-        bashrc_path="${HOME}/.bashrc.user"
-    else
-        bashrc_path="${HOME}/.bashrc"
-    fi
-
-    # Remove grazhda-specific lines from the shell profile.
-    if grep -q 'grazhda-init\.sh' "$bashrc_path" 2>/dev/null; then
-        info "Removing Grazhda init lines from $bashrc_path..."
-        local tmp
-        tmp=$(mktemp)
-        grep -v 'grazhda-init\.sh' "$bashrc_path" \
-            | grep -v 'export GRAZHDA_DIR=' > "$tmp"
-        cp "$tmp" "$bashrc_path"
-        rm -f "$tmp"
-        success "Removed Grazhda init lines from $bashrc_path"
-    else
-        info "No Grazhda init lines found in $bashrc_path."
-    fi
+    remove_shell_profile_lines
 
     # Delete the entire installation directory.
     if [ -d "$GRAZHDA_DIR" ]; then

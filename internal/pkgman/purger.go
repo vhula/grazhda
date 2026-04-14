@@ -42,10 +42,7 @@ func (p *Purger) Purge(ctx context.Context, names []string) error {
 }
 
 func (p *Purger) purgeOne(ctx context.Context, pkg Package) error {
-	label := pkg.Name
-	if pkg.Version != "" {
-		label = pkg.Name + "@" + pkg.Version
-	}
+	label := PkgLabel(pkg)
 
 	fmt.Fprintf(p.out, "\n%s Purging %s\n",
 		clr.Yellow("▶"), clr.Yellow(label))

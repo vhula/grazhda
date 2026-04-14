@@ -86,7 +86,7 @@ env hooks and scripts. Existing packages are listed for depends_on selection.`,
 			if err := pkgman.SaveRegistry(localPath, local); err != nil {
 				return err
 			}
-			fmt.Fprintf(out, "registered %s in %s\n", pkgRef(pkg), localPath)
+			fmt.Fprintf(out, "registered %s in %s\n", pkgman.PkgLabel(pkg), localPath)
 			return nil
 		},
 	}
@@ -130,7 +130,7 @@ func promptBool(in *bufio.Reader, out io.Writer, label string) (bool, error) {
 func promptDependsOn(in *bufio.Reader, out io.Writer, reg *pkgman.Registry) ([]string, error) {
 	refs := make([]string, 0, len(reg.Packages))
 	for _, p := range reg.Packages {
-		refs = append(refs, pkgRef(p))
+		refs = append(refs, pkgman.PkgLabel(p))
 	}
 	slices.Sort(refs)
 	if len(refs) == 0 {
@@ -186,11 +186,4 @@ func promptMultiline(in *bufio.Reader, out io.Writer, label string) (string, err
 		lines = append(lines, line)
 	}
 	return strings.Join(lines, "\n"), nil
-}
-
-func pkgRef(p pkgman.Package) string {
-	if p.Version == "" {
-		return p.Name
-	}
-	return p.Name + "@" + p.Version
 }

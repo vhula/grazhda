@@ -3,24 +3,12 @@
 package pkg
 
 import (
-	"fmt"
-	"os"
-	"path/filepath"
-
 	"github.com/spf13/cobra"
+	"github.com/vhula/grazhda/internal/config"
 )
 
-// grazhdaDir returns $GRAZHDA_DIR, defaulting to $HOME/.grazhda.
-func grazhdaDir() (string, error) {
-	if dir := os.Getenv("GRAZHDA_DIR"); dir != "" {
-		return dir, nil
-	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("determine home directory: %w", err)
-	}
-	return filepath.Join(home, ".grazhda"), nil
-}
+// grazhdaDir delegates to the shared config.GrazhdaDir helper.
+func grazhdaDir() (string, error) { return config.GrazhdaDir() }
 
 // NewCmd returns the `pkg` parent command with install and purge subcommands.
 func NewCmd() *cobra.Command {

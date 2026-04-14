@@ -4,7 +4,7 @@
 
 ## Prerequisites
 
-- **Go 1.24+** — [go.dev/dl](https://go.dev/dl/)
+- **Go 1.26.1+** — [go.dev/dl](https://go.dev/dl/)
 - **Just** — task runner ([github.com/casey/just](https://github.com/casey/just))
 - **protoc + protoc-gen-go-grpc** — only if modifying `proto/dukh.proto`
 
@@ -39,8 +39,10 @@ just build-dukh     # Build only dukh daemon → bin/dukh
 just copy-scripts   # Copy grazhda / grazhda-init.sh → bin/
 just generate       # Regenerate protobuf Go code from proto/dukh.proto
 just test           # Run go test ./... across all modules
+just test-bash      # Run bash script tests
 just fmt            # Run gofmt across all modules
 just tidy           # Run go mod tidy for each module
+just man            # Generate man pages into man/man1/
 just clean          # Remove the bin/ directory
 just help           # Show all available tasks
 ```

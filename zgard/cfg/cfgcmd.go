@@ -5,7 +5,6 @@ package cfg
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -41,19 +40,8 @@ The configuration is loaded from **$GRAZHDA_DIR/config.yaml** when
 	return cmd
 }
 
-// resolveConfigPath returns the path to config.yaml using GRAZHDA_DIR env var
-// or defaulting to $HOME/.grazhda/config.yaml.
-func resolveConfigPath() string {
-	dir := os.Getenv("GRAZHDA_DIR")
-	if dir == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			home = "."
-		}
-		dir = filepath.Join(home, ".grazhda")
-	}
-	return filepath.Join(dir, "config.yaml")
-}
+// resolveConfigPath delegates to the shared config.ConfigPath helper.
+func resolveConfigPath() string { return config.ConfigPath() }
 
 func newPathCmd() *cobra.Command {
 	return &cobra.Command{

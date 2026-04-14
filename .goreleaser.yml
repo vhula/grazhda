@@ -31,6 +31,9 @@ archives:
       - config.template.yaml
       - README.md
       - LICENSE
+      - grazhda
+      - grazhda-install.sh
+      - grazhda-init.sh
 
 checksum:
   name_template: "checksums.txt"
