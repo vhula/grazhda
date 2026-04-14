@@ -193,9 +193,7 @@ copy_pkgs_registry() {
 
 main() {
     echo ""
-    echo -e "${BLUE}╔═══════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║          Grazhda Installer            ║${NC}"
-    echo -e "${BLUE}╚═══════════════════════════════════════╝${NC}"
+    echo -e "${BLUE}--- Grazhda Installer ---${NC}"
     echo ""
 
     setup_logging
@@ -245,9 +243,7 @@ main() {
     _log "=== Installation Completed: $(date) ==="
 
     echo ""
-    echo -e "${GREEN}╔═══════════════════════════════════════╗${NC}"
-    echo -e "${GREEN}║      Installation Successful!         ║${NC}"
-    echo -e "${GREEN}╚═══════════════════════════════════════╝${NC}"
+    echo -e "${GREEN}--- Installation Successful! ---${NC}"
     echo ""
     echo -e "${BLUE}Grazhda installed to: $GRAZHDA_DIR_DISPLAY${NC}"
     echo -e "${BLUE}Sources:              $GRAZHDA_DIR_DISPLAY/sources${NC}"

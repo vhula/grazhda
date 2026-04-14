@@ -44,8 +44,7 @@ func (p *Purger) Purge(ctx context.Context, names []string) error {
 func (p *Purger) purgeOne(ctx context.Context, pkg Package) error {
 	label := PkgLabel(pkg)
 
-	fmt.Fprintf(p.out, "\n%s Purging %s\n",
-		clr.Yellow("▶"), clr.Yellow(label))
+	fmt.Fprintf(p.out, "\nPurging %s\n", clr.Yellow(label))
 
 	runner := newRunner(p.grazhdaDir, pkg, p.runnerOut(), p.runnerErrOut())
 

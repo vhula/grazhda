@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	clr "github.com/vhula/grazhda/internal/color"
 	"github.com/vhula/grazhda/internal/pkgman"
 )
 
@@ -86,7 +87,7 @@ env hooks and scripts. Existing packages are listed for depends_on selection.`,
 			if err := pkgman.SaveRegistry(localPath, local); err != nil {
 				return err
 			}
-			fmt.Fprintf(out, "registered %s in %s\n", pkgman.PkgLabel(pkg), localPath)
+			fmt.Fprintf(out, "%s registered %s in %s\n", clr.Green("✓"), pkgman.PkgLabel(pkg), localPath)
 			return nil
 		},
 	}

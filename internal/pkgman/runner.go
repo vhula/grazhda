@@ -51,9 +51,9 @@ func (r *Runner) RunPhase(ctx context.Context, phase, script string) error {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		streamLines(stdoutPipe, "    │ ", r.out)
+		streamLines(stdoutPipe, "      ", r.out)
 	}()
-	streamLines(stderrPipe, "    │ ", r.errOut)
+	streamLines(stderrPipe, "      ", r.errOut)
 	<-done
 
 	if err := cmd.Wait(); err != nil {

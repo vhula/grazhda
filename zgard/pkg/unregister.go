@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	clr "github.com/vhula/grazhda/internal/color"
 	"github.com/vhula/grazhda/internal/pkgman"
 )
 
@@ -50,7 +51,7 @@ func newUnregisterCmd() *cobra.Command {
 				if err := pkgman.SaveRegistry(localPath, local); err != nil {
 					return err
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "unregistered all packages from %s\n", localPath)
+				fmt.Fprintf(cmd.OutOrStdout(), "%s unregistered all packages from %s\n", clr.Green("✓"), localPath)
 				return nil
 			}
 
@@ -66,9 +67,9 @@ func newUnregisterCmd() *cobra.Command {
 			}
 
 			if version == "" {
-				fmt.Fprintf(cmd.OutOrStdout(), "unregistered %q from %s\n", name, localPath)
+				fmt.Fprintf(cmd.OutOrStdout(), "%s unregistered %q from %s\n", clr.Green("✓"), name, localPath)
 			} else {
-				fmt.Fprintf(cmd.OutOrStdout(), "unregistered %q@%s from %s\n", name, version, localPath)
+				fmt.Fprintf(cmd.OutOrStdout(), "%s unregistered %q@%s from %s\n", clr.Green("✓"), name, version, localPath)
 			}
 			return nil
 		},

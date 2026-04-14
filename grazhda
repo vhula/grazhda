@@ -165,9 +165,7 @@ stop_dukh_if_running() {
 # grazhda upgrade — pull latest sources, rebuild, and replace installed binaries atomically.
 cmd_upgrade() {
     echo ""
-    info "╔═══════════════════════════════════════╗"
-    info "║         Grazhda Upgrader              ║"
-    info "╚═══════════════════════════════════════╝"
+    info "--- Grazhda Upgrader ---"
     echo ""
 
     if [ ! -d "$SOURCES_DIR/.git" ]; then
@@ -234,9 +232,7 @@ cmd_upgrade() {
         warn "Package registry not found in sources, skipping: $pkgs_src"
     fi
     echo ""
-    info "╔═══════════════════════════════════════╗"
-    info "║         Upgrade Successful!           ║"
-    info "╚═══════════════════════════════════════╝"
+    info "--- Upgrade Successful! ---"
     echo ""
     warn "If you updated grazhda itself, open a new terminal or re-source your shell profile."
     echo ""
@@ -245,9 +241,7 @@ cmd_upgrade() {
 # grazhda uninstall — remove all Grazhda files and shell-profile lines.
 cmd_uninstall() {
     echo ""
-    warn "╔═══════════════════════════════════════╗"
-    warn "║        Grazhda Uninstaller            ║"
-    warn "╚═══════════════════════════════════════╝"
+    warn "--- Grazhda Uninstaller ---"
     echo ""
     warn "This will remove all Grazhda files from $GRAZHDA_DIR (keeping config.yaml)"
     warn "and remove the Grazhda init lines from your shell profile."
@@ -286,9 +280,7 @@ cmd_uninstall() {
 # grazhda purge — completely remove GRAZHDA_DIR and all shell-profile lines.
 cmd_purge() {
     echo ""
-    warn "╔═══════════════════════════════════════╗"
-    warn "║          Grazhda Purge                ║"
-    warn "╚═══════════════════════════════════════╝"
+    warn "--- Grazhda Purge ---"
     echo ""
     warn "This will permanently delete $GRAZHDA_DIR entirely,"
     warn "including config.yaml, and remove the Grazhda init lines"

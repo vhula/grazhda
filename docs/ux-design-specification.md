@@ -202,7 +202,8 @@ No external TUI framework (Bubble Tea, tview) for Phase 1. Output is composed of
 | SKIP | `⏭` | yellow | Skipped (already exists / not applicable) |
 | DRY RUN | `[DRY RUN]` | dim/cyan | Preview mode — no changes made |
 | INFO | (none) | default | Progress or informational message |
-| WARN | `!` | yellow | Non-fatal warning |
+| PROGRESS | `⟳` | blue | Scanning or starting a background process |
+| WARN | `⚠` | yellow | Non-fatal warning |
 | ERROR | `✗` | red → stderr | Fatal or per-operation failure |
 
 ### Typography & Spacing
@@ -727,9 +728,7 @@ Repo name column width is computed as `max(len(repoName)) + 2` within each proje
 The upgrade command prints step-by-step progress so the user can track a potentially long-running build:
 
 ```
-╔═══════════════════════════════════════╗
-║         Grazhda Upgrader              ║
-╚═══════════════════════════════════════╝
+--- Grazhda Upgrader ---
 
 Pulling latest sources...
 ✓ Sources updated.
@@ -742,9 +741,7 @@ Rebuilding binaries...
 Installing updated binaries...
 ✓ Binaries installed to: /home/user/.grazhda/bin
 
-╔═══════════════════════════════════════╗
-║         Upgrade Successful!           ║
-╚═══════════════════════════════════════╝
+--- Upgrade Successful! ---
 
 ⚠ If you updated grazhda itself, open a new terminal or re-source your shell profile.
 ```
@@ -817,9 +814,7 @@ This is particularly useful when the user has not set `editor:` in their config 
 Removes all Grazhda files while preserving `config.yaml`, so the user can reinstall without losing their workspace configuration.
 
 ```
-╔═══════════════════════════════════════╗
-║        Grazhda Uninstaller            ║
-╚═══════════════════════════════════════╝
+--- Grazhda Uninstaller ---
 
 ⚠ This will remove all Grazhda files from /home/user/.grazhda (keeping config.yaml)
 ⚠ and remove the Grazhda init lines from your shell profile.
@@ -854,9 +849,7 @@ Entering anything other than `y`/`Y` cancels with no changes made.
 Completely removes Grazhda, including `config.yaml`. Intended for a clean slate when the user no longer wants Grazhda at all.
 
 ```
-╔═══════════════════════════════════════╗
-║          Grazhda Purge                ║
-╚═══════════════════════════════════════╝
+--- Grazhda Purge ---
 
 ⚠ This will permanently delete /home/user/.grazhda entirely,
 ⚠ including config.yaml, and remove the Grazhda init lines
@@ -1181,3 +1174,87 @@ When `--verbose` is active, each repo operation line appends an elapsed time:
 ```
 
 The time is right-aligned in dim/grey colour (or plain `[Xs]` in no-color mode).
+
+## Phase 9 — Package Management Commands
+
+### Overview
+
+The `zgard pkg` subcommands manage developer tool installation inside `$GRAZHDA_DIR/pkgs/`. Output follows the same symbol vocabulary and colour rules as workspace commands.
+
+### Symbol Vocabulary (pkg commands)
+
+| Symbol | Colour | Context | Meaning |
+|---|---|---|---|
+| `✓` | green | install/purge/register/unregister | Operation succeeded |
+| `✗` | red | install/purge | Operation failed |
+| `⟳` | blue | status | Scanning / starting daemon |
+| `⚠` | yellow | shell scripts, warnings | Non-fatal warning |
+
+### `zgard pkg install`
+
+#### Progress Output
+
+Each package prints a section header followed by phase indicators:
+
+```
+Installing sdkman
+  → created /home/user/.grazhda/pkgs/sdkman
+  ✓ [install] done
+  ✓ sdkman installed
+
+Installing java@21
+  ✓ [install] done
+  ✓ java@21 installed
+```
+
+#### Verbose Mode
+
+When `--verbose` is active, script output lines are indented with 6 spaces:
+
+```
+Installing sdkman
+  → created /home/user/.grazhda/pkgs/sdkman
+      curl -s "https://get.sdkman.io" | bash
+      ...
+  ✓ [install] done
+  ✓ sdkman installed
+```
+
+#### Colour Scheme
+
+| Element | Colour |
+|---|---|
+| Package header (`Installing <name>`) | blue |
+| Script output prefix | dim/default |
+| Success (`✓`) | green |
+| Failure (`✗`) | red |
+| Arrow (`→`) | dim |
+
+### `zgard pkg purge`
+
+Mirrors install output in reverse order:
+
+```
+Purging java@21
+  ✓ [purge] done
+  ✓ java@21 purged
+
+Purging sdkman
+  ✓ [purge] done
+  ✓ sdkman purged
+```
+
+### `zgard pkg register`
+
+Interactive prompt that collects all package fields. On success:
+
+```
+✓ registered sdkman in /home/user/.grazhda/registry.pkgs.local.yaml
+```
+
+### `zgard pkg unregister`
+
+```
+✓ unregistered "sdkman" from /home/user/.grazhda/registry.pkgs.local.yaml
+✓ unregistered all packages from /home/user/.grazhda/registry.pkgs.local.yaml
+```

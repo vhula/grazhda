@@ -44,8 +44,7 @@ func (inst *Installer) Install(ctx context.Context, names []string) error {
 func (inst *Installer) installOne(ctx context.Context, pkg Package) error {
 	label := PkgLabel(pkg)
 
-	fmt.Fprintf(inst.out, "\n%s Installing %s\n",
-		clr.Blue("▶"), clr.Blue(label))
+	fmt.Fprintf(inst.out, "\nInstalling %s\n", clr.Blue(label))
 
 	// Create package directory before any script runs if requested.
 	if pkg.PreCreateDir {
