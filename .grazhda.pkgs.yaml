@@ -18,3 +18,13 @@ registry:
       sdk install java 17.0.8-tem
     purge: |
       sdk uninstall java 17.0.8-tem || true
+  - name: maven
+    version: 3.9.4
+    pre_create_dir: false
+    depends_on:
+      - sdkman
+      - jdk
+    install: |
+      sdk install maven 3.9.4
+    purge: |
+      sdk uninstall maven 3.9.4 || true
