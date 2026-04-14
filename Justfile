@@ -15,6 +15,7 @@ help:
     echo "  copy-scripts   - Copy bash scripts to bin directory"
     echo "  clean          - Remove all built binaries"
     echo "  test           - Run tests for all modules"
+    echo "  test-bash      - Run bash script tests"
     echo "  fmt            - Format Go source across all modules"
     echo "  tidy           - Tidy all modules"
     echo "  man            - Generate man pages into man/man1/"
@@ -70,7 +71,13 @@ test:
     cd internal && go test ./...
     cd zgard && go test ./...
     cd dukh && go test ./...
+    bash tests/bash/test_scripts.sh
     echo "✓ Tests passed"
+
+test-bash:
+    echo "Running bash script tests..."
+    bash tests/bash/test_scripts.sh
+    echo "✓ Bash script tests passed"
 
 tidy:
     echo "Tidying modules..."
