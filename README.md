@@ -1,145 +1,136 @@
 # Grazhda
 
-> Declare your multi-repo workspace in YAML, then `zgard ws init` clones everything, `zgard ws pull` keeps it current, and `dukh` watches for drift — all from a single config file.
-
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Build](https://github.com/vhula/grazhda/actions/workflows/just.yml/badge.svg)](https://github.com/vhula/grazhda/actions/workflows/just.yml)
+[![Release](https://img.shields.io/github/v/release/vhula/grazhda)](https://github.com/vhula/grazhda/releases)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![Go](https://img.shields.io/badge/Go-1.26+-00ADD8?logo=go&logoColor=white)](https://go.dev)
-[![Phase](https://img.shields.io/badge/Phase-2%20%E2%80%94%20dukh-brightgreen)](https://github.com/vhula/grazhda)
 
-**One command to clone your entire dev environment. Exactly how you left it.**
-
----
-
-## 🎬 Demo
-
-![Grazhda demo](grazhda-demo.gif)
+Grazhda is a multi-repository workspace lifecycle toolkit. You describe workspaces in YAML, then use:
+- `zgard` to clone, pull, inspect, and manage repos at scale
+- `dukh` to monitor workspace health in the background
+- `grazhda` to install/upgrade/manage the toolchain itself
 
 ---
 
-## 🔥 The Problem
+## What the project does
 
-You change laptops. You onboard a new teammate. You re-provision a machine after a crash. Then comes the ritual: remember which repos go where, which branches are right for each project, which SSH key format each remote uses. Repeat forty times. Miss one. Break something.
+Grazhda automates day-to-day operations for teams working across many repositories:
 
-Developer environments are configuration. Configuration should be code.
-
----
-
-## ⚡ The Solution
-
-`zgard` reads a single YAML file that describes your workspaces — where they live on disk, which repos belong to each project, which branch each repo tracks. Then it does the work.
-
-```
-zgard ws init
-```
-
-```
-Workspace: default
-  Project: backend
-    ✓ api          — cloned (main)
-    ✓ auth         — cloned (dev)
-    ✓ gateway      — cloned (main)
-  Project: infra
-    ✓ terraform    — cloned (main)
-    ⏭ k8s-configs  — already exists, skipped
-
-✓ 4 cloned  ⏭ 1 skipped  ✗ 0 failed
-```
-
-Every failure is reported with the actual git error — no more hunting for `exit status 128`.
+1. Declarative workspace config (`config.yaml`) with workspaces, projects, repositories, and branch rules.
+2. Bulk operations (`zgard ws init`, `pull`, `exec`, `stash`, `checkout`, `search`, `diff`, `stats`).
+3. Background health monitoring (`dukh`) for branch drift and missing repositories.
+4. Declarative package management (`zgard pkg`) with layered registries:
+   - Global registry: `$GRAZHDA_DIR/.grazhda.pkgs.yaml` (managed by install/upgrade)
+   - Local registry: `$GRAZHDA_DIR/registry.pkgs.local.yaml` (user-managed)
 
 ---
 
-## 🚀 Quick Start
+## Why the project is useful
 
-### Install
+- **Fast environment setup:** clone an entire workspace with one command.
+- **Consistent developer experience:** workspace state lives in versioned YAML, not tribal knowledge.
+- **Safer large-scale changes:** dry-run, targeting filters, and clear per-repo status output.
+- **Health visibility:** `dukh` gives near-real-time workspace health snapshots.
+- **Flexible package control:** local package registry can override global definitions and supports version-aware dependencies (`depends_on: name` or `name@version`).
+
+---
+
+## How users can get started
+
+### 1. Prerequisites
+
+- `bash`
+- `curl`
+- `git`
+- `just`
+- `protoc`
+- Go `1.26+`
+
+### 2. Install
 
 ```bash
 curl -s https://raw.githubusercontent.com/vhula/grazhda/refs/heads/main/grazhda-install.sh | bash
 ```
 
-The installer builds `zgard` and `dukh` from source and places them in `$GRAZHDA_DIR/bin/`.
+This installs into `$GRAZHDA_DIR` (default: `$HOME/.grazhda`) and builds binaries from source.
 
-### Configure
+### 3. Configure your workspace
 
 ```bash
 cp config.template.yaml "$GRAZHDA_DIR/config.yaml"
-$EDITOR "$GRAZHDA_DIR/config.yaml"
+grazhda config --edit
+zgard config validate
 ```
 
-### Run
+### 4. Run core workflow commands
 
 ```bash
-zgard ws init            # clone everything in the default workspace
-zgard ws pull            # pull latest on all repos
-zgard ws list            # show clone status for all repos
-dukh start               # start background workspace health monitor
-zgard ws status          # check workspace health
-zgard config validate    # validate configuration
+zgard ws init      # clone repositories from the default workspace
+zgard ws pull      # pull updates across repositories
+dukh start         # start background health monitor
+zgard ws status    # show health snapshot
 ```
 
-> **Prerequisites:** `bash`, `curl`, `git`, `just`, `protoc`, Go `1.26+`
+### 5. Use package registry layering
 
----
+Install/purge resolves packages from both registries:
 
-## 🗂️ Workspace Concept
+- `$GRAZHDA_DIR/.grazhda.pkgs.yaml` (global)
+- `$GRAZHDA_DIR/registry.pkgs.local.yaml` (local, optional)
 
-A **workspace** is the central organizing unit in Grazhda. It describes a group of related projects that live together on your local machine — their disk locations, their repositories, and the exact branch each repository should track.
+Local entries override global entries when `name+version` match exactly.
 
+```bash
+# Install from merged registries
+zgard pkg install --all
+zgard pkg install --name jdk@17.0.8-tem
+
+# Add/update package interactively in local registry
+zgard pkg register
+
+# Remove from local registry
+zgard pkg unregister --name jdk --version 17.0.8-tem
+zgard pkg unregister --name jdk
+zgard pkg unregister --all
 ```
-workspace: default
-  └── project: backend
-  │     ├── repo: api          (branch: main)
-  │     ├── repo: auth         (branch: dev)
-  │     └── repo: gateway      (branch: main)
-  └── project: infra
-        └── repo: terraform    (branch: main)
+
+For a full guided setup, see [QUICK-START.md](QUICK-START.md).
+
+---
+
+## Where users can get help
+
+- [QUICK-START.md](QUICK-START.md) — fast installation and first-run flow
+- [docs/CLI.md](docs/CLI.md) — complete command reference
+- [docs/CONFIG.md](docs/CONFIG.md) — configuration schema and examples
+- [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) — local development, build, and test workflow
+- [docs/architecture.md](docs/architecture.md) — system design and module boundaries
+
+Issue tracker: [github.com/vhula/grazhda/issues](https://github.com/vhula/grazhda/issues)
+
+---
+
+## Who maintains and contributes
+
+Maintained by the Grazhda project maintainers (repository owner: [@vhula](https://github.com/vhula)).
+
+### Contributing
+
+1. Fork and clone the repository.
+2. Create a feature branch.
+3. Run local checks:
+
+```bash
+just build
+just test
 ```
 
-The three Grazhda tools each have a distinct role in the workspace lifecycle:
+4. Open a pull request with a clear description and test evidence.
 
-| Tool | Role |
-| :--- | :--- |
-| **`grazhda`** | Manages your Grazhda installation — upgrade, configure |
-| **`zgard`** | Manages workspace operations on demand — clone, pull, purge, inspect health |
-| **`dukh`** | Monitors workspace health continuously in the background — detects branch drift and missing repos |
-
-`dukh` is the *overseer*: it runs silently in the background and keeps a live health snapshot of every workspace. `zgard` is the *operator*: you run it when you want to act — clone repositories, pull changes, or query the health snapshot that `dukh` maintains. Both tools read the same `config.yaml` and share the same workspace model.
+Development conventions and module layout are documented in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 ---
 
-## 📖 Documentation
+## License
 
-| Document | What's inside |
-| :--- | :--- |
-| **[Quickstart](QUICK-START.md)** | 5-minute setup guide — install, configure, clone all repos |
-| **[CLI Reference](docs/CLI.md)** | All `grazhda`, `zgard`, and `dukh` commands — targeting flags, subcommands, sample output |
-| **[Configuration](docs/CONFIG.md)** | `config.yaml` schema, clone template variables, structure modes, field reference |
-| **[Development](docs/DEVELOPMENT.md)** | Module layout, Just tasks, build/test instructions, protobuf workflow |
-
-### Design Documents
-
-| Document | Description |
-| :--- | :--- |
-| [Product Requirements](docs/prd.md) | Functional requirements and acceptance criteria |
-| [Architecture](docs/architecture.md) | System design, gRPC contracts, and data flow |
-| [UX Design Specification](docs/ux-design-specification.md) | CLI output formatting, colors, and layout rules |
-| [Epics — Workspace](docs/epics.md) | User stories for zgard workspace features |
-| [Epics — Dukh](docs/epics-dukh.md) | User stories for dukh server features |
-
----
-
-## 🗺️ Roadmap
-
-| Tool | Role | Status |
-| :--- | :--- | :---: |
-| **zgard** | Workspace lifecycle CLI | ✅ Phase 1 |
-| **dukh** | Background gRPC workspace monitor | ✅ Phase 2 |
-| **grazhda** | Installer + management script | ✅ |
-| **Molfar** | Orchestration server | 📅 Phase 3 |
-| **Molf** | Orchestrator CLI | 📅 Phase 3 |
-
----
-
-## 📄 License
-
-GNU GPL v3 — see [`LICENSE`](LICENSE).
+GNU GPL v3 — see [LICENSE](LICENSE).
