@@ -18,7 +18,9 @@ func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config",
 		Short: "Inspect and validate the Grazhda configuration",
-		Long: `Inspect, validate, and query the Grazhda configuration file.
+		Long: `# zgard config — Configuration Files Manager
+
+Inspect, validate, and query the Grazhda configuration file.
 
 The configuration is loaded from **$GRAZHDA_DIR/config.yaml** when
 ` + "`GRAZHDA_DIR`" + ` is set, otherwise from **~/.grazhda/config.yaml**.

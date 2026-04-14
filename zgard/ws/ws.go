@@ -21,7 +21,9 @@ func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ws",
 		Short: "Workspace operations",
-		Long: `Manage workspace lifecycle: initialize, pull, purge, and run coordinated
+		Long: `# zgard ws — Workspace Repositories Manager
+
+Manage workspace lifecycle: initialize, pull, purge, and run coordinated
 operations across all repositories defined in your grazhda configuration.
 
 ## Targeting flags (available for every ws subcommand)
