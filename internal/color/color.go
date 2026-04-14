@@ -5,6 +5,9 @@ package color
 
 import "github.com/fatih/color"
 
+// Terminal color formatters. Each variable is a SprintFunc that wraps its
+// argument in the corresponding ANSI colour sequence. When colour is disabled
+// (via [Disable] or the NO_COLOR env var) they return the input unchanged.
 var (
 	Green  = color.New(color.FgGreen).SprintFunc()
 	Red    = color.New(color.FgRed).SprintFunc()

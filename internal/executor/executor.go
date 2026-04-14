@@ -33,10 +33,12 @@ type Executor interface {
 // rather than a bare exit code.
 type OsExecutor struct{}
 
+// Run executes command in dir using a background context.
 func (e OsExecutor) Run(dir string, command string) error {
 	return e.RunContext(context.Background(), dir, command)
 }
 
+// RunContext executes command in dir, honouring ctx cancellation.
 func (e OsExecutor) RunContext(ctx context.Context, dir string, command string) error {
 	var stderr bytes.Buffer
 	cmd := shellCommand(ctx, command)
@@ -55,10 +57,12 @@ func (e OsExecutor) RunContext(ctx context.Context, dir string, command string) 
 	return nil
 }
 
+// RunCapture runs command in dir and returns its combined stdout.
 func (e OsExecutor) RunCapture(dir, command string) (string, error) {
 	return e.RunCaptureContext(context.Background(), dir, command)
 }
 
+// RunCaptureContext is like RunCapture but honours ctx cancellation.
 func (e OsExecutor) RunCaptureContext(ctx context.Context, dir, command string) (string, error) {
 	var stdout, stderr bytes.Buffer
 	cmd := shellCommand(ctx, command)

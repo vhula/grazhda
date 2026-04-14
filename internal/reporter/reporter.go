@@ -26,6 +26,7 @@ type ExitError struct {
 Code int
 }
 
+// Error implements the error interface, returning the exit code as a string.
 func (e ExitError) Error() string { return fmt.Sprintf("exit code %d", e.Code) }
 
 // OpResult records the outcome of a single repository operation.

@@ -3672,3 +3672,69 @@ grazhda/
 | **`yaml.Unmarshal` / `yaml.Marshal`** | `registry.go` | Deserialises/serialises Go structs from/to YAML using struct field tags |
 | **`filepath.Join`** | throughout | OS-safe path concatenation (uses `/` on Unix, `\` on Windows) |
 | **Insertion sort** | `resolver.go` | Simple O(n²) sort for small slices; avoids importing `sort` for deterministic output |
+
+## 32. Effective Go Refactoring — DRY & Helpers
+
+This section documents the structural refactors performed to eliminate code duplication and align with [Effective Go](https://go.dev/doc/effective_go) standards.
+
+### 32.1. `zgard/ws/run.go` — Workspace Operation Runner
+
+**Problem:** Five workspace commands (init, pull, stash, checkout, exec) each repeated ~40 lines of identical boilerplate: load config → resolve workspaces → warn on implicit target → create executor + reporter → iterate → summarise.
+
+**Solution:** A single `runWorkspaceOp()` helper encapsulates the entire ceremony. Each command provides a `wsOpFunc` callback with its domain logic:
+
+```go
+type wsOpFunc func(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, opts workspace.RunOptions) error
+```
+
+Commands with extra arguments (checkout's branch, exec's command string) capture them in a closure:
+
+```go
+RunE: func(cmd *cobra.Command, args []string) error {
+    return runWorkspaceOp(cmd, opts, "checked out", "would check out",
+        func(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, opts workspace.RunOptions) error {
+            return workspace.Checkout(ws, args[0], exec, rep, opts)
+        })
+}
+```
+
+### Go concept: function types as callbacks
+
+Go lets you define named function types (`type wsOpFunc func(...)`) and pass closures that match the signature. This is the idiomatic Go alternative to template-method inheritance — compose behaviour through function values rather than class hierarchies.
+
+### 32.2. `internal/workspace/options.go` — `ctxOr()`
+
+**Problem:** Both `RunOptions` and `InspectOptions` had identical `ctx()` methods: "return Context if non-nil, else `context.Background()`".
+
+**Solution:** A standalone `ctxOr(ctx context.Context) context.Context` function replaces both methods. Both option types call `ctxOr(o.Context)`.
+
+### Go concept: standalone functions vs methods
+
+When a method doesn't use any fields of the receiver beyond the argument it's called with, extract it as a standalone function. This improves reusability and makes the intent clearer.
+
+### 32.3. `zgard/pkg/flags.go` — `validateNameOrAll()`
+
+**Problem:** `install.go` and `purge.go` both contained the same "exactly one of `--name` or `--all`" validation.
+
+**Solution:** Extracted to a shared unexported function that both commands call at the top of their `RunE`.
+
+### 32.4. `dukh/cmd/errs.go` — `printErr()`
+
+**Problem:** `stop.go` and `scan.go` repeated `fmt.Fprintln(os.Stderr, icolor.Red("✗ "+msg))`.
+
+**Solution:** A shared `printErr(msg)` helper in the same package.
+
+### 32.5. Test Coverage Improvements
+
+Phase 2 added 1,034 lines of tests across 13 files, covering all three modules:
+
+| Package | Before | After |
+|---|---|---|
+| `internal/config` | 42.7% | 81.6% |
+| `internal/pkgman` | 78.6% | 91.0% |
+| `internal/workspace` | 73.2% | 87.0% |
+| `dukh/server` | 24.8% | 59.2% |
+| `internal/color` | 100% | 100% |
+| `internal/format` | 100% | 100% |
+
+Tests follow idiomatic Go patterns: table-driven tests, `t.TempDir()` for filesystem tests, `t.Setenv()` for environment overrides, and the standard `testing` package (no external frameworks).

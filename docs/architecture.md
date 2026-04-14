@@ -1333,3 +1333,29 @@ Help call flow:
 
 - Installer and `grazhda upgrade` refresh only the global registry file.
 - Local registry is never overwritten by install/upgrade flows.
+
+## DRY Refactoring: Shared Helpers
+
+### `zgard/ws/run.go` — Workspace Operation Runner
+
+All mutating workspace commands (init, pull, stash, checkout, exec) shared ~40 lines of identical boilerplate: load config → resolve workspaces → warn on implicit target → create executor + reporter → iterate → summarise. This is now consolidated into a single helper:
+
+```go
+type wsOpFunc func(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, opts workspace.RunOptions) error
+
+func runWorkspaceOp(cmd *cobra.Command, opts workspace.RunOptions, doneLabel, dryLabel string, op wsOpFunc) error
+```
+
+Each command's `RunE` now calls `runWorkspaceOp` with a one-line closure for its domain logic (e.g. `workspace.Init`, `workspace.Pull`). Commands with extra arguments (checkout branch, exec command) capture them in the closure.
+
+### `zgard/pkg/flags.go` — Flag Validation
+
+`validateNameOrAll(name string, all bool) error` is shared by `install` and `purge` to reject the mutually-exclusive `--name` / `--all` flags.
+
+### `dukh/cmd/errs.go` — Error Output
+
+`printErr(msg string)` writes a red `✗ <msg>` line to stderr, shared by `stop.go` and `scan.go`.
+
+### `internal/workspace/options.go` — Context Helper
+
+`ctxOr(ctx context.Context) context.Context` returns the given context if non-nil, otherwise `context.Background()`. This replaces duplicate `ctx()` methods that were defined on both `RunOptions` and `InspectOptions`.
