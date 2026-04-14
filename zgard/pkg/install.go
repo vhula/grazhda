@@ -16,7 +16,11 @@ func newInstallCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "install",
 		Short: "Install one or all packages from the registry",
-		Long: `Install packages declared in ` + "`$GRAZHDA_DIR/.grazhda.pkgs.yaml`" + `.
+		Long: `Install packages from:
+- global registry: ` + "`$GRAZHDA_DIR/.grazhda.pkgs.yaml`" + `
+- local registry: ` + "`$GRAZHDA_DIR/registry.pkgs.local.yaml`" + ` (optional)
+
+Local entries override global entries when name+version match.
 
 Dependencies are resolved automatically via topological sort (Kahn's algorithm).
 Each package runs through the following lifecycle:
@@ -52,7 +56,7 @@ Pass --verbose to stream raw script stdout/stderr to the terminal.`,
 				return err
 			}
 
-			reg, err := pkgman.LoadRegistry(pkgman.RegistryPath(dir))
+			reg, err := loadMergedRegistry(dir)
 			if err != nil {
 				return fmt.Errorf("load registry: %w", err)
 			}
@@ -71,7 +75,7 @@ Pass --verbose to stream raw script stdout/stderr to the terminal.`,
 		},
 	}
 
-	cmd.Flags().StringVarP(&pkgName, "name", "n", "", "Name of the package to install")
+	cmd.Flags().StringVarP(&pkgName, "name", "n", "", "Package ref to install: <name> or <name>@<version>")
 	cmd.Flags().BoolVar(&all, "all", false, "Install all packages in the registry")
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Stream script output to the terminal")
 	return cmd

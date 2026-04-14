@@ -32,7 +32,14 @@ func NewCmd() *cobra.Command {
 **zgard pkg** installs and purges developer tools (SDKs, CLIs, runtimes) inside
 ` + "`$GRAZHDA_DIR/pkgs/`" + ` so they never contaminate the host OS.
 
-Packages are declared in **` + "`$GRAZHDA_DIR/.grazhda.pkgs.yaml`" + `** (the _registry_).
+Packages come from two registries:
+
+- global: **` + "`$GRAZHDA_DIR/.grazhda.pkgs.yaml`" + `** (managed by install/upgrade)
+- local: **` + "`$GRAZHDA_DIR/registry.pkgs.local.yaml`" + `** (user-managed)
+
+During install/purge, local entries override global entries when name+version
+match exactly.
+
 Dependencies are resolved automatically in topological order via a DAG engine,
 guaranteeing that every dependency is installed before its dependents.
 
@@ -55,11 +62,15 @@ Each package supports two env blocks:
 |----------------------------|---------------------------------------------------|
 | ` + "`pkg install`" + `           | Install packages from the registry                |
 | ` + "`pkg purge`" + `             | Remove packages and excise their env blocks       |
+| ` + "`pkg register`" + `          | Interactively register a local package            |
+| ` + "`pkg unregister`" + `        | Remove one/all packages from local registry       |
 
 Run ` + "`zgard pkg <command> --help`" + ` for full documentation.`,
 	}
 
 	cmd.AddCommand(newInstallCmd())
 	cmd.AddCommand(newPurgeCmd())
+	cmd.AddCommand(newRegisterCmd())
+	cmd.AddCommand(newUnregisterCmd())
 	return cmd
 }

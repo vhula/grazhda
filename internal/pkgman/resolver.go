@@ -12,37 +12,39 @@ import (
 // Kahn's algorithm is used; a non-empty remainder after processing indicates a
 // dependency cycle, which is reported with the names of the involved packages.
 func Resolve(reg *Registry, names []string) ([]Package, error) {
-	// Build a name→Package lookup.
-	byName := make(map[string]Package, len(reg.Packages))
-	for _, p := range reg.Packages {
-		byName[p.Name] = p
+	idx, err := newPackageIndex(reg)
+	if err != nil {
+		return nil, err
 	}
 
 	// Collect the seed set; expand transitively to get the full closure.
-	selected, err := closure(byName, names)
+	selected, err := closure(idx, names)
 	if err != nil {
 		return nil, err
 	}
 
 	// Build in-degree map and adjacency list over the selected set.
-	inDegree := make(map[string]int, len(selected))
-	deps := make(map[string][]string, len(selected)) // dependency → dependents
-	for name := range selected {
-		if _, seen := inDegree[name]; !seen {
-			inDegree[name] = 0
+	inDegree := make(map[string]int, len(selected))  // package id -> dep count
+	deps := make(map[string][]string, len(selected)) // dependency id -> dependent ids
+	for id, pkg := range selected {
+		if _, seen := inDegree[id]; !seen {
+			inDegree[id] = 0
 		}
-		for _, dep := range selected[name].DependsOn {
-			depName, _ := parseDep(dep)
-			inDegree[name]++
-			deps[depName] = append(deps[depName], name)
+		for _, dep := range pkg.DependsOn {
+			depID, _, err := resolvePackageRef(idx, dep)
+			if err != nil {
+				return nil, fmt.Errorf("package %q dependency %q: %w", pkgID(pkg), dep, err)
+			}
+			inDegree[id]++
+			deps[depID] = append(deps[depID], id)
 		}
 	}
 
 	// Kahn's algorithm: seed queue with zero-in-degree nodes.
 	var queue []string
-	for name, deg := range inDegree {
+	for id, deg := range inDegree {
 		if deg == 0 {
-			queue = append(queue, name)
+			queue = append(queue, id)
 		}
 	}
 	// Sort for deterministic output.
@@ -67,9 +69,9 @@ func Resolve(reg *Registry, names []string) ([]Package, error) {
 	if len(ordered) != len(selected) {
 		// Remaining non-zero in-degree nodes form the cycle.
 		var cycle []string
-		for name, deg := range inDegree {
+		for id, deg := range inDegree {
 			if deg > 0 {
-				cycle = append(cycle, name)
+				cycle = append(cycle, id)
 			}
 		}
 		sortStrings(cycle)
@@ -93,19 +95,18 @@ func ResolveReverse(reg *Registry, names []string) ([]Package, error) {
 	return ordered, nil
 }
 
-// closure computes the transitive closure of the requested package names,
+// closure computes the transitive closure of the requested package refs,
 // verifying that every referenced package exists in the registry and that any
 // version constraint specified in a depends_on entry is satisfied.
 //
 // depends_on entries may be plain package names ("sdkman") or versioned
 // references ("sdkman@1.2.3"). A versioned reference is satisfied only when
 // the registry package declares exactly that version.
-func closure(byName map[string]Package, names []string) (map[string]Package, error) {
-	// If no names given, select all.
-	seeds := names
+func closure(idx *packageIndex, refs []string) (map[string]Package, error) {
+	seeds := refs
 	if len(seeds) == 0 {
-		for name := range byName {
-			seeds = append(seeds, name)
+		for id := range idx.byID {
+			seeds = append(seeds, id)
 		}
 	}
 
@@ -117,39 +118,81 @@ func closure(byName map[string]Package, names []string) (map[string]Package, err
 		cur := stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
 
-		// cur may itself be a versioned ref (when a dep pushes a versioned name
-		// onto the stack); strip the version for the map key.
-		curName, _ := parseDep(cur)
-
-		if _, seen := result[curName]; seen {
+		curID, pkg, err := resolvePackageRef(idx, cur)
+		if err != nil {
+			return nil, fmt.Errorf("unknown package %q referenced in dependency chain", cur)
+		}
+		if _, seen := result[curID]; seen {
 			continue
 		}
-		p, ok := byName[curName]
-		if !ok {
-			return nil, fmt.Errorf("unknown package %q referenced in dependency chain", curName)
-		}
-		result[curName] = p
-		for _, dep := range p.DependsOn {
-			depName, depVer := parseDep(dep)
-			if _, seen := result[depName]; !seen {
-				stack = append(stack, depName)
+		result[curID] = pkg
+		for _, dep := range pkg.DependsOn {
+			depID, _, err := resolvePackageRef(idx, dep)
+			if err != nil {
+				return nil, fmt.Errorf("package %q dependency %q: %w", pkgID(pkg), dep, err)
 			}
-			// Validate version constraint even when the dep is already in the result.
-			if depVer != "" {
-				depPkg, known := byName[depName]
-				if !known {
-					return nil, fmt.Errorf("unknown package %q referenced by %q", depName, curName)
-				}
-				if depPkg.Version != depVer {
-					return nil, fmt.Errorf(
-						"package %q requires %s@%s but registry has %s@%s",
-						curName, depName, depVer, depName, depPkg.Version,
-					)
-				}
+			if _, seen := result[depID]; !seen {
+				stack = append(stack, depID)
 			}
 		}
 	}
 	return result, nil
+}
+
+type packageIndex struct {
+	byID   map[string]Package
+	byName map[string][]Package
+}
+
+func newPackageIndex(reg *Registry) (*packageIndex, error) {
+	idx := &packageIndex{
+		byID:   make(map[string]Package, len(reg.Packages)),
+		byName: make(map[string][]Package, len(reg.Packages)),
+	}
+	for _, p := range reg.Packages {
+		id := pkgID(p)
+		if _, exists := idx.byID[id]; exists {
+			return nil, fmt.Errorf("duplicate package entry %q in registry", id)
+		}
+		idx.byID[id] = p
+		idx.byName[p.Name] = append(idx.byName[p.Name], p)
+	}
+	return idx, nil
+}
+
+func resolvePackageRef(idx *packageIndex, ref string) (string, Package, error) {
+	name, version := parseDep(ref)
+	if version != "" {
+		id := pkgID(Package{Name: name, Version: version})
+		pkg, ok := idx.byID[id]
+		if !ok {
+			return "", Package{}, fmt.Errorf("required version %q for package %q is not defined", version, name)
+		}
+		return id, pkg, nil
+	}
+
+	candidates := idx.byName[name]
+	if len(candidates) == 0 {
+		return "", Package{}, fmt.Errorf("package %q is not defined", name)
+	}
+	if len(candidates) == 1 {
+		pkg := candidates[0]
+		return pkgID(pkg), pkg, nil
+	}
+
+	for _, pkg := range candidates {
+		if pkg.Version == "" {
+			return pkgID(pkg), pkg, nil
+		}
+	}
+	return "", Package{}, fmt.Errorf("package %q has multiple versions; use %q in depends_on", name, name+"@<version>")
+}
+
+func pkgID(p Package) string {
+	if p.Version == "" {
+		return p.Name
+	}
+	return p.Name + "@" + p.Version
 }
 
 // parseDep splits a depends_on entry into its package name and optional version.

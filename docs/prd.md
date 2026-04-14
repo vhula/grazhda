@@ -528,6 +528,18 @@ The `grazhda` management script provides self-management capabilities for the Gr
 - `grazhda uninstall` removes all files from `$GRAZHDA_DIR` except `config.yaml` and cleans up the shell profile; cancels cleanly on non-`y` input.
 - `grazhda purge` removes `$GRAZHDA_DIR` entirely and cleans up the shell profile; cancels cleanly on non-`y` input.
 
+### Local Package Registry Requirements
+
+- **FR-G22:** `$GRAZHDA_DIR/.grazhda.pkgs.yaml` is the global package registry managed by install/upgrade flows.
+- **FR-G23:** Users can define local packages in `$GRAZHDA_DIR/registry.pkgs.local.yaml` using the same schema as the global registry.
+- **FR-G24:** `zgard pkg install` and `zgard pkg purge` must load both registries and merge them at runtime.
+- **FR-G25:** Local entries override global entries only when `name` and `version` both match (including both versions empty).
+- **FR-G26:** `zgard pkg register` must provide an interactive prompt for all package fields (`name`, `version`, `pre_create_dir`, `depends_on`, `pre_install_env`, `install`, `post_install_env`, `purge`) and write/upsert into the local registry.
+- **FR-G27:** During `zgard pkg register`, `depends_on` selection must be driven by existing package options from the merged registry set (global + local).
+- **FR-G28:** `zgard pkg unregister --name <name> [--version <version>]` must remove matching local registry entries; omitted version removes all local versions for that name.
+- **FR-G29:** `zgard pkg unregister --all` must remove all local registry entries.
+- **FR-G30:** Local packages may depend on global packages; dependency resolution must consider optional version constraints in `depends_on` references.
+
 ---
 
 ## Phase 4 — Cross-Repository Operations

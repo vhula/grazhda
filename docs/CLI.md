@@ -92,6 +92,7 @@ Available Commands:
   completion  Generate the autocompletion script for the specified shell
   config      Inspect and validate configuration
   help        Help about any command
+  pkg         Package registry management
   ws          Workspace operations
 
 Flags:
@@ -465,6 +466,64 @@ Get a specific configuration value using a dotted-path key (based on YAML field 
 zgard config get dukh.port         # e.g. "50501"
 zgard config get install_dir       # e.g. "/home/alice/.grazhda"
 zgard config get workspaces.0.name # first workspace name
+```
+
+### `zgard pkg` — Package Registry Manager
+
+`zgard pkg` manages developer tools using two registries:
+
+1. Global: `$GRAZHDA_DIR/.grazhda.pkgs.yaml` (managed by install/upgrade)
+2. Local: `$GRAZHDA_DIR/registry.pkgs.local.yaml` (user-managed)
+
+For `pkg install` and `pkg purge`, both registries are merged. Local entries override global entries when both `name` and `version` match exactly.
+
+#### `zgard pkg install`
+
+Install one package (`--name`) or all packages (`--all`) in dependency order.
+
+```bash
+zgard pkg install --name jdk
+zgard pkg install --name jdk@17.0.8-tem
+zgard pkg install --all
+zgard pkg install --all --verbose
+```
+
+#### `zgard pkg purge`
+
+Purge one package (`--name`) or all packages (`--all`) in reverse dependency order.
+
+```bash
+zgard pkg purge --name jdk
+zgard pkg purge --name jdk@17.0.8-tem
+zgard pkg purge --all
+```
+
+#### `zgard pkg register`
+
+Interactively add or update a package in the local registry.
+
+```bash
+zgard pkg register
+```
+
+Interactive prompts include:
+1. `name` (required)
+2. `version` (optional)
+3. `pre_create_dir` (y/N)
+4. `depends_on` selected from existing packages (global + local merged list)
+5. `pre_install_env` (multi-line)
+6. `install` script (multi-line)
+7. `post_install_env` (multi-line)
+8. `purge` script (multi-line)
+
+#### `zgard pkg unregister`
+
+Remove packages from the local registry.
+
+```bash
+zgard pkg unregister --name jdk
+zgard pkg unregister --name jdk --version 17.0.8-tem
+zgard pkg unregister --all
 ```
 
 ---

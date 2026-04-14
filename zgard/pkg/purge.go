@@ -44,7 +44,7 @@ removed before their dependencies. For each package:
 				return err
 			}
 
-			reg, err := pkgman.LoadRegistry(pkgman.RegistryPath(dir))
+			reg, err := loadMergedRegistry(dir)
 			if err != nil {
 				return fmt.Errorf("load registry: %w", err)
 			}
@@ -63,7 +63,7 @@ removed before their dependencies. For each package:
 		},
 	}
 
-	cmd.Flags().StringVarP(&pkgName, "name", "n", "", "Name of the package to purge")
+	cmd.Flags().StringVarP(&pkgName, "name", "n", "", "Package ref to purge: <name> or <name>@<version>")
 	cmd.Flags().BoolVar(&all, "all", false, "Purge all packages listed in the registry")
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Stream script output to the terminal")
 	return cmd

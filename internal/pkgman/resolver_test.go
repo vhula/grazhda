@@ -150,6 +150,36 @@ func TestResolve_UnversionedDep_OnVersionedPkg(t *testing.T) {
 	}
 }
 
+func TestResolve_UnversionedDep_AmbiguousVersions(t *testing.T) {
+	r := reg(
+		pkgV("sdkman", "1.2.3"),
+		pkgV("sdkman", "2.0.0"),
+		pkgV("jdk", "17", "sdkman"),
+	)
+	_, err := pkgman.Resolve(r, nil)
+	if err == nil {
+		t.Fatal("expected ambiguous version error, got nil")
+	}
+}
+
+func TestResolve_VersionedDep_WithMultipleVersions(t *testing.T) {
+	r := reg(
+		pkgV("sdkman", "1.2.3"),
+		pkgV("sdkman", "2.0.0"),
+		pkgV("jdk", "17", "sdkman@2.0.0"),
+	)
+	got, err := pkgman.Resolve(r, []string{"jdk@17"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("expected 2 packages, got %d", len(got))
+	}
+	if got[0].Version != "2.0.0" || got[1].Name != "jdk" {
+		t.Fatalf("unexpected order/content: %#v", got)
+	}
+}
+
 func TestResolveReverse_LinearChain(t *testing.T) {
 	r := reg(pkg("a", "b"), pkg("b", "c"), pkg("c"))
 	got, err := pkgman.ResolveReverse(r, nil)

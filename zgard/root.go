@@ -61,15 +61,22 @@ Run ` + "`zgard ws <command> --help`" + ` for full documentation of any subcomma
 ## Package management
 
 Use **zgard pkg** to install and manage developer tools (SDKs, CLIs, runtimes)
-inside ` + "`$GRAZHDA_DIR/pkgs/`" + ` — isolated from the host OS. Packages are declared
-in ` + "`$GRAZHDA_DIR/.grazhda.pkgs.yaml`" + ` and their shell environment is written into
-` + "`$GRAZHDA_DIR/.grazhda.env`" + `. Dependencies are resolved automatically in
-topological order.
+inside ` + "`$GRAZHDA_DIR/pkgs/`" + ` — isolated from the host OS.
+
+Registries:
+- Global (managed by install/upgrade): ` + "`$GRAZHDA_DIR/.grazhda.pkgs.yaml`" + `
+- Local (user-managed): ` + "`$GRAZHDA_DIR/registry.pkgs.local.yaml`" + `
+
+During install and purge, both registries are merged. Local entries override
+global entries when **name+version** match exactly. Shell env blocks are written
+to ` + "`$GRAZHDA_DIR/.grazhda.env`" + `.
 
 | Command          | Description                                               |
 |------------------|-----------------------------------------------------------|
 | ` + "`pkg install`" + `   | Install one or all packages (deps resolved automatically) |
 | ` + "`pkg purge`" + `     | Remove packages and excise their env blocks               |
+| ` + "`pkg register`" + `  | Interactively add/update a package in local registry      |
+| ` + "`pkg unregister`" + `| Remove one or all packages from local registry            |
 
 Run ` + "`zgard pkg <command> --help`" + ` for full documentation.
 

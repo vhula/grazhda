@@ -7,6 +7,7 @@
 package pkgman
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -16,6 +17,9 @@ import (
 
 // RegistryFile is the canonical registry filename within GRAZHDA_DIR.
 const RegistryFile = ".grazhda.pkgs.yaml"
+
+// LocalRegistryFile is the user-managed package registry filename.
+const LocalRegistryFile = "registry.pkgs.local.yaml"
 
 // EnvFile is the canonical shell-env filename within GRAZHDA_DIR.
 const EnvFile = ".grazhda.env"
@@ -81,9 +85,39 @@ func LoadRegistry(path string) (*Registry, error) {
 	return &reg, nil
 }
 
+// LoadLocalRegistry reads the local package registry YAML from path.
+// A missing file is treated as an empty registry.
+func LoadLocalRegistry(path string) (*Registry, error) {
+	reg, err := LoadRegistry(path)
+	if err == nil {
+		return reg, nil
+	}
+	if errors.Is(err, os.ErrNotExist) {
+		return &Registry{}, nil
+	}
+	return nil, err
+}
+
+// SaveRegistry writes the package registry YAML to path.
+func SaveRegistry(path string, reg *Registry) error {
+	data, err := yaml.Marshal(reg)
+	if err != nil {
+		return fmt.Errorf("serialize registry %q: %w", path, err)
+	}
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return fmt.Errorf("write registry %q: %w", path, err)
+	}
+	return nil
+}
+
 // RegistryPath returns the canonical registry file path for the given grazhdaDir.
 func RegistryPath(grazhdaDir string) string {
 	return filepath.Join(grazhdaDir, RegistryFile)
+}
+
+// LocalRegistryPath returns the canonical local registry path for the given grazhdaDir.
+func LocalRegistryPath(grazhdaDir string) string {
+	return filepath.Join(grazhdaDir, LocalRegistryFile)
 }
 
 // EnvPath returns the canonical .grazhda.env path for the given grazhdaDir.
@@ -94,4 +128,73 @@ func EnvPath(grazhdaDir string) string {
 // PkgDir returns the installation directory for a specific package.
 func PkgDir(grazhdaDir, pkgName string) string {
 	return filepath.Join(grazhdaDir, "pkgs", pkgName)
+}
+
+// MergeRegistries merges global and local registries.
+// Local packages override global packages only when name and version both match.
+func MergeRegistries(global, local *Registry) *Registry {
+	if global == nil {
+		global = &Registry{}
+	}
+	if local == nil {
+		local = &Registry{}
+	}
+	merged := &Registry{
+		Packages: make([]Package, 0, len(global.Packages)+len(local.Packages)),
+	}
+	merged.Packages = append(merged.Packages, global.Packages...)
+	for _, lp := range local.Packages {
+		found := false
+		for i := range merged.Packages {
+			if samePkgIdentity(merged.Packages[i], lp) {
+				merged.Packages[i] = lp
+				found = true
+				break
+			}
+		}
+		if !found {
+			merged.Packages = append(merged.Packages, lp)
+		}
+	}
+	return merged
+}
+
+// AddPackage inserts or updates a package in the registry by name+version identity.
+func AddPackage(reg *Registry, pkg Package) *Registry {
+	for i := range reg.Packages {
+		if samePkgIdentity(reg.Packages[i], pkg) {
+			reg.Packages[i] = pkg
+			return reg
+		}
+	}
+	reg.Packages = append(reg.Packages, pkg)
+	return reg
+}
+
+// RemovePackage removes packages from the registry.
+// If version is empty, all packages matching name are removed.
+// If version is set, only the exact name+version match is removed.
+func RemovePackage(reg *Registry, name, version string) (*Registry, bool) {
+	if reg == nil {
+		return &Registry{}, false
+	}
+	out := make([]Package, 0, len(reg.Packages))
+	removed := false
+	for _, p := range reg.Packages {
+		if p.Name != name {
+			out = append(out, p)
+			continue
+		}
+		if version != "" && p.Version != version {
+			out = append(out, p)
+			continue
+		}
+		removed = true
+	}
+	reg.Packages = out
+	return reg, removed
+}
+
+func samePkgIdentity(a, b Package) bool {
+	return a.Name == b.Name && a.Version == b.Version
 }

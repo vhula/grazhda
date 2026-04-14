@@ -1301,3 +1301,35 @@ Help call flow:
   # Another scenario
   zgard ws <command> --flag value
 ```
+
+## Package Registry Layering (Global + Local)
+
+`zgard pkg` now resolves packages from two YAML registries in `$GRAZHDA_DIR`:
+
+1. Global registry: `.grazhda.pkgs.yaml` (managed by installer/upgrade)
+2. Local registry: `registry.pkgs.local.yaml` (user-managed, optional)
+
+### Merge Model
+
+- Both registries use the same `pkgman.Package` schema.
+- Merge is performed at command runtime (`pkg install`, `pkg purge`).
+- Local entries override global entries only when **name+version** match exactly.
+- Different versions of the same package name may coexist in the merged set.
+
+### Dependency Resolution
+
+- `depends_on` supports both `name` and `name@version`.
+- Versioned dependencies must resolve an exact package version.
+- If an unversioned dependency points to multiple versioned candidates with no unversioned entry, resolution fails as ambiguous and requires `name@version`.
+- Local packages can depend on global packages because resolution runs on the merged registry.
+
+### CLI Surface
+
+- `zgard pkg register`: interactive package upsert into local registry.
+- `zgard pkg unregister --name <name> [--version <version>]`: remove local entries by name or exact name+version.
+- `zgard pkg unregister --all`: clear the local registry.
+
+### Persistence Rules
+
+- Installer and `grazhda upgrade` refresh only the global registry file.
+- Local registry is never overwritten by install/upgrade flows.
