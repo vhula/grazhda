@@ -54,6 +54,12 @@ curl -s https://raw.githubusercontent.com/vhula/grazhda/refs/heads/main/grazhda-
 
 This installs into `$GRAZHDA_DIR` (default: `$HOME/.grazhda`) and builds binaries from source.
 
+To install into a custom directory, set `GRAZHDA_DIR` before running the installer:
+
+```bash
+export GRAZHDA_DIR="$HOME/devtools/grazhda" && curl -s https://raw.githubusercontent.com/vhula/grazhda/refs/heads/main/grazhda-install.sh | bash
+```
+
 ### 3. Configure your workspace
 
 ```bash

@@ -18,21 +18,31 @@ If you manage multiple repositories across projects, Grazhda automates the repet
 
 ## Step 1: Install Grazhda
 
-Grazhda installs itself from source and places all binaries in `~/.grazhda/bin/`.
+Grazhda installs itself from source and places binaries in `$GRAZHDA_DIR/bin/`
+(default: `$HOME/.grazhda/bin/`).
 
 ```bash
 curl -s https://raw.githubusercontent.com/vhula/grazhda/refs/heads/main/grazhda-install.sh | bash
 ```
 
+To install to a custom location, set `GRAZHDA_DIR` first:
+
+```bash
+export GRAZHDA_DIR="$HOME/devtools/grazhda" && curl -s https://raw.githubusercontent.com/vhula/grazhda/refs/heads/main/grazhda-install.sh | bash
+```
+
 The installer will:
-1. Clone the Grazhda sources to `~/.grazhda/sources`
+1. Clone the Grazhda sources to `$GRAZHDA_DIR/sources`
 2. Build `zgard` and `dukh` from source
-3. Copy binaries to `~/.grazhda/bin`
+3. Copy binaries to `$GRAZHDA_DIR/bin`
 4. Show you a snippet to add to your shell profile
 
 **After installation,** add the snippet to your `~/.bashrc` or `~/.zshrc`:
 
 ```bash
+# Use the same directory you installed with:
+# export GRAZHDA_DIR="$HOME/devtools/grazhda"
+# Default:
 export GRAZHDA_DIR="$HOME/.grazhda"
 [[ -s "${GRAZHDA_DIR}/bin/grazhda-init.sh" ]] && source "${GRAZHDA_DIR}/bin/grazhda-init.sh"
 ```
@@ -58,7 +68,7 @@ zgard --help
 Create a configuration file that describes your repositories:
 
 ```bash
-cp ~/.grazhda/sources/config.template.yaml ~/.grazhda/config.yaml
+cp "$GRAZHDA_DIR/sources/config.template.yaml" "$GRAZHDA_DIR/config.yaml"
 ```
 
 Open it in your editor and replace the example repositories with your own:
@@ -259,7 +269,7 @@ zgard ws pull -t api        # Only repos tagged "api"
 **Issue:** `zgard: command not found`
 
 - Ensure the snippet was added to your shell profile and the shell was reloaded.
-- Check that `~/.grazhda/bin` is on your `$PATH`:
+- Check that `$GRAZHDA_DIR/bin` is on your `$PATH`:
 
 ```bash
 echo $PATH | grep grazhda
@@ -287,7 +297,7 @@ Start it again:
 dukh start
 ```
 
-For detailed logs, check `~/.grazhda/logs/dukh.log`.
+For detailed logs, check `$GRAZHDA_DIR/logs/dukh.log`.
 
 ---
 
