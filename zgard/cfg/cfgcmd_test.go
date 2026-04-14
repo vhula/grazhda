@@ -1,4 +1,4 @@
-package cfgcmd
+package cfg
 
 import (
 	"bytes"

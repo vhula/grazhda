@@ -1,6 +1,6 @@
-// Package cfgcmd implements the `zgard config` subcommand suite for
+// Package cfg implements the `zgard config` subcommand suite for
 // inspecting and validating the Grazhda configuration file.
-package cfgcmd
+package cfg
 
 import (
 	"fmt"

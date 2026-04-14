@@ -12,7 +12,7 @@ import (
 	clr "github.com/vhula/grazhda/internal/color"
 	"github.com/vhula/grazhda/internal/reporter"
 	"github.com/vhula/grazhda/internal/ui"
-	"github.com/vhula/grazhda/zgard/cfgcmd"
+	"github.com/vhula/grazhda/zgard/cfg"
 	"github.com/vhula/grazhda/zgard/pkg"
 	"github.com/vhula/grazhda/zgard/ws"
 )
@@ -132,6 +132,6 @@ func init() {
 	})
 
 	rootCmd.AddCommand(ws.NewCmd())
-	rootCmd.AddCommand(cfgcmd.NewCmd())
+	rootCmd.AddCommand(cfg.NewCmd())
 	rootCmd.AddCommand(pkg.NewCmd())
 }

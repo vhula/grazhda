@@ -9,7 +9,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra/doc"
-	"github.com/vhula/grazhda/zgard/cfgcmd"
+	"github.com/vhula/grazhda/zgard/cfg"
 	"github.com/vhula/grazhda/zgard/ws"
 
 	"github.com/spf13/cobra"
@@ -21,7 +21,7 @@ func main() {
 		Short: "Workspace lifecycle manager",
 	}
 	root.AddCommand(ws.NewCmd())
-	root.AddCommand(cfgcmd.NewCmd())
+	root.AddCommand(cfg.NewCmd())
 
 	outDir := "../man/man1"
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
