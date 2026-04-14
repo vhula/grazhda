@@ -51,6 +51,35 @@ This guide explains the Grazhda project from first principles. You do not need t
     - [Configurable Monitoring Period](#186-configurable-monitoring-period)
 19. [Updated Project Layout](#19-updated-project-layout)
 20. [New Go Concepts Introduced in Phase 2](#20-new-go-concepts-introduced-in-phase-2)
+21. [grazhda Management Script](#21-grazhda-management-script)
+22. [internal/format — Duration Formatting](#22-internalformat--duration-formatting)
+23. [internal/grpcdial — gRPC Connection Helper](#23-internalgrpcdial--grpc-connection-helper)
+24. [internal/ui — Terminal Rendering](#24-internalui--terminal-rendering)
+25. [internal/pkgman — Package Management Domain](#25-internalpkgman--package-management-domain)
+    - [registry.go — Data Model and Persistence](#251-registrygo--data-model-and-persistence)
+    - [Dual Registry Architecture](#252-dual-registry-architecture)
+    - [resolver.go — Dependency Resolution (Kahn's Algorithm)](#253-resolvergo--dependency-resolution-kahns-algorithm)
+    - [env.go — Marker-Based Environment Blocks](#254-envgo--marker-based-environment-blocks)
+    - [installer.go — Package Installation Lifecycle](#255-installergo--package-installation-lifecycle)
+    - [purger.go — Package Removal Lifecycle](#256-purgergo--package-removal-lifecycle)
+    - [runner.go — Script Execution Engine](#257-runnergo--script-execution-engine)
+    - [spinner.go — Progress Indicator](#258-spinnergo--progress-indicator)
+26. [zgard/cfg — Configuration Commands](#26-zgardcfg--configuration-commands)
+27. [zgard/pkg — Package Management CLI](#27-zgardpkg--package-management-cli)
+    - [install.go — Installing Packages](#271-installgo--installing-packages)
+    - [purge.go — Removing Packages](#272-purgego--removing-packages)
+    - [register.go — Interactive Package Registration](#273-registergo--interactive-package-registration)
+    - [unregister.go — Removing from the Local Registry](#274-unregistergo--removing-from-the-local-registry)
+    - [registry_load.go — Shared Registry Loader](#275-registry_loadgo--shared-registry-loader)
+28. [Shell Scripts Deep Dive](#28-shell-scripts-deep-dive)
+    - [grazhda-init.sh — Shell Startup Initialization](#281-grazhda-initsh--shell-startup-initialization)
+    - [grazhda-install.sh — First-Run Installer](#282-grazhda-installsh--first-run-installer)
+29. [Testing Patterns and Strategies](#29-testing-patterns-and-strategies)
+    - [Go Testing Patterns](#291-go-testing-patterns)
+    - [Bash Script Testing](#292-bash-script-testing)
+    - [Testing Cobra CLI Commands](#293-testing-cobra-cli-commands)
+30. [Complete Project Layout (Phase 4)](#30-complete-project-layout-phase-4)
+31. [New Go Concepts Introduced in Phases 3–4](#31-new-go-concepts-introduced-in-phases-34)
 
 ---
 
@@ -95,12 +124,13 @@ A **module** is a directory tree with a `go.mod` file at its root. The `go.mod` 
 2. The Go version being used
 3. External dependency versions
 
-Grazhda has two active modules:
+Grazhda has three active modules:
 
 | Directory | Module path (`go.mod` module line) |
 | :--- | :--- |
 | `internal/` | `github.com/vhula/grazhda/internal` |
 | `zgard/` | `github.com/vhula/grazhda/zgard` |
+| `dukh/` | `github.com/vhula/grazhda/dukh` |
 
 To import the `reporter` package from `zgard/`, you write:
 
@@ -2492,3 +2522,1153 @@ editor: vim
 | **`${var:-default}`** | Uses `default` if `var` is unset or empty |
 | **`set -e`** | Exit immediately if any command returns non-zero |
 | **`git pull` exit codes** | 0 = success (with or without changes); non-zero = network/merge error |
+
+---
+
+## 22. internal/format — Duration Formatting
+
+This tiny utility package wraps `time.Duration` into human-friendly strings:
+
+```go
+package format
+
+func Uptime(d time.Duration) string
+```
+
+Usage:
+
+```go
+format.Uptime(2*time.Hour + 15*time.Minute)   // "2h 15m"
+format.Uptime(3*time.Minute + 42*time.Second)  // "3m 42s"
+format.Uptime(17 * time.Second)                // "17s"
+```
+
+**Design:** The function cascades through three bands (hours, minutes, seconds) and always shows at most two units. This keeps status output concise — "2h 15m" is more readable than "2h15m42s".
+
+### Why a dedicated package?
+
+Formatting a duration as "2h 15m" is needed in multiple places (dukh status output, reporter timing, etc.). Extracting it into `internal/format` means a single implementation serves every caller.
+
+### Go concept: `time.Duration`
+
+`time.Duration` is an `int64` alias measuring nanoseconds. The standard library provides constants like `time.Second`, `time.Minute`, and `time.Hour` for arithmetic. Methods like `d.Hours()`, `d.Minutes()`, and `d.Seconds()` return `float64` values, so the function casts them to `int` to drop decimal fractions.
+
+---
+
+## 23. internal/grpcdial — gRPC Connection Helper
+
+This package centralises how zgard and dukh CLI commands connect to the dukh gRPC server:
+
+```go
+package grpcdial
+
+func Addr(cfg *config.Config) string         // address from config or defaults
+func DefaultAddr() string                    // "localhost:50501"
+func Dial(addr string) (*grpc.ClientConn, error) // open a lazy connection
+```
+
+### Fallback chain
+
+```
+config.yaml → dukh.host + dukh.port
+    ↓ (if not set)
+defaults: "localhost" + 50501
+```
+
+`Addr()` inspects `cfg.Dukh.Host` and `cfg.Dukh.Port` and falls back to the hardcoded defaults. This means the dukh server works out of the box with no configuration — you only need to set `dukh.host` / `dukh.port` if you want a non-standard address.
+
+### Lazy connections
+
+```go
+func Dial(addr string) (*grpc.ClientConn, error) {
+    return grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+}
+```
+
+`grpc.NewClient()` creates a connection that doesn't actually dial the server until the first RPC call. This is called "lazy connection establishment". The caller must eventually call `conn.Close()` (usually via `defer conn.Close()`).
+
+### Go concept: error wrapping with `%w`
+
+```go
+return fmt.Errorf("dial %q: %w", addr, err)
+```
+
+The `%w` verb in `fmt.Errorf` wraps the original error. Callers can then use `errors.Is(err, someErr)` or `errors.As(err, &target)` to inspect the cause chain. This is Go's standard pattern for enriching errors with context while preserving the original.
+
+---
+
+## 24. internal/ui — Terminal Rendering
+
+This package renders markdown help text for the terminal using the [glamour](https://github.com/charmbracelet/glamour) library:
+
+```go
+package ui
+
+func Render(md string) string
+```
+
+### How it works
+
+1. If the input is empty, return `""`
+2. Check `color.IsDisabled()` — if colour is off, use the "notty" style (plain text)
+3. Otherwise, auto-detect terminal background (dark/light) and pick the matching glamour style
+4. Render the markdown; word-wrap at 100 characters
+5. If anything fails, **return the raw markdown**
+
+This last point is the key design decision: **fail open**. If the terminal doesn't support colours, or glamour encounters an edge-case markdown construct, the user still sees the help text — just without styling.
+
+### Why render help as markdown?
+
+Cobra's built-in help formatter produces plain text with basic indentation. By writing `rootLong` as Markdown and rendering it with glamour, the help output gets headings, bullet lists, code blocks, and colour — all from a single source string. The same markdown also reads well on GitHub if you paste it into a README.
+
+### Go concept: conditional imports
+
+The `ui` package imports both `glamour` and the internal `color` package. This is not "conditional" in the C `#ifdef` sense — Go always compiles all imports. Instead, the package uses runtime branching:
+
+```go
+if color.IsDisabled() {
+    // plain style
+} else {
+    // coloured style
+}
+```
+
+Go encourages keeping all code in the binary and branching at runtime rather than using build tags for optional features.
+
+---
+
+## 25. internal/pkgman — Package Management Domain
+
+This is the largest package in the project and contains the complete domain logic for declarative package management. It handles:
+
+- **Registry** — loading, saving, and merging YAML package definitions
+- **Resolver** — topological dependency sorting with cycle detection
+- **Env** — marker-based shell environment block management
+- **Installer / Purger** — orchestrating multi-step package lifecycles
+- **Runner** — executing shell scripts with environment overlays
+- **Spinner** — progress feedback for non-verbose mode
+
+### 25.1. registry.go — Data Model and Persistence
+
+The core data types:
+
+```go
+type Registry struct {
+    Packages []Package `yaml:"registry"`
+}
+
+type Package struct {
+    Name           string   `yaml:"name"`
+    Version        string   `yaml:"version,omitempty"`
+    PreCreateDir   bool     `yaml:"pre_create_dir,omitempty"`
+    DependsOn      []string `yaml:"depends_on,omitempty"`
+    PreInstallEnv  string   `yaml:"pre_install_env,omitempty"`
+    Install        string   `yaml:"install,omitempty"`
+    PostInstallEnv string   `yaml:"post_install_env,omitempty"`
+    Purge          string   `yaml:"purge,omitempty"`
+}
+```
+
+Each field maps directly to a YAML key. The `omitempty` tag tells the YAML marshaller to skip empty fields when writing — so a package with no version produces `name: sdkman` rather than `name: sdkman\nversion: ""`.
+
+**Package identity** is the tuple `(Name, Version)`. Two packages with the same name but different versions are distinct entries. The helper function `samePkgIdentity(a, b)` checks:
+
+```go
+func samePkgIdentity(a, b Package) bool {
+    return a.Name == b.Name && a.Version == b.Version
+}
+```
+
+**Path helpers** construct canonical file locations:
+
+| Function | Returns |
+|---|---|
+| `RegistryPath(dir)` | `dir + "/.grazhda.pkgs.yaml"` |
+| `LocalRegistryPath(dir)` | `dir + "/registry.pkgs.local.yaml"` |
+| `EnvPath(dir)` | `dir + "/.grazhda.env"` |
+| `PkgDir(dir, name)` | `dir + "/pkgs/" + name` |
+
+**Loading and saving** use `gopkg.in/yaml.v3`:
+
+```go
+func LoadRegistry(path string) (*Registry, error) {
+    data, err := os.ReadFile(path)     // read the whole file
+    var reg Registry
+    err = yaml.Unmarshal(data, &reg)   // parse YAML into the struct
+    return &reg, nil
+}
+```
+
+`LoadLocalRegistry(path)` differs in one crucial way: if the file does not exist, it returns an empty registry instead of an error. This is because the local registry is optional — a user may never create one.
+
+### 25.2. Dual Registry Architecture
+
+Grazhda uses two package registries:
+
+```
+$GRAZHDA_DIR/
+├── .grazhda.pkgs.yaml          ← GLOBAL (shipped with Grazhda, replaced on upgrade)
+└── registry.pkgs.local.yaml    ← LOCAL  (user-managed, never touched by upgrade)
+```
+
+**Global registry:** Defines packages that ship with the project. It is overwritten during `grazhda upgrade` so the maintainer can add, remove, or update package definitions. Users should not edit this file.
+
+**Local registry:** Users can register their own packages or override global ones. It uses the exact same YAML schema but lives in a separate file that `grazhda upgrade` never replaces.
+
+**Merge semantics** (`MergeRegistries()`):
+
+1. Start with all global packages
+2. For each local package, compare `(Name, Version)` against global entries
+3. If an exact match exists, the local entry **replaces** the global one
+4. If no match, the local entry is **appended**
+5. The merged result is used for install/purge/resolve operations
+
+```go
+func MergeRegistries(global, local *Registry) *Registry {
+    merged := &Registry{Packages: append([]Package{}, global.Packages...)}
+    for _, lp := range local.Packages {
+        found := false
+        for i, gp := range merged.Packages {
+            if samePkgIdentity(gp, lp) {
+                merged.Packages[i] = lp
+                found = true
+                break
+            }
+        }
+        if !found {
+            merged.Packages = append(merged.Packages, lp)
+        }
+    }
+    return merged
+}
+```
+
+**Important:** local packages can depend on global packages. The `depends_on` field references packages by name (or `name@version`), and the resolver looks up dependencies in the merged registry. This means a local package like `my-tool` can declare `depends_on: [sdkman]` where `sdkman` is defined in the global registry.
+
+### 25.3. resolver.go — Dependency Resolution (Kahn's Algorithm)
+
+The resolver turns an unordered list of packages into a safe installation order where every package's dependencies are installed before the package itself.
+
+**Algorithm overview (Kahn's topological sort):**
+
+```
+1. Build an in-degree map:  for each package, count how many dependencies it has
+2. Seed queue: packages with in-degree 0 (no dependencies) go into a queue
+3. Loop: dequeue a package, add it to the output, decrement in-degree of
+   packages that depend on it. If any reach 0, enqueue them.
+4. Detect cycles: if the output is smaller than the selected set, the
+   remaining nodes form a cycle.
+```
+
+Here is the core loop:
+
+```go
+for len(queue) > 0 {
+    cur := queue[0]
+    queue = queue[1:]
+    ordered = append(ordered, selected[cur])
+
+    for _, dependent := range deps[cur] {
+        inDegree[dependent]--
+        if inDegree[dependent] == 0 {
+            queue = append(queue, dependent)
+            sortStrings(queue)
+        }
+    }
+}
+```
+
+**Why sort the queue?** Kahn's algorithm is non-deterministic — when multiple packages have zero in-degree, the algorithm can pick any of them. By sorting the queue after each insertion, Grazhda always produces the same output for the same input. This is important for reproducible builds and predictable test assertions.
+
+**Version-aware references** — the `depends_on` field supports two formats:
+
+| depends_on entry | Meaning |
+|---|---|
+| `"sdkman"` | Refers to the only package named `sdkman` (any version, or unversioned) |
+| `"sdkman@1.2.3"` | Refers specifically to the package with `name: sdkman` and `version: 1.2.3` |
+
+The `parseDep()` function splits these:
+
+```go
+func parseDep(s string) (name, version string) {
+    if idx := strings.Index(s, "@"); idx >= 0 {
+        return s[:idx], s[idx+1:]
+    }
+    return s, ""
+}
+```
+
+**Multi-version ambiguity** — if the registry has `jdk@17.0.8-tem` and `jdk@21.0.1-tem`, and a depends_on entry says just `"jdk"`, the resolver returns an error:
+
+```
+package "jdk" has multiple versions; use "jdk@<version>" in depends_on
+```
+
+The exception: if one of the candidates has an empty version field, it is treated as the "default" and selected automatically.
+
+**Transitive closure** — the `closure()` function walks the dependency graph depth-first using a stack. Starting from the seed packages, it follows every `depends_on` edge and collects all reachable packages. This ensures that installing `maven` also pulls in `jdk` and `sdkman` even though you only asked for `maven`.
+
+**Reverse resolution** for purging:
+
+```go
+func ResolveReverse(reg *Registry, names []string) ([]Package, error) {
+    ordered, err := Resolve(reg, names)
+    // ... reverse ordered in place ...
+    return ordered, nil
+}
+```
+
+Reversing the topological order means dependents come first. When purging `maven → jdk → sdkman`, the purger removes maven before jdk before sdkman, so no package is removed while something still depends on it.
+
+### Go concept: Kahn's algorithm
+
+Kahn's algorithm (1962) is one of the two classical approaches to topological sort (the other being DFS-based). It has the advantage of naturally detecting cycles: after processing, any node with a non-zero in-degree is part of a cycle. This makes cycle reporting trivial.
+
+### Go concept: `strings.Cut`
+
+```go
+k, _, _ := strings.Cut(kv, "=")
+```
+
+`strings.Cut` splits a string on the first occurrence of a separator and returns `(before, after, found)`. It was added in Go 1.18 as a cleaner alternative to `strings.SplitN(s, "=", 2)`. When you don't need the boolean, `_, _, _` discards it cleanly.
+
+### 25.4. env.go — Marker-Based Environment Blocks
+
+The `.grazhda.env` file stores shell environment variable exports for installed packages. Instead of appending lines that are impossible to remove later, pkgman uses **named blocks** with sentinel markers:
+
+```bash
+# === BEGIN GRAZHDA: sdkman:pre ===
+export SDKMAN_DIR="$GRAZHDA_DIR/pkgs/sdkman"
+# === END GRAZHDA: sdkman:pre ===
+
+# === BEGIN GRAZHDA: sdkman:post ===
+[[ -s "$SDKMAN_DIR/bin/sdkman-init.sh" ]] && source "$SDKMAN_DIR/bin/sdkman-init.sh"
+# === END GRAZHDA: sdkman:post ===
+```
+
+Each package can have two blocks:
+- `<name>:pre` — written **before** installation (so the install script can use the exported variables)
+- `<name>:post` — written **after** installation (so the user's shell picks up the new tool)
+
+**Three operations:**
+
+| Function | Behaviour |
+|---|---|
+| `UpsertBlock(path, name, content)` | Write block; replace if already present, append if not |
+| `RemoveBlock(path, name)` | Delete the named block; no-op if missing |
+| `HasBlock(path, name)` | Check existence without modifying the file |
+
+**Idempotency:** calling `UpsertBlock` twice with identical arguments produces the same file. This is critical because `zgard pkg install --all` might be re-run after a partial failure — previously written blocks must not be duplicated.
+
+**How `UpsertBlock` works:**
+
+```
+1. Read the file (or start with empty if ENOENT)
+2. findBlock() scans line-by-line for the begin/end markers
+3. If found: splice out the old lines, insert the new block
+4. If not found: append a blank line separator + the new block
+5. Write back to the file
+```
+
+The `findBlock()` helper returns `(startIdx, endIdx)` line indices, or `(-1, -1)` if the block is not present:
+
+```go
+func findBlock(lines []string, beginMarker, endMarker string) (startIdx, endIdx int) {
+    startIdx = -1
+    for i, l := range lines {
+        trimmed := strings.TrimSpace(l)
+        if startIdx < 0 && trimmed == beginMarker {
+            startIdx = i
+        } else if startIdx >= 0 && trimmed == endMarker {
+            return startIdx, i
+        }
+    }
+    return -1, -1
+}
+```
+
+**Blank line management** — when removing a block, excess blank lines before and after the deleted region are trimmed, and a single blank separator is kept between remaining blocks. This prevents the file from accumulating whitespace after repeated install/purge cycles.
+
+### Go concept: slice surgery
+
+```go
+lines = append(rawLines[:startIdx:startIdx], newBlock...)
+lines = append(lines, rawLines[endIdx+1:]...)
+```
+
+The three-index slice `rawLines[:startIdx:startIdx]` sets both length and capacity to `startIdx`. This prevents `append` from overwriting elements beyond the cut point. Without the capacity limit, Go would reuse the underlying array and corrupt the tail.
+
+### 25.5. installer.go — Package Installation Lifecycle
+
+`Installer` orchestrates the full installation of one or more packages:
+
+```go
+type Installer struct {
+    grazhdaDir string
+    reg        *Registry
+    out        io.Writer
+    errOut     io.Writer
+    verbose    bool
+}
+```
+
+**Per-package lifecycle** (`installOne`):
+
+```
+1. Print "▶ Installing sdkman" (blue)
+2. If pre_create_dir: mkdir $GRAZHDA_DIR/pkgs/sdkman
+3. If pre_install_env:
+   a. UpsertBlock(.grazhda.env, "sdkman:pre", content)
+   b. source .grazhda.env         ← makes exports visible to the install script
+4. Run install script:
+   a. Prepend `source .grazhda.env` to the script
+   b. In verbose mode: stream stdout/stderr line by line
+   c. In quiet mode: show a braille spinner, print "✓ done" / "✗ failed"
+5. If post_install_env:
+   a. UpsertBlock(.grazhda.env, "sdkman:post", content)
+   b. source .grazhda.env         ← makes new exports visible to subsequent packages
+6. Print "✓ sdkman installed" (green)
+```
+
+**Why source .grazhda.env before the install script?** Consider installing `jdk` which depends on `sdkman`. The sdkman installation writes `SDKMAN_DIR` into its `:pre` block and sdkman-init into its `:post` block. When the installer reaches `jdk`, it sources `.grazhda.env` before running `sdk install java ...`. This makes `sdk` (provided by sdkman-init) available to the jdk install script, even though sdkman was installed moments ago in the same session.
+
+**Verbose vs quiet mode:**
+
+- **Verbose** (`--verbose`): script output lines are streamed to the terminal prefixed with `│ ` for visual grouping
+- **Quiet** (default): output goes to `io.Discard`, and a braille `Spinner` animates on stderr to show progress
+
+### 25.6. purger.go — Package Removal Lifecycle
+
+`Purger` is the mirror image of `Installer`:
+
+```go
+type Purger struct {
+    grazhdaDir string
+    reg        *Registry
+    out        io.Writer
+    errOut     io.Writer
+    verbose    bool
+}
+```
+
+**Per-package lifecycle** (`purgeOne`):
+
+```
+1. Print "▶ Purging sdkman" (yellow)
+2. Run optional purge script (e.g., `sdk uninstall java ...`)
+3. If pre_create_dir: rm -rf $GRAZHDA_DIR/pkgs/sdkman
+4. Remove env blocks:
+   a. RemoveBlock(.grazhda.env, "sdkman:pre")
+   b. RemoveBlock(.grazhda.env, "sdkman:post")
+5. Print "✓ sdkman purged" (green)
+```
+
+**Colour convention:** Install uses **blue** (▶), Purge uses **yellow** (▶). Both use green (✓) for success and red (✗) for failure. This gives the user an instant visual cue about which operation is running.
+
+**Idempotent removal:** `removeBlockIfPresent()` checks `HasBlock()` before calling `RemoveBlock()`. Missing directories/blocks don't cause errors. This means you can safely run `zgard pkg purge --all` twice.
+
+### 25.7. runner.go — Script Execution Engine
+
+`Runner` executes a single shell script phase (install, purge, source-env) for a specific package:
+
+```go
+type Runner struct {
+    grazhdaDir string
+    pkg        Package
+    out        io.Writer
+    errOut     io.Writer
+}
+```
+
+**Key method:**
+
+```go
+func (r *Runner) RunPhase(ctx context.Context, phase, script string) error
+```
+
+**How it works:**
+
+1. Skip empty scripts (no-op)
+2. Launch `bash -c <script>` with `exec.CommandContext`
+3. Set environment: inherit `os.Environ()` + overlay `GRAZHDA_DIR`, `PKG_DIR`, `PKG_NAME`, `VERSION`
+4. Pipe stdout and stderr through `streamLines()` which prefixes every line with `│ `
+5. Wait for the process to exit; non-zero exit code becomes a Go error
+
+**Environment overlay pattern:**
+
+```go
+func (r *Runner) buildEnv() []string {
+    overlay := []string{
+        "GRAZHDA_DIR=" + r.grazhdaDir,
+        "PKG_DIR=" + pkgDir,
+        "PKG_NAME=" + r.pkg.Name,
+        "VERSION=" + r.pkg.Version,
+    }
+    // For each os.Environ() entry, replace it with the overlay if the key matches.
+    // This ensures overlays win without duplicating keys.
+}
+```
+
+The overlay merge is important because Go's `exec.Cmd.Env` replaces the entire environment. If you just set `Env = overlay`, the process loses `PATH`, `HOME`, etc. By starting from `os.Environ()` and only replacing matching keys, the child process inherits the full environment plus the grazhda-specific overrides.
+
+### Go concept: `exec.CommandContext`
+
+```go
+cmd := exec.CommandContext(ctx, "bash", "-c", script)
+```
+
+`exec.CommandContext` ties the child process to a `context.Context`. When the context is cancelled (e.g., Ctrl+C), Go sends SIGKILL to the child process. This ensures that long-running install scripts are interrupted when the user cancels.
+
+### Go concept: goroutines for pipe draining
+
+```go
+done := make(chan struct{})
+go func() {
+    defer close(done)
+    streamLines(stdoutPipe, "    │ ", r.out)
+}()
+streamLines(stderrPipe, "    │ ", r.errOut)
+<-done
+```
+
+Stdout and stderr must be drained concurrently. If the process writes more than the OS pipe buffer to stdout while nobody reads it, the process blocks. By reading stdout in a goroutine and stderr in the main goroutine, both pipes are drained simultaneously. The `<-done` channel receive ensures the goroutine finishes before `cmd.Wait()` is called.
+
+### 25.8. spinner.go — Progress Indicator
+
+```go
+type Spinner struct {
+    mu      sync.Mutex
+    msg     string
+    out     io.Writer
+    stop    chan struct{}
+    stopped bool
+}
+```
+
+The spinner renders braille animation frames (`⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏`) at 100 ms intervals, giving a smooth rotating effect:
+
+```
+  ⠹ [install] running…
+```
+
+**Thread safety:** The spinner runs in its own goroutine and can be stopped from any goroutine. A `sync.Mutex` protects the message field, and a `chan struct{}` signals the goroutine to exit. The `stopped` flag prevents double-close panics.
+
+**Line clearing:** `Stop()` first writes `\r%-80s\r` to overwrite the spinner line with spaces, then prints the final status. This avoids leftover spinner characters in the terminal.
+
+### Go concept: `sync.Mutex`
+
+A `sync.Mutex` is the simplest synchronisation primitive. `mu.Lock()` acquires exclusive access; `mu.Unlock()` releases it. Here it protects the `msg` and `stopped` fields which are read by the ticker goroutine and written by the caller's goroutine.
+
+### Go concept: channel close as broadcast
+
+`close(s.stop)` wakes up every goroutine blocked in `<-s.stop` or `select { case <-s.stop: }`. This is the canonical Go pattern for one-shot "shutdown" signals — closing a channel is effectively a broadcast to all listeners.
+
+---
+
+## 26. zgard/cfg — Configuration Commands
+
+The `cfg` package (originally named `cfgcmd`, then renamed) provides the `zgard config` subcommand tree:
+
+```
+zgard config
+├── path       Print the resolved config file path
+├── validate   Load and validate config, report errors
+├── list       Display workspace/project hierarchy with colours
+└── get <key>  Look up a value by dotted YAML path
+```
+
+### Command wiring
+
+```go
+func NewCmd() *cobra.Command {
+    cmd := &cobra.Command{Use: "config", Short: "Manage configuration"}
+    cmd.AddCommand(newPathCmd(), newValidateCmd(), newListCmd(), newGetCmd())
+    return cmd
+}
+```
+
+The parent `config` command has no `Run` function — running `zgard config` alone prints help. Each subcommand is created by an unexported factory (e.g., `newPathCmd()`) that returns a `*cobra.Command`.
+
+### resolveConfigPath()
+
+```go
+func resolveConfigPath() string
+```
+
+1. Check `$GRAZHDA_DIR` — if set, return `$GRAZHDA_DIR/config.yaml`
+2. Otherwise, return `$HOME/.grazhda/config.yaml`
+
+This fallback chain mirrors the convention used across all Grazhda scripts and commands.
+
+### Dotted-path access (the `get` subcommand)
+
+`zgard config get dukh.port` uses `config.GetByPath()` to traverse the YAML tree using dot-separated keys. Array indices are supported as numeric segments, e.g., `workspaces.0.name` retrieves the name of the first workspace.
+
+### Go concept: `reporter.ExitError`
+
+```go
+return reporter.ExitError{Code: 1}
+```
+
+Cobra normally calls `os.Exit(1)` on error, but Grazhda's root command intercepts the error from `cmd.Execute()` and checks if it's an `ExitError`. If so, it uses the error's `Code` field as the process exit code. This keeps the exit code logic out of individual commands and centralises it in the root.
+
+---
+
+## 27. zgard/pkg — Package Management CLI
+
+The `pkg` package provides the `zgard pkg` subcommand tree:
+
+```
+zgard pkg
+├── install      Install one or all packages
+├── purge        Remove one or all packages
+├── register     Interactively add a package to the local registry
+└── unregister   Remove a package from the local registry
+```
+
+### `grazhdaDir()` — shared helper
+
+Every subcommand needs the installation directory. This helper reads `$GRAZHDA_DIR` or falls back to `$HOME/.grazhda`:
+
+```go
+func grazhdaDir() string {
+    if d := os.Getenv("GRAZHDA_DIR"); d != "" {
+        return d
+    }
+    home, _ := os.UserHomeDir()
+    return filepath.Join(home, ".grazhda")
+}
+```
+
+### 27.1. install.go — Installing Packages
+
+**Flags:**
+
+| Flag | Short | Type | Description |
+|---|---|---|---|
+| `--name` | `-n` | string | Package ref (`<name>` or `<name>@<version>`) |
+| `--all` | | bool | Install all packages |
+| `--verbose` | `-v` | bool | Stream script output to the terminal |
+
+**Validation:** exactly one of `--name` or `--all` must be set. Both or neither is an error.
+
+**Flow:**
+
+```go
+func runInstall(cmd *cobra.Command, args []string) error {
+    reg, err := loadMergedRegistry(grazhdaDir())  // global + local merged
+    inst := pkgman.NewInstaller(dir, reg, os.Stdout, os.Stderr, verbose)
+    return inst.Install(cmd.Context(), names)
+}
+```
+
+### 27.2. purge.go — Removing Packages
+
+Identical flag structure to install. Uses `pkgman.NewPurger()` with `ResolveReverse()` internally for safe removal order.
+
+### 27.3. register.go — Interactive Package Registration
+
+This command has no flags — it walks the user through an interactive dialog:
+
+```
+$ zgard pkg register
+Name (required): my-tool
+Version (optional): 1.0.0
+Pre-create directory? (y/N): y
+Dependencies (choose from existing packages):
+  1. sdkman
+  2. jdk@17.0.8-tem
+  3. maven@3.9.4
+Select (space-separated numbers, or empty): 1 2
+Pre-install env (multi-line, empty line to finish):
+  export MY_TOOL_HOME="$PKG_DIR"
+
+Install script (multi-line, empty line to finish):
+  curl -L https://... | tar xz -C "$PKG_DIR"
+
+Post-install env (multi-line, empty line to finish):
+  export PATH="$MY_TOOL_HOME/bin:$PATH"
+
+Purge script (multi-line, empty line to finish):
+  rm -rf "$PKG_DIR"
+
+✓ Registered my-tool@1.0.0 in local registry
+```
+
+**Prompt helpers:**
+
+```go
+func promptRequired(in *bufio.Reader, out io.Writer, label string) (string, error)
+func promptOptional(in *bufio.Reader, out io.Writer, label string) (string, error)
+func promptBool(in *bufio.Reader, out io.Writer, label string) (bool, error)
+func promptMultiline(in *bufio.Reader, out io.Writer, label string) (string, error)
+func promptDependsOn(in *bufio.Reader, out io.Writer, reg *pkgman.Registry) ([]string, error)
+```
+
+`promptRequired` keeps asking until a non-empty value is given. `promptMultiline` collects lines until the user enters a blank line. `promptDependsOn` displays a numbered list of all packages in the merged registry (not just the local one), so users can depend on global packages.
+
+### Go concept: `bufio.Reader` for interactive input
+
+```go
+reader := bufio.NewReader(os.Stdin)
+line, _ := reader.ReadString('\n')
+```
+
+`bufio.NewReader` wraps `os.Stdin` with a buffer. `ReadString('\n')` reads until a newline, including the newline itself. You must `strings.TrimSpace()` the result to remove it. This pattern avoids the more complex `fmt.Scanln` which chokes on spaces in input.
+
+### 27.4. unregister.go — Removing from the Local Registry
+
+**Flags:**
+
+| Flag | Type | Description |
+|---|---|---|
+| `--name` | string | Package name to remove |
+| `--version` | string | Optional: remove only this version |
+| `--all` | bool | Clear the entire local registry |
+
+**Three modes:**
+
+```
+zgard pkg unregister --name my-tool           ← remove all versions
+zgard pkg unregister --name my-tool --version 1.0.0  ← exact match only
+zgard pkg unregister --all                    ← empty the local registry
+```
+
+The `--all` flag is mutually exclusive with `--name` and `--version`. The command validates this and returns a clear error message.
+
+### 27.5. registry_load.go — Shared Registry Loader
+
+A small helper used by `install`, `purge`, `register`, and `unregister`:
+
+```go
+func loadMergedRegistry(grazhdaDir string) (*pkgman.Registry, error) {
+    global, err := pkgman.LoadRegistry(pkgman.RegistryPath(grazhdaDir))
+    local, err  := pkgman.LoadLocalRegistry(pkgman.LocalRegistryPath(grazhdaDir))
+    return pkgman.MergeRegistries(global, local), nil
+}
+```
+
+This three-line function exists as a separate file because:
+
+1. It avoids duplicating the load-and-merge logic in four commands
+2. It provides a single place to change if the merge strategy ever changes
+3. It's independently testable
+
+---
+
+## 28. Shell Scripts Deep Dive
+
+### 28.1. grazhda-init.sh — Shell Startup Initialization
+
+This 14-line script is sourced every time you open a terminal (via `.bashrc`):
+
+```bash
+#!/bin/bash
+GRAZHDA_DIR="${GRAZHDA_DIR:-$HOME/.grazhda}"
+
+# Idempotent PATH prepend
+case ":$PATH:" in
+    *":$GRAZHDA_DIR/bin:"*) ;;
+    *) export PATH="$GRAZHDA_DIR/bin:$PATH" ;;
+esac
+
+mkdir -p "$GRAZHDA_DIR/pkgs"
+
+# Source env (with fallback for legacy filename)
+[ -f "$GRAZHDA_DIR/.grazhda.env" ] && source "$GRAZHDA_DIR/.grazhda.env"
+source "$GRAZHDA_DIR/grazhda-env.sh" 2>/dev/null || true
+```
+
+**Idempotent PATH prepend:**
+
+The `case ":$PATH:" in *":$GRAZHDA_DIR/bin:"*)` pattern checks if the directory is already in PATH. The colons ensure exact matching: without them, `/usr/local/bin` would falsely match a search for `/usr/local/bi`. By wrapping PATH in colons, every entry is bordered by colons, making the match precise.
+
+**Why `2>/dev/null || true`?** The legacy `grazhda-env.sh` may not exist. Redirecting stderr to `/dev/null` suppresses the "file not found" message, and `|| true` prevents `set -e` (if active) from aborting the shell.
+
+**Why no `set -e`?** This script is `source`d into the user's shell. If `set -e` were active and any command failed, it would kill the user's shell session. Defensive `|| true` guards are used instead.
+
+### 28.2. grazhda-install.sh — First-Run Installer
+
+This script handles the one-time Grazhda installation. Key functions:
+
+**`verify_requirements()`** — checks that `git`, `go`, `just`, and `protoc` are on `$PATH` using `command -v`:
+
+```bash
+for cmd in git go just protoc; do
+    if ! command -v "$cmd" &>/dev/null; then
+        die "Missing required tool: $cmd"
+    fi
+done
+```
+
+**`run_logged()`** — captures command output to a log file while showing a one-line status:
+
+```bash
+run_logged() {
+    local label="$1"; shift
+    echo "  → $label"
+    if "$@" >> "$LOG_FILE" 2>&1; then
+        echo "    ✓ done"
+    else
+        echo "    ✗ failed (last 20 lines from log):"
+        tail -20 "$LOG_FILE"
+        exit 1
+    fi
+}
+```
+
+This pattern keeps the installation output clean while still capturing full logs for debugging.
+
+**`create_config()`** — creates `config.yaml` from the template **only if it doesn't already exist**. This is important for reinstalls: the user's workspace configuration survives.
+
+**`copy_pkgs_registry()`** — copies `.grazhda.pkgs.yaml` from the source tree to `$GRAZHDA_DIR/`. Unlike `create_config`, this **always overwrites** the file because the global registry is maintained by the project and must stay in sync.
+
+**Source-testable guard:**
+
+```bash
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    main "$@"
+fi
+```
+
+When the script is executed directly (`./grazhda-install.sh`), `BASH_SOURCE[0]` equals `$0`, so `main` runs. When the script is sourced (`source grazhda-install.sh`), they differ, so `main` is skipped. This allows test scripts to source the file and call individual functions in isolation.
+
+---
+
+## 29. Testing Patterns and Strategies
+
+### 29.1. Go Testing Patterns
+
+The project uses the standard `testing` package exclusively — no external test frameworks like testify or gomock.
+
+**Table-driven tests** — the preferred pattern for functions with many input/output scenarios:
+
+```go
+func TestUptime(t *testing.T) {
+    tests := []struct {
+        name string
+        in   time.Duration
+        want string
+    }{
+        {"seconds", 17 * time.Second, "17s"},
+        {"minutes", 3*time.Minute + 42*time.Second, "3m 42s"},
+        {"hours", 2*time.Hour + 15*time.Minute, "2h 15m"},
+    }
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            if got := format.Uptime(tt.in); got != tt.want {
+                t.Errorf("Uptime(%v) = %q, want %q", tt.in, got, tt.want)
+            }
+        })
+    }
+}
+```
+
+**`t.TempDir()`** — Go 1.15+ provides a built-in temp directory that is automatically cleaned up when the test finishes:
+
+```go
+func TestLoadLocalRegistry_MissingFileReturnsEmpty(t *testing.T) {
+    dir := t.TempDir()
+    reg, err := pkgman.LoadLocalRegistry(filepath.Join(dir, "does-not-exist.yaml"))
+    // ... assert empty registry, no error
+}
+```
+
+**`t.Setenv()`** — Go 1.17+ provides a helper that sets an environment variable and restores the original value when the test finishes:
+
+```go
+func TestGrazhdaDir_FromEnv(t *testing.T) {
+    t.Setenv("GRAZHDA_DIR", "/custom/path")
+    if got := grazhdaDir(); got != "/custom/path" {
+        t.Errorf("got %q, want /custom/path", got)
+    }
+}
+```
+
+**Mock I/O for interactive commands** — `bufio.Reader` wrapping `strings.NewReader` simulates user input:
+
+```go
+func TestPromptDependsOn_SelectsItems(t *testing.T) {
+    input := strings.NewReader("1 3\n")
+    reader := bufio.NewReader(input)
+    var out bytes.Buffer
+    deps, _ := promptDependsOn(reader, &out, &pkgman.Registry{...})
+    // ... assert deps contains items 1 and 3
+}
+```
+
+**Cobra command testing** — commands are tested by constructing the command, setting args, and capturing output:
+
+```go
+func TestPathCommand_PrintsResolvedPath(t *testing.T) {
+    cmd := newPathCmd()
+    var out bytes.Buffer
+    cmd.SetOut(&out)
+    cmd.SetErr(&bytes.Buffer{})
+    cmd.Execute()
+    // ... assert out.String() contains the expected path
+}
+```
+
+### 29.2. Bash Script Testing
+
+The project includes a custom test harness in `tests/bash/test_scripts.sh`. It uses no external framework — just Bash functions:
+
+**Assertion helpers:**
+
+```bash
+assert_eq() {
+    local label="$1" expected="$2" actual="$3"
+    if [[ "$expected" != "$actual" ]]; then
+        echo "FAIL: $label: expected '$expected', got '$actual'"
+        exit 1
+    fi
+}
+
+assert_file_contains() {
+    local label="$1" file="$2" pattern="$3"
+    if ! grep -q "$pattern" "$file"; then
+        echo "FAIL: $label: '$file' does not contain '$pattern'"
+        exit 1
+    fi
+}
+```
+
+**Isolated test environments:** Each test function creates a fresh temporary directory with `mktemp -d`:
+
+```bash
+test_installer_copy_pkgs_registry_overwrites() {
+    local tmp; tmp=$(mktemp -d)
+    TMP_DIRS+=("$tmp")
+    export GRAZHDA_DIR="$tmp/grazhda"
+    mkdir -p "$GRAZHDA_DIR"
+    # ... run function under test, assert results
+}
+```
+
+**Mock binaries for upgrade tests:** The upgrade test creates fake `git`, `go`, `just`, and `protoc` executables in a temporary bin directory:
+
+```bash
+mkdir -p "$tmp/fakebin"
+for tool in git go just protoc; do
+    printf '#!/bin/bash\ntrue\n' > "$tmp/fakebin/$tool"
+    chmod +x "$tmp/fakebin/$tool"
+done
+export PATH="$tmp/fakebin:$PATH"
+```
+
+**Global cleanup:** Instead of per-function cleanup (which can fire at the wrong time when scripts `source` other scripts), the harness uses a global array and a single `trap`:
+
+```bash
+TMP_DIRS=()
+cleanup() { for d in "${TMP_DIRS[@]}"; do rm -rf "$d"; done; }
+trap cleanup EXIT
+```
+
+### 29.3. Testing Cobra CLI Commands
+
+A common pattern for testing Cobra commands in Grazhda:
+
+1. **Test command hierarchy** — verify that subcommands exist on the parent:
+
+```go
+func TestRootCmd_HasMainSubcommands(t *testing.T) {
+    for _, name := range []string{"ws", "config", "pkg"} {
+        _, _, err := rootCmd.Find([]string{name})
+        if err != nil {
+            t.Errorf("expected subcommand %q", name)
+        }
+    }
+}
+```
+
+2. **Test flag definitions** — verify that persistent and local flags exist:
+
+```go
+func TestRootCmd_HasGlobalFlags(t *testing.T) {
+    for _, name := range []string{"no-color", "json", "quiet"} {
+        if rootCmd.PersistentFlags().Lookup(name) == nil {
+            t.Errorf("missing flag --%s", name)
+        }
+    }
+}
+```
+
+3. **Test command execution with args** — set args and assert output:
+
+```go
+cmd := newUnregisterCmd()
+cmd.SetArgs([]string{"--all"})
+cmd.SetIn(nil)
+cmd.SetOut(&bytes.Buffer{})
+cmd.SetErr(&bytes.Buffer{})
+err := cmd.Execute()
+```
+
+---
+
+## 30. Complete Project Layout (Phase 4)
+
+```
+grazhda/
+│
+├── go.work                          ← ties three local modules together
+├── go.work.sum                      ← checksums for workspace modules
+├── Justfile                         ← build, test, fmt, tidy, generate, man
+├── .goreleaser.yml                  ← goreleaser cross-platform release config
+├── .gitignore
+├── LICENSE
+│
+├── grazhda                          ← management script: upgrade, uninstall, purge, config
+├── grazhda-install.sh               ← first-run installer
+├── grazhda-init.sh                  ← shell profile init (sourced on every terminal open)
+├── config.template.yaml             ← default config template
+├── .grazhda.pkgs.yaml               ← global package registry (shipped with project)
+├── .grazhda.env                     ← generated env file (env blocks written by pkgman)
+│
+├── README.md                        ← project landing page
+├── QUICK-START.md                   ← 5-minute setup guide
+├── STUDY.md                         ← this file
+├── feature-ideas.md
+├── improvements.md
+│
+├── bin/                             ← build output (zgard, dukh, scripts)
+│
+├── docs/
+│   ├── CLI.md                       ← complete CLI reference
+│   ├── CONFIG.md                    ← configuration file reference
+│   ├── DEVELOPMENT.md               ← contributor setup guide
+│   ├── prd.md                       ← product requirements document
+│   ├── architecture.md              ← system design and decisions
+│   ├── ux-design-specification.md   ← output format and symbols
+│   ├── epics.md                     ← feature epics (zgard/workspace)
+│   └── epics-dukh.md                ← feature epics (dukh)
+│
+├── proto/
+│   └── dukh.proto                   ← gRPC service definition
+│
+├── internal/                        ← module: github.com/vhula/grazhda/internal
+│   ├── go.mod
+│   ├── go.sum
+│   ├── config/
+│   │   ├── config.go                ← Load, Validate, DefaultWorkspace, RenderCloneCmd
+│   │   └── config_test.go
+│   ├── executor/
+│   │   ├── executor.go              ← Executor interface + OsExecutor
+│   │   ├── executor_test.go
+│   │   └── mock.go                  ← MockExecutor for tests
+│   ├── color/
+│   │   ├── color.go                 ← Green/Red/Yellow/Blue helpers
+│   │   └── color_test.go
+│   ├── format/
+│   │   ├── uptime.go                ← Uptime(duration) string formatter
+│   │   └── uptime_test.go
+│   ├── grpcdial/
+│   │   ├── dial.go                  ← Addr/DefaultAddr/Dial helpers
+│   │   └── dial_test.go
+│   ├── ui/
+│   │   ├── render.go                ← Render(markdown) for terminal output
+│   │   └── render_test.go
+│   ├── reporter/
+│   │   ├── reporter.go              ← Reporter: ✓/⏭/✗ output + summary
+│   │   └── reporter_test.go
+│   ├── workspace/
+│   │   ├── options.go               ← RunOptions struct
+│   │   ├── targeting.go             ← Resolve: picks workspaces from flags
+│   │   ├── workspace.go             ← Init, Purge, Pull
+│   │   ├── workspace_test.go
+│   │   └── targeting_test.go
+│   ├── pkgman/
+│   │   ├── registry.go              ← Package model, load/save/merge registries
+│   │   ├── registry_test.go
+│   │   ├── resolver.go              ← Kahn's topological sort + version-aware refs
+│   │   ├── resolver_test.go
+│   │   ├── env.go                   ← UpsertBlock/RemoveBlock/HasBlock
+│   │   ├── env_test.go
+│   │   ├── installer.go             ← Installer orchestration
+│   │   ├── purger.go                ← Purger orchestration
+│   │   ├── runner.go                ← Script execution with env overlays
+│   │   ├── runtime_test.go          ← Tests for runner, spinner internals
+│   │   └── spinner.go               ← Braille progress indicator
+│   └── testdata/
+│       ├── valid_single_workspace.yaml
+│       ├── valid_multi_workspace.yaml
+│       ├── duplicate_workspace_names.yaml
+│       ├── missing_required_fields.yaml
+│       ├── missing_branch.yaml
+│       └── invalid_template.yaml
+│
+├── zgard/                           ← module: github.com/vhula/grazhda/zgard
+│   ├── go.mod
+│   ├── go.sum
+│   ├── main.go                      ← func main() — program entry point
+│   ├── root.go                      ← root Cobra command + Execute()
+│   ├── root_test.go
+│   ├── cfg/
+│   │   ├── cfgcmd.go                ← zgard config {path,validate,list,get}
+│   │   └── cfgcmd_test.go
+│   ├── ws/
+│   │   ├── ws.go                    ← zgard ws parent command
+│   │   ├── init.go                  ← zgard ws init
+│   │   ├── pull.go                  ← zgard ws pull
+│   │   ├── purge.go                 ← zgard ws purge
+│   │   └── status.go                ← zgard ws status
+│   └── pkg/
+│       ├── pkg.go                   ← zgard pkg parent command
+│       ├── pkg_test.go
+│       ├── install.go               ← zgard pkg install
+│       ├── purge.go                 ← zgard pkg purge
+│       ├── register.go              ← zgard pkg register (interactive)
+│       ├── unregister.go            ← zgard pkg unregister
+│       └── registry_load.go         ← loadMergedRegistry() helper
+│
+├── dukh/                            ← module: github.com/vhula/grazhda/dukh
+│   ├── go.mod
+│   ├── go.sum
+│   ├── cmd/
+│   │   ├── start.go                 ← dukh start (self-daemonizing)
+│   │   ├── stop.go                  ← dukh stop
+│   │   ├── status.go                ← dukh status
+│   │   ├── scan.go                  ← dukh scan
+│   │   └── cmd_test.go
+│   ├── server/
+│   │   ├── server.go                ← gRPC server lifecycle
+│   │   ├── monitor.go               ← workspace polling loop
+│   │   ├── log.go                   ← structured logging with rotation
+│   │   └── server_test.go
+│   └── proto/
+│       └── dukh.pb.go               ← generated gRPC stubs
+│
+├── tools/
+│   └── gen-manpages/
+│       └── main.go                  ← man page generator using Cobra doc
+│
+├── tests/
+│   └── bash/
+│       └── test_scripts.sh          ← bash script test harness
+│
+└── .github/
+    └── workflows/
+        ├── just.yml                 ← CI: build + test on push/PR
+        └── release.yml              ← release: goreleaser on tag push
+```
+
+---
+
+## 31. New Go Concepts Introduced in Phases 3–4
+
+| Concept | Where used | Explanation |
+|---|---|---|
+| **`sync.Mutex`** | `spinner.go` | Mutual exclusion lock; protects shared state between goroutines |
+| **Channel close as broadcast** | `spinner.go` | `close(ch)` wakes all listeners of `<-ch`; used for shutdown signals |
+| **`exec.CommandContext`** | `runner.go` | Ties child process to a context; cancels the process when context expires |
+| **`strings.Cut`** | `runner.go` | Splits string on first separator; cleaner than `SplitN` (Go 1.18+) |
+| **Three-index slice** | `env.go` | `s[:n:n]` sets both length and capacity; prevents `append` corruption |
+| **`os.IsNotExist`** | `env.go`, `registry.go` | Checks if an error is "file not found"; used for graceful missing-file handling |
+| **`bufio.NewReader`** | `register.go` | Buffered reader wrapping stdin; enables `ReadString('\n')` for line input |
+| **`io.Discard`** | `installer.go`, `purger.go` | An `io.Writer` that discards all written bytes; used to suppress verbose output |
+| **`time.NewTicker`** | `spinner.go` | Creates a repeating timer; delivers ticks on a channel at fixed intervals |
+| **`os.Environ` + overlay** | `runner.go` | Inherits full environment then selectively overrides keys; avoids losing PATH etc. |
+| **`yaml.Unmarshal` / `yaml.Marshal`** | `registry.go` | Deserialises/serialises Go structs from/to YAML using struct field tags |
+| **`filepath.Join`** | throughout | OS-safe path concatenation (uses `/` on Unix, `\` on Windows) |
+| **Insertion sort** | `resolver.go` | Simple O(n²) sort for small slices; avoids importing `sort` for deterministic output |
