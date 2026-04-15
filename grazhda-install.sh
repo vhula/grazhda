@@ -260,4 +260,8 @@ main() {
     echo ""
 }
 
-main
+# Run when executed as a file OR when piped into bash (BASH_SOURCE is unset in stdin mode).
+if [[ "${BASH_SOURCE[0]:-}" == "$0" || ( -z "${BASH_SOURCE[0]:-}" && "$0" == "bash" ) ]]; then
+    main
+fi
+
