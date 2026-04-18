@@ -80,6 +80,7 @@ This guide explains the Grazhda project from first principles. You do not need t
     - [Testing Cobra CLI Commands](#293-testing-cobra-cli-commands)
 30. [Complete Project Layout (Phase 4)](#30-complete-project-layout-phase-4)
 31. [New Go Concepts Introduced in Phases 3–4](#31-new-go-concepts-introduced-in-phases-34)
+32. [Effective Go Refactoring — DRY & Helpers](#32-effective-go-refactoring--dry--helpers)
 
 ---
 
@@ -92,6 +93,8 @@ A *workspace* in Grazhda terms is a directory that contains one or more *project
 - **`zgard ws init`** — create the directory structure and clone all repositories
 - **`zgard ws pull`** — pull the latest changes in every repository
 - **`zgard ws purge`** — delete a workspace directory
+- **`zgard ws status`** — show workspace health from `dukh`
+- **`zgard ws exec|stash|checkout|search|diff|stats|list`** — cross-repo operations and inspection
 
 ```
 ~/.grazhda/config.yaml describes:
@@ -1682,40 +1685,48 @@ The `-race` flag instruments the binary to detect data races at runtime. It is s
 
 ## 12. Build System (Justfile)
 
-`Justfile` uses the `just` command runner — similar to `make` but simpler syntax. Each named recipe contains shell commands:
+`Justfile` defines the project task workflow for generation, build, testing, formatting, and docs:
 
 ```just
+default: help
+
+build: generate build-zgard build-dukh copy-scripts copy-configs
+
 build-zgard:
-    mkdir -p bin
-    cd zgard && go build -o ../bin/zgard .
+    cd zgard && go build -ldflags "-X main.version=$(git describe --tags --always --dirty 2>/dev/null || echo dev)" -o ../bin/zgard .
 
-test:
-    cd internal && go test ./...
-    cd zgard && go test ./...
+build-dukh:
+    cd dukh && go build -o ../bin/dukh ./cmd
 
-fmt:
-    cd internal && go fmt ./...
-    cd zgard && go fmt ./...
+copy-scripts:
+    cp grazhda ./bin/
+    cp grazhda-init.sh ./bin/
 
-tidy:
-    cd internal && go mod tidy
-    cd zgard && go mod tidy -e
+copy-configs:
+    cp .grazhda.env ./bin/
+    cp .grazhda.pkgs.yaml ./bin/
 ```
 
 | Command | What it does |
 | :--- | :--- |
-| `just build-zgard` | Compiles `bin/zgard` (the production binary) |
-| `just build` | Builds `bin/zgard` + copies `grazhda-install.sh` bash scripts to `bin/` |
-| `just test` | Runs `go test ./...` for both modules |
-| `just fmt` | Auto-formats all `.go` files with `gofmt` (the standard formatter) |
-| `just tidy` | `go mod tidy` for each module — removes unused dependencies and adds missing ones |
+| `just generate` | Regenerates `dukh/proto/*.pb.go` from `proto/dukh.proto` |
+| `just build` | Full build pipeline: generate + build binaries + copy scripts/configs to `bin/` |
+| `just build-zgard` | Compiles `bin/zgard` with build-time version from git tags |
+| `just build-dukh` | Compiles `bin/dukh` from `dukh/cmd` |
+| `just copy-scripts` | Copies `grazhda` and `grazhda-init.sh` into `bin/` |
+| `just copy-configs` | Copies `.grazhda.env` and `.grazhda.pkgs.yaml` into `bin/` |
+| `just test` | Runs Go tests for `internal`, `zgard`, `dukh`, then Bash script tests |
+| `just test-bash` | Runs only `tests/bash/test_scripts.sh` |
+| `just man` | Generates man pages into `man/man1/` |
+| `just fmt` | Auto-formats all `.go` files with `gofmt` |
+| `just tidy` | Runs `go mod tidy` for each module |
 | `just clean` | Removes the `bin/` directory |
 
-**`go build -o ../bin/zgard .`** compiles the package in the current directory (`.`) and writes the binary to `../bin/zgard`. The `-o` flag specifies the output file name.
+**`just build` dependency chain:** `generate` runs first, then binaries are built, then scripts/config files are copied into `bin/`. This keeps local build output self-contained.
 
 **`go fmt ./...`** formats every `.go` file in the current module. Gofmt is opinionated — it enforces a single canonical style so there is no debate about formatting. In Go, formatting is not style; it is mandatory.
 
-**`go mod tidy`** removes unused dependencies from `go.mod` and `go.sum`, and adds any missing ones. Run it after adding or removing imports. The `zgard` module uses `go mod tidy -e` (tolerate errors) because it depends on the local `internal` module which is resolved via `go.work` and not published to the Go module registry.
+**`go mod tidy`** removes unused dependencies from `go.mod` and `go.sum`, and adds any missing ones. Run it after adding or removing imports.
 
 ---
 
@@ -3274,9 +3285,9 @@ esac
 
 mkdir -p "$GRAZHDA_DIR/pkgs"
 
-# Source env (with fallback for legacy filename)
-[ -f "$GRAZHDA_DIR/.grazhda.env" ] && source "$GRAZHDA_DIR/.grazhda.env"
+# Source legacy env first (backward compatibility), then canonical env
 source "$GRAZHDA_DIR/grazhda-env.sh" 2>/dev/null || true
+source "$GRAZHDA_DIR/.grazhda.env" 2>/dev/null || true
 ```
 
 **Idempotent PATH prepend:**
@@ -3323,15 +3334,17 @@ This pattern keeps the installation output clean while still capturing full logs
 
 **`copy_pkgs_registry()`** — copies `.grazhda.pkgs.yaml` from the source tree to `$GRAZHDA_DIR/`. Unlike `create_config`, this **always overwrites** the file because the global registry is maintained by the project and must stay in sync.
 
+**Source selection:** if `LOCAL_GRAZHDA_REPO_DIR` is set, installer copies from that local directory into `$GRAZHDA_DIR/sources`; otherwise it clones from GitHub.
+
 **Source-testable guard:**
 
 ```bash
-if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
-    main "$@"
+if [[ "${BASH_SOURCE[0]:-}" == "$0" || ( -z "${BASH_SOURCE[0]:-}" && "$0" == "bash" ) ]]; then
+    main
 fi
 ```
 
-When the script is executed directly (`./grazhda-install.sh`), `BASH_SOURCE[0]` equals `$0`, so `main` runs. When the script is sourced (`source grazhda-install.sh`), they differ, so `main` is skipped. This allows test scripts to source the file and call individual functions in isolation.
+When executed directly (`./grazhda-install.sh`), `BASH_SOURCE[0] == $0`, so `main` runs. When piped (`curl ... | bash`), `BASH_SOURCE` is unset and `$0` is `bash`, so `main` also runs. When sourced (`source grazhda-install.sh`), neither condition matches, so `main` is skipped. This keeps the script source-testable while still supporting stdin execution.
 
 ---
 
