@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 	clr "github.com/vhula/grazhda/internal/color"
 	"github.com/vhula/grazhda/internal/config"
+	"github.com/vhula/grazhda/internal/path"
 	"github.com/vhula/grazhda/internal/reporter"
 )
 
@@ -43,7 +44,7 @@ The configuration is loaded from **$GRAZHDA_DIR/config.yaml** when
 }
 
 // resolveConfigPath delegates to the shared config.ConfigPath helper.
-func resolveConfigPath() string { return config.ConfigPath() }
+func resolveConfigPath() string { return path.ConfigPath() }
 
 func newPathCmd() *cobra.Command {
 	return &cobra.Command{

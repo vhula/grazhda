@@ -4,11 +4,11 @@ package pkg
 
 import (
 	"github.com/spf13/cobra"
-	"github.com/vhula/grazhda/internal/config"
+	"github.com/vhula/grazhda/internal/path"
 )
 
 // grazhdaDir delegates to the shared config.GrazhdaDir helper.
-func grazhdaDir() (string, error) { return config.GrazhdaDir() }
+func grazhdaDir() (string, error) { return path.GrazhdaDir() }
 
 // NewCmd returns the `pkg` parent command with install and purge subcommands.
 func NewCmd() *cobra.Command {

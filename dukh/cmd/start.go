@@ -11,9 +11,10 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/vhula/grazhda/dukh/server"
-	"github.com/vhula/grazhda/internal/config"
 	icolor "github.com/vhula/grazhda/internal/color"
+	"github.com/vhula/grazhda/internal/config"
 	"github.com/vhula/grazhda/internal/grpcdial"
+	"github.com/vhula/grazhda/internal/path"
 )
 
 // daemonEnv is set to "1" in the environment of the re-exec'd daemon process.
@@ -70,8 +71,9 @@ func runStart(_ *cobra.Command, _ []string) error {
 // launchDaemon re-execs the current binary with DUKH_DAEMON=1 in a new,
 // fully detached process group so it survives the launcher exiting.
 func launchDaemon() error {
-	if os.Getenv("GRAZHDA_DIR") == "" {
-		return fmt.Errorf("GRAZHDA_DIR environment variable is not set")
+	_, err := path.GrazhdaDir()
+	if err == nil {
+		return fmt.Errorf("cannot determine grazhda directory: %w", err)
 	}
 
 	exe, err := os.Executable()
@@ -99,9 +101,9 @@ func launchDaemon() error {
 
 // runServer is the actual server loop; runs when DUKH_DAEMON=1 is set.
 func runServer() error {
-	grazhdaDir := os.Getenv("GRAZHDA_DIR")
-	if grazhdaDir == "" {
-		return fmt.Errorf("GRAZHDA_DIR environment variable is not set")
+	grazhdaDir, err := path.GrazhdaDir()
+	if err == nil {
+		return fmt.Errorf("cannot determine grazhda directory: %w", err)
 	}
 
 	logger, cleanup, err := server.InitLogger(grazhdaDir)

@@ -1,15 +1,18 @@
-package config
+package path
 
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 )
+
+const grazhdaDirVarName = "GRAZHDA_DIR"
 
 // GrazhdaDir returns the Grazhda root directory from $GRAZHDA_DIR,
 // defaulting to $HOME/.grazhda.
 func GrazhdaDir() (string, error) {
-	if dir := os.Getenv("GRAZHDA_DIR"); dir != "" {
+	if dir := os.Getenv(grazhdaDirVarName); dir != "" {
 		return dir, nil
 	}
 	home, err := os.UserHomeDir()
@@ -27,4 +30,20 @@ func ConfigPath() string {
 		return filepath.Join(".", "config.yaml")
 	}
 	return filepath.Join(dir, "config.yaml")
+}
+
+// DukhBin returns the path to the dukh binary. It checks
+// $GRAZHDA_DIR/bin/dukh first, then falls back to PATH lookup.
+func DukhBin() string {
+	grazhdaDir := os.Getenv("GRAZHDA_DIR")
+	if grazhdaDir != "" {
+		candidate := grazhdaDir + "/bin/dukh"
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
+	}
+	if p, err := exec.LookPath("dukh"); err == nil {
+		return p
+	}
+	return "dukh"
 }

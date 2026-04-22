@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	dukhpb "github.com/vhula/grazhda/dukh/proto"
 	icolor "github.com/vhula/grazhda/internal/color"
 )
 
@@ -37,19 +36,19 @@ $ dukh scan
 }
 
 func runScan(_ *cobra.Command, _ []string) error {
-	conn, client, err := dial()
+	c, err := dial()
 	if err != nil {
 		printErr(err.Error())
 		return err
 	}
-	defer conn.Close()
+	defer c.Close()
 
-	resp, err := client.Scan(context.Background(), &dukhpb.ScanRequest{})
+	msg, err := c.Scan(context.Background())
 	if err != nil {
 		printErr("dukh scan failed: " + err.Error())
 		return err
 	}
 
-	fmt.Println(icolor.Green("✓ " + resp.Message))
+	fmt.Println(icolor.Green("✓ " + msg))
 	return nil
 }

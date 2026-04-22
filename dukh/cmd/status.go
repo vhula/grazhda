@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	dukhpb "github.com/vhula/grazhda/dukh/proto"
 	icolor "github.com/vhula/grazhda/internal/color"
 	"github.com/vhula/grazhda/internal/format"
+	"github.com/vhula/grazhda/internal/path"
 )
 
 func statusCmd() *cobra.Command {
@@ -53,13 +53,9 @@ A stale PID file (process dead) is automatically cleaned up.
 }
 
 func runDukhStatus(_ *cobra.Command, _ []string) error {
-	grazhdaDir := os.Getenv("GRAZHDA_DIR")
-	if grazhdaDir == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return fmt.Errorf("cannot determine home directory: %w", err)
-		}
-		grazhdaDir = filepath.Join(home, ".grazhda")
+	grazhdaDir, err := path.GrazhdaDir()
+	if err != nil {
+		return fmt.Errorf("cannot determine grazhda directory: %w", err)
 	}
 
 	pid, err := readPIDFile(grazhdaDir)
@@ -121,13 +117,13 @@ func tryGetUptime() string {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
-	conn, client, err := dial()
+	c, err := dial()
 	if err != nil {
 		return ""
 	}
-	defer conn.Close()
+	defer c.Close()
 
-	resp, err := client.Status(ctx, &dukhpb.StatusRequest{})
+	resp, err := c.Status(ctx, "", false)
 	if err != nil {
 		return ""
 	}

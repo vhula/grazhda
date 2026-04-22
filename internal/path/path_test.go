@@ -1,4 +1,4 @@
-package config_test
+package path_test
 
 import (
 	"os"
@@ -6,13 +6,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/vhula/grazhda/internal/config"
+	"github.com/vhula/grazhda/internal/path"
 )
 
 func TestGrazhdaDir_FromEnv(t *testing.T) {
 	t.Setenv("GRAZHDA_DIR", "/custom/grazhda")
 
-	dir, err := config.GrazhdaDir()
+	dir, err := path.GrazhdaDir()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -29,7 +29,7 @@ func TestGrazhdaDir_DefaultHome(t *testing.T) {
 		t.Fatalf("cannot determine home dir: %v", err)
 	}
 
-	dir, err := config.GrazhdaDir()
+	dir, err := path.GrazhdaDir()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -42,7 +42,7 @@ func TestGrazhdaDir_DefaultHome(t *testing.T) {
 func TestConfigPath_FromEnv(t *testing.T) {
 	t.Setenv("GRAZHDA_DIR", "/custom/grazhda")
 
-	p := config.ConfigPath()
+	p := path.ConfigPath()
 	want := filepath.Join("/custom/grazhda", "config.yaml")
 	if p != want {
 		t.Errorf("expected %q, got %q", want, p)
@@ -52,7 +52,7 @@ func TestConfigPath_FromEnv(t *testing.T) {
 func TestConfigPath_DefaultHome(t *testing.T) {
 	t.Setenv("GRAZHDA_DIR", "")
 
-	p := config.ConfigPath()
+	p := path.ConfigPath()
 	if !strings.HasSuffix(p, filepath.Join(".grazhda", "config.yaml")) {
 		t.Errorf("expected path ending in .grazhda/config.yaml, got %q", p)
 	}
