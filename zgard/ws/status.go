@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -12,7 +11,6 @@ import (
 	dukhpb "github.com/vhula/grazhda/dukh/proto"
 	icolor "github.com/vhula/grazhda/internal/color"
 	"github.com/vhula/grazhda/internal/format"
-	ipath "github.com/vhula/grazhda/internal/path"
 )
 
 func newStatusCmd() *cobra.Command {
@@ -47,7 +45,13 @@ Each repository is shown as one of:
 func runWsStatus(cmd *cobra.Command, _ []string) error {
 	rescan, _ := cmd.Flags().GetBool("rescan")
 
-	c, err := dukhclient.NewDefault()
+	cfg, err := loadConfig()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, icolor.Red("✗ "+err.Error()))
+		return err
+	}
+
+	c, err := dukhclient.Connect(cfg)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, icolor.Red("✗ "+err.Error()))
 		return err
@@ -64,66 +68,12 @@ func runWsStatus(cmd *cobra.Command, _ []string) error {
 
 	resp, err := c.Status(ctx, wsName, rescan)
 	if err != nil {
-		// dukh is not running — attempt to auto-start it.
-		resp, err = tryAutoStartAndRetry(c, wsName, rescan)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, icolor.Red("✗ dukh status failed: "+err.Error()))
-			return err
-		}
+		fmt.Fprintln(os.Stderr, icolor.Red("✗ dukh status failed: "+err.Error()))
+		return err
 	}
 
 	renderWsStatus(resp)
 	return nil
-}
-
-// tryAutoStartAndRetry launches `dukh start`, waits for the server to become
-// ready, then retries the Status RPC. Returns the response or an error if
-// dukh could not be started or did not become ready within the timeout.
-func tryAutoStartAndRetry(c *dukhclient.Client, wsName string, rescan bool) (*dukhpb.StatusResponse, error) {
-	fmt.Println(icolor.Blue("⟳ dukh is not running — starting…"))
-
-	if err := startDukh(); err != nil {
-		return nil, fmt.Errorf("auto-start dukh: %w", err)
-	}
-
-	if err := waitForDukh(c, 10*time.Second); err != nil {
-		return nil, fmt.Errorf("dukh did not become ready: %w", err)
-	}
-
-	fmt.Println(icolor.Green("✓") + " dukh started")
-	fmt.Println()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	return c.Status(ctx, wsName, rescan)
-}
-
-// startDukh executes `dukh start` as a subprocess, reusing the existing
-// daemonization logic in the dukh binary.
-func startDukh() error {
-	dukhBin := ipath.DukhBin()
-	cmd := exec.Command(dukhBin, "start")
-	cmd.Env = os.Environ()
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
-}
-
-// waitForDukh polls the gRPC server until a Status RPC succeeds or the
-// timeout elapses.
-func waitForDukh(c *dukhclient.Client, timeout time.Duration) error {
-	deadline := time.Now().Add(timeout)
-	for time.Now().Before(deadline) {
-		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-		_, err := c.Status(ctx, "", false)
-		cancel()
-		if err == nil {
-			return nil
-		}
-		time.Sleep(500 * time.Millisecond)
-	}
-	return fmt.Errorf("timeout after %s", timeout)
 }
 
 func renderWsStatus(resp *dukhpb.StatusResponse) {

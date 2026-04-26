@@ -16,6 +16,7 @@ packages:
 dukh:
   host: localhost
   port: 50501
+  autostart: true
   monitoring:
     period_mins: 5
 

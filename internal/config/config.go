@@ -47,6 +47,7 @@ type GeneralConfig struct {
 type DukhConfig struct {
 	Host       string           `yaml:"host"`
 	Port       int              `yaml:"port"`
+	Autostart  bool             `yaml:"autostart"`
 	Monitoring MonitoringConfig `yaml:"monitoring"`
 }
 
