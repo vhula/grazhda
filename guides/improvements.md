@@ -85,11 +85,11 @@ Additionally, consider using [**glamour**](https://github.com/charmbracelet/glam
 
 ## 4. Add Examples to Documentation
 
-**Current state:** ✅ `docs/CLI.md` has rich sample output for every subcommand.  
+**Current state:** ✅ `guides/CLI.md` has rich sample output for every subcommand.  
 ⚠️ Those examples don't appear when you run `zgard ws exec --help` from the terminal.
 
 **Improvement:**  
-Examples in `docs/CLI.md` should be mirrored in the Cobra `Example` field (see tip 3 above) so they are available offline without opening a browser. Specifically, add advanced composition examples showing **flag combinations**:
+Examples in `guides/CLI.md` should be mirrored in the Cobra `Example` field (see tip 3 above) so they are available offline without opening a browser. Specifically, add advanced composition examples showing **flag combinations**:
 
 ```bash
 # Orchestrate a full "safe branch switch" across a workspace:
@@ -173,7 +173,7 @@ The demo likely predates the targeting system (`-p`, `-r`, `-t`), `ws exec`, `ws
 A hosted asciinema recording lets users pause, copy commands, and replay at their own speed — a GIF cannot. Embed an asciinema player badge in the README alongside the GIF.
 
 **c) Add per-feature short demos**  
-Short (15–30 second) casts for individual features (`ws exec`, `ws diff --parallel`) placed in `docs/` would serve as living documentation that stays in sync with the tool.
+Short (15–30 second) casts for individual features (`ws exec`, `ws diff --parallel`) placed in `guides/` would serve as living documentation that stays in sync with the tool.
 
 ---
 
@@ -270,7 +270,7 @@ zgard ws diff --filter uncommitted>0      # only dirty repos
 ```
 
 **d) Document `jq` patterns in CLI.md**  
-Until structured output is implemented, document canonical `jq` and `awk` patterns for processing current output in `docs/CLI.md`. This gives power users a path today.
+Until structured output is implemented, document canonical `jq` and `awk` patterns for processing current output in `guides/CLI.md`. This gives power users a path today.
 
 ---
 
@@ -290,7 +290,7 @@ zgard ws stats --template '{{.Repo}}: {{.Commits}} commits by {{.Contributors}} 
 zgard ws diff --template '| {{.Repo}} | {{.Uncommitted}} | {{.Ahead}} | {{.Behind}} |'
 ```
 
-Expose a `TemplateData` struct per command (mirroring the existing `CloneTemplateData` pattern) so the template variables are documented and type-safe. Add examples to `docs/CLI.md` showing the available fields for each command.
+Expose a `TemplateData` struct per command (mirroring the existing `CloneTemplateData` pattern) so the template variables are documented and type-safe. Add examples to `guides/CLI.md` showing the available fields for each command.
 
 ---
 

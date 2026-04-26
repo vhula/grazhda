@@ -21,10 +21,10 @@ not the desired future behavior.
 The source-aligned reference docs are:
 
 - [README.md](../README.md)
-- [QUICK-START.md](../QUICK-START.md)
-- [docs/CLI.md](CLI.md)
-- [docs/CONFIG.md](CONFIG.md)
-- [docs/DEVELOPMENT.md](DEVELOPMENT.md)
+- [QUICK-START.md](QUICK-START.md)
+- [CLI.md](CLI.md)
+- [CONFIG.md](CONFIG.md)
+- [DEVELOPMENT.md](DEVELOPMENT.md)
 
 The PRD, epic, UX, and architecture documents are planning/history documents.
 They can contain intended behavior or earlier implementation notes and should

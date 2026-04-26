@@ -123,7 +123,7 @@ workspaces:
 | `projects:` | Groups of related repositories |
 | `repositories:` | List of repos to clone in each project |
 
-For full schema details, see [Configuration Reference](docs/CONFIG.md).
+For full schema details, see [Configuration Reference](CONFIG.md).
 
 ---
 
@@ -303,9 +303,9 @@ For detailed logs, check `$GRAZHDA_DIR/logs/dukh.log`.
 
 ## What to read next
 
-- **[CLI Reference](docs/CLI.md)** — Full command documentation, targeting flags, and examples
-- **[Configuration Reference](docs/CONFIG.md)** — Detailed schema, clone templates, structure modes
-- **[Architecture](docs/architecture.md)** — How zgard and dukh work together
+- **[CLI Reference](CLI.md)** — Full command documentation, targeting flags, and examples
+- **[Configuration Reference](CONFIG.md)** — Detailed schema, clone templates, structure modes
+- **[Architecture](architecture.md)** — How zgard and dukh work together
 
 ---
 

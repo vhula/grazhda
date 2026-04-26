@@ -100,17 +100,17 @@ zgard pkg unregister --name jdk
 zgard pkg unregister --all
 ```
 
-For a full guided setup, see [QUICK-START.md](QUICK-START.md).
+For a full guided setup, see [guides/QUICK-START.md](guides/QUICK-START.md).
 
 ---
 
 ## Where users can get help
 
-- [QUICK-START.md](QUICK-START.md) — fast installation and first-run flow
-- [docs/CLI.md](docs/CLI.md) — complete command reference
-- [docs/CONFIG.md](docs/CONFIG.md) — configuration schema and examples
-- [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) — local development, build, and test workflow
-- [docs/architecture.md](docs/architecture.md) — system design and module boundaries
+- [guides/QUICK-START.md](guides/QUICK-START.md) — fast installation and first-run flow
+- [guides/CLI.md](guides/CLI.md) — complete command reference
+- [guides/CONFIG.md](guides/CONFIG.md) — configuration schema and examples
+- [guides/DEVELOPMENT.md](guides/DEVELOPMENT.md) — local development, build, and test workflow
+- [guides/architecture.md](guides/architecture.md) — system design and module boundaries
 
 Issue tracker: [github.com/vhula/grazhda/issues](https://github.com/vhula/grazhda/issues)
 
@@ -133,7 +133,7 @@ just test
 
 4. Open a pull request with a clear description and test evidence.
 
-Development conventions and module layout are documented in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+Development conventions and module layout are documented in [guides/DEVELOPMENT.md](guides/DEVELOPMENT.md).
 
 ---
 

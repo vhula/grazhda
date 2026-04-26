@@ -187,7 +187,7 @@ grazhda/
 ├── Justfile                     ← `just build-zgard`, `just test`, etc.
 ├── config.template.yaml         ← example config; copy to ~/.grazhda/config.yaml
 ├── README.md
-├── STUDY.md                     ← this file
+├── guides/STUDY.md              ← this file
 │
 ├── internal/                    ← module: github.com/vhula/grazhda/internal
 │   ├── go.mod
@@ -3540,14 +3540,11 @@ grazhda/
 ├── .grazhda.env                     ← generated env file (env blocks written by pkgman)
 │
 ├── README.md                        ← project landing page
-├── QUICK-START.md                   ← 5-minute setup guide
-├── STUDY.md                         ← this file
-├── feature-ideas.md
-├── improvements.md
-│
-├── bin/                             ← build output (zgard, dukh, scripts)
-│
-├── docs/
+├── guides/
+│   ├── QUICK-START.md               ← 5-minute setup guide
+│   ├── STUDY.md                     ← this file
+│   ├── feature-ideas.md
+│   ├── improvements.md
 │   ├── CLI.md                       ← complete CLI reference
 │   ├── CONFIG.md                    ← configuration file reference
 │   ├── DEVELOPMENT.md               ← contributor setup guide
@@ -3556,6 +3553,8 @@ grazhda/
 │   ├── ux-design-specification.md   ← output format and symbols
 │   ├── epics.md                     ← feature epics (zgard/workspace)
 │   └── epics-dukh.md                ← feature epics (dukh)
+│
+├── bin/                             ← build output (zgard, dukh, scripts)
 │
 ├── proto/
 │   └── dukh.proto                   ← gRPC service definition
