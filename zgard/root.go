@@ -109,7 +109,6 @@ func Execute() {
 
 func init() {
 	rootCmd.PersistentFlags().BoolVar(&noColor, "no-color", false, "Disable all colored output (overrides NO_COLOR env)")
-	rootCmd.PersistentFlags().Bool("json", false, "Output results as JSON Lines (machine-readable)")
 	rootCmd.PersistentFlags().BoolP("quiet", "q", false, "Suppress all output except errors")
 	cobra.OnInitialize(func() {
 		if noColor {

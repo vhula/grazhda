@@ -38,7 +38,6 @@ func runWorkspaceOp(cmd *cobra.Command, opts workspace.RunOptions, doneLabel, dr
 	exec := executor.OsExecutor{}
 	rep := reporter.NewReporter(os.Stdout, os.Stderr)
 	rep.ShowElapsed = opts.Verbose
-	rep.JSONMode = rootFlag(cmd, "json")
 	rep.Quiet = rootFlag(cmd, "quiet")
 	if opts.DryRun {
 		rep.PrintDryRunBanner()

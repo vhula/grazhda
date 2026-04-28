@@ -65,7 +65,6 @@ actually removing anything.`,
 			}
 
 			rep := reporter.NewReporter(os.Stdout, os.Stderr)
-			rep.JSONMode = rootFlag(cmd, "json")
 			rep.Quiet = rootFlag(cmd, "quiet")
 			if dryRun {
 				rep.PrintDryRunBanner()

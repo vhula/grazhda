@@ -1,7 +1,6 @@
 package reporter
 
 import (
-"encoding/json"
 "fmt"
 "io"
 "sync"
@@ -50,7 +49,6 @@ results     []OpResult
 total       int  // expected total for parallel progress (0 = disabled)
 done        int  // number of completed operations
 ShowElapsed bool // when true, print elapsed time per repo after the status message
-JSONMode    bool // when true, emit JSON Lines instead of human output
 Quiet       bool // when true, suppress all stdout progress (errors still go to stderr)
 }
 
@@ -71,11 +69,11 @@ r.done = 0
 
 // PrintDryRunBanner writes a prominent "[DRY RUN] Preview" header to stdout.
 // Call this at the start of any mutating command when --dry-run is active.
-// Suppressed in JSON mode and Quiet mode.
+// Suppressed in Quiet mode.
 func (r *Reporter) PrintDryRunBanner() {
 r.mu.Lock()
 defer r.mu.Unlock()
-if r.JSONMode || r.Quiet {
+if r.Quiet {
 return
 }
 fmt.Fprintln(r.out, yellow("[DRY RUN] Preview — no changes will be made."))
@@ -83,22 +81,22 @@ fmt.Fprintln(r.out)
 }
 
 // PrintLine writes an informational line (blue) to stdout, e.g. section headers.
-// Suppressed in JSON mode and Quiet mode.
+// Suppressed in Quiet mode.
 func (r *Reporter) PrintLine(msg string) {
 r.mu.Lock()
 defer r.mu.Unlock()
-if r.JSONMode || r.Quiet {
+if r.Quiet {
 return
 }
 fmt.Fprintln(r.out, blue(msg))
 }
 
 // PrintWarn writes a yellow warning line to stdout.
-// Suppressed in JSON mode and Quiet mode.
+// Suppressed in Quiet mode.
 func (r *Reporter) PrintWarn(msg string) {
 r.mu.Lock()
 defer r.mu.Unlock()
-if r.JSONMode || r.Quiet {
+if r.Quiet {
 return
 }
 fmt.Fprintln(r.out, yellow(msg))
@@ -110,10 +108,6 @@ r.mu.Lock()
 defer r.mu.Unlock()
 r.results = append(r.results, res)
 
-if r.JSONMode {
-r.emitJSON(res)
-return
-}
 if r.Quiet {
 // In quiet mode only increment the done counter; no stdout output.
 if r.total > 0 {
@@ -159,33 +153,9 @@ fmt.Fprintf(r.out, "      %s\n", line)
 }
 }
 
-// emitJSON writes a single JSON Lines record to r.out.
-// Must be called with r.mu held.
-func (r *Reporter) emitJSON(res OpResult) {
-obj := map[string]interface{}{
-"workspace": res.Workspace,
-"project":   res.Project,
-"repo":      res.Repo,
-"skipped":   res.Skipped,
-"message":   res.Msg,
-}
-if res.Err != nil {
-obj["error"] = res.Err.Error()
-}
-if res.Elapsed > 0 {
-obj["elapsed_ms"] = res.Elapsed.Milliseconds()
-}
-if len(res.OutputLines) > 0 {
-obj["output"] = res.OutputLines
-}
-data, _ := json.Marshal(obj)
-fmt.Fprintln(r.out, string(data))
-}
-
 // Summary prints the run summary to stdout and failure details to stderr.
 // successLabel is the verb for successful operations (e.g. "cloned", "pulled", "removed").
 // When dryRun is true, the summary line is prefixed with "[DRY RUN]".
-// In JSONMode, a summary JSON object is emitted instead of human text.
 // In Quiet mode, only failures are written to stderr (no stdout summary line).
 func (r *Reporter) Summary(successLabel string, dryRun bool) {
 r.mu.Lock()
@@ -207,20 +177,6 @@ for _, res := range r.results {
 if res.Err != nil {
 fmt.Fprintf(r.errOut, "      %s\n", red(res.Repo+": "+res.Err.Error()))
 }
-}
-
-if r.JSONMode {
-obj := map[string]interface{}{
-"summary":   true,
-"dry_run":   dryRun,
-"operation": successLabel,
-"success":   success,
-"skipped":   skipped,
-"failed":    failed,
-}
-data, _ := json.Marshal(obj)
-fmt.Fprintln(r.out, string(data))
-return
 }
 
 if r.Quiet {

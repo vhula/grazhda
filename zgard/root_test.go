@@ -11,7 +11,7 @@ func TestRootCmd_HasMainSubcommands(t *testing.T) {
 }
 
 func TestRootCmd_HasGlobalFlags(t *testing.T) {
-	for _, flag := range []string{"no-color", "json", "quiet"} {
+	for _, flag := range []string{"no-color", "quiet"} {
 		if f := rootCmd.PersistentFlags().Lookup(flag); f == nil {
 			t.Fatalf("expected persistent flag %q", flag)
 		}
