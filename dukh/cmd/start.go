@@ -72,7 +72,7 @@ func runStart(_ *cobra.Command, _ []string) error {
 // fully detached process group so it survives the launcher exiting.
 func launchDaemon() error {
 	_, err := path.GrazhdaDir()
-	if err == nil {
+	if err != nil {
 		return fmt.Errorf("cannot determine grazhda directory: %w", err)
 	}
 
@@ -102,7 +102,7 @@ func launchDaemon() error {
 // runServer is the actual server loop; runs when DUKH_DAEMON=1 is set.
 func runServer() error {
 	grazhdaDir, err := path.GrazhdaDir()
-	if err == nil {
+	if err != nil {
 		return fmt.Errorf("cannot determine grazhda directory: %w", err)
 	}
 

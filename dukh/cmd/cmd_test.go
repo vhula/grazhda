@@ -73,12 +73,12 @@ func TestReadPIDFile(t *testing.T) {
 	}
 }
 
-func TestRunStartRequiresEnvInLauncherMode(t *testing.T) {
-	t.Setenv("DUKH_DAEMON", "")
-	t.Setenv("GRAZHDA_DIR", "")
+func TestRunStartDaemonModeRequiresConfig(t *testing.T) {
+	t.Setenv("DUKH_DAEMON", "1")
+	t.Setenv("GRAZHDA_DIR", t.TempDir())
 	err := runStart(nil, nil)
 	if err == nil {
-		t.Fatal("expected error when GRAZHDA_DIR is unset")
+		t.Fatal("expected error when config.yaml is missing")
 	}
 }
 
