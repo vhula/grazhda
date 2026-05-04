@@ -58,3 +58,8 @@ func (m *MockExecutor) RunCaptureContext(_ context.Context, dir, command string)
 	}
 	return output, staticErr
 }
+
+// RunInteractive records the command and returns the configured error.
+func (m *MockExecutor) RunInteractive(_ context.Context, dir string, command string) error {
+	return m.RunContext(context.Background(), dir, command)
+}

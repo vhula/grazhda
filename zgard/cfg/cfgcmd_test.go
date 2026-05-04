@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
+	"github.com/vhula/grazhda/internal/executor"
 )
 
 func TestResolveConfigPath_UsesGrazhdaDir(t *testing.T) {
@@ -21,7 +22,7 @@ func TestResolveConfigPath_UsesGrazhdaDir(t *testing.T) {
 
 func TestNewCmd_HasSubcommands(t *testing.T) {
 	cmd := NewCmd()
-	for _, name := range []string{"path", "validate", "list", "get"} {
+	for _, name := range []string{"path", "validate", "list", "get", "edit"} {
 		if _, _, err := cmd.Find([]string{name}); err != nil {
 			t.Fatalf("expected subcommand %q: %v", name, err)
 		}
@@ -103,5 +104,88 @@ func TestGetCmd_RequiresArg(t *testing.T) {
 	err := parent.Execute()
 	if err == nil {
 		t.Fatal("expected error when get is called with no args")
+	}
+}
+
+func TestEditCmd_HasCorrectUse(t *testing.T) {
+	cmd := findSubcommand(t, NewCmd(), "edit")
+	if cmd.Use != "edit" {
+		t.Fatalf("edit Use = %q, want %q", cmd.Use, "edit")
+	}
+}
+
+func TestEditCmd_ErrorWhenConfigMissing(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("GRAZHDA_DIR", dir)
+
+	mock := &executor.MockExecutor{}
+	cmd := newEditCmd(mock)
+	cmd.SetArgs(nil)
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error when config file does not exist")
+	}
+	if len(mock.Calls) != 0 {
+		t.Fatalf("expected no executor calls when config missing, got %v", mock.Calls)
+	}
+}
+
+func TestEditCmd_InvokesEditorWithConfigPath(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("GRAZHDA_DIR", dir)
+
+	cfgPath := filepath.Join(dir, "config.yaml")
+	if err := os.WriteFile(cfgPath, []byte("editor: myeditor\n"), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	mock := &executor.MockExecutor{}
+	cmd := newEditCmd(mock)
+	cmd.SetArgs(nil)
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("edit cmd: %v", err)
+	}
+
+	if len(mock.Calls) != 1 {
+		t.Fatalf("expected 1 executor call, got %d", len(mock.Calls))
+	}
+	if !strings.Contains(mock.Calls[0], "myeditor") {
+		t.Errorf("expected call to contain editor name, got %q", mock.Calls[0])
+	}
+	if !strings.Contains(mock.Calls[0], cfgPath) {
+		t.Errorf("expected call to contain config path, got %q", mock.Calls[0])
+	}
+}
+
+func TestEditCmd_FallsBackToEnvEditor(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("GRAZHDA_DIR", dir)
+	t.Setenv("EDITOR", "nano")
+	t.Setenv("VISUAL", "")
+	t.Setenv("GRAZHDA_EDITOR", "")
+
+	cfgPath := filepath.Join(dir, "config.yaml")
+	if err := os.WriteFile(cfgPath, []byte("editor: \"\"\n"), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	mock := &executor.MockExecutor{}
+	cmd := newEditCmd(mock)
+	cmd.SetArgs(nil)
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("edit cmd: %v", err)
+	}
+
+	if len(mock.Calls) != 1 || !strings.HasPrefix(mock.Calls[0], "nano ") {
+		t.Errorf("expected call starting with 'nano', got %v", mock.Calls)
 	}
 }

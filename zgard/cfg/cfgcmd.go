@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 	clr "github.com/vhula/grazhda/internal/color"
 	"github.com/vhula/grazhda/internal/config"
+	"github.com/vhula/grazhda/internal/executor"
 	"github.com/vhula/grazhda/internal/path"
 	"github.com/vhula/grazhda/internal/reporter"
 )
@@ -33,13 +34,15 @@ The configuration is loaded from **$GRAZHDA_DIR/config.yaml** when
 | ` + "`path`" + `     | Print the resolved path of the configuration file         |
 | ` + "`validate`" + ` | Validate the configuration and report any errors          |
 | ` + "`list`" + `     | List all workspaces and their projects from the config    |
-| ` + "`get <key>`" + `| Get a specific value by dotted-path key                   |`,
+| ` + "`get <key>`" + `| Get a specific value by dotted-path key                   |
+| ` + "`edit`" + `      | Open config.yaml in the configured editor                 |`,
 	}
 
 	cmd.AddCommand(newPathCmd())
 	cmd.AddCommand(newValidateCmd())
 	cmd.AddCommand(newListCmd())
 	cmd.AddCommand(newGetCmd())
+	cmd.AddCommand(newEditCmd(executor.OsExecutor{}))
 	return cmd
 }
 
@@ -216,6 +219,48 @@ Exits with status **1** if the key does not exist.`,
 			}
 			fmt.Fprintln(cmd.OutOrStdout(), val)
 			return nil
+		},
+	}
+}
+
+func newEditCmd(exec executor.Executor) *cobra.Command {
+	return &cobra.Command{
+		Use:   "edit",
+		Short: "Open config.yaml in the configured editor",
+		Long: `Open the Grazhda configuration file in an editor.
+
+Editor resolution order:
+1. **editor** field in config.yaml (or **GRAZHDA_EDITOR** env override)
+2. **$VISUAL** environment variable
+3. **$EDITOR** environment variable
+4. **vi** as a fallback`,
+		Example: `  # Open config in the configured editor
+  zgard config edit`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfgPath := resolveConfigPath()
+			if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
+				return fmt.Errorf("%s\n%s",
+					clr.Red("✗ config file not found: "+cfgPath),
+					clr.Yellow("Run the Grazhda installer to create it."))
+			}
+
+			cfg, _ := config.Load(cfgPath)
+			config.ApplyEnvOverrides(cfg)
+
+			editorBin := cfg.Editor
+			if editorBin == "" {
+				editorBin = os.Getenv("VISUAL")
+			}
+			if editorBin == "" {
+				editorBin = os.Getenv("EDITOR")
+			}
+			if editorBin == "" {
+				editorBin = "vi"
+			}
+
+			// Shell-quote the path so spaces and special characters are safe under sh -c.
+			quotedPath := "'" + strings.ReplaceAll(cfgPath, "'", "'\\''") + "'"
+			return exec.RunInteractive(cmd.Context(), ".", editorBin+" "+quotedPath)
 		},
 	}
 }

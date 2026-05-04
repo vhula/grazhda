@@ -49,6 +49,10 @@ func (m *captureMock) RunCaptureContext(ctx context.Context, dir, command string
 	return m.RunCapture(dir, command)
 }
 
+func (m *captureMock) RunInteractive(ctx context.Context, dir, command string) error {
+	return m.RunContext(ctx, dir, command)
+}
+
 // ─────────────────────────────── helpers ────────────────────────────────────
 
 func twoRepoWorkspace(t *testing.T) (config.Workspace, string) {

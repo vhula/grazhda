@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -24,6 +25,11 @@ type Executor interface {
 
 	// RunCaptureContext is like RunCapture but honours ctx cancellation.
 	RunCaptureContext(ctx context.Context, dir string, command string) (string, error)
+
+	// RunInteractive runs command in dir with stdin, stdout, and stderr
+	// connected directly to the terminal. Use this for interactive programs
+	// such as editors and pagers.
+	RunInteractive(ctx context.Context, dir string, command string) error
 }
 
 // OsExecutor runs commands using os/exec.
@@ -80,6 +86,16 @@ func (e OsExecutor) RunCaptureContext(ctx context.Context, dir, command string) 
 		return stdout.String(), err
 	}
 	return stdout.String(), nil
+}
+
+// RunInteractive runs command in dir with stdin/stdout/stderr attached to the terminal.
+func (e OsExecutor) RunInteractive(ctx context.Context, dir string, command string) error {
+	cmd := shellCommand(ctx, command)
+	cmd.Dir = dir
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }
 
 // shellCommand returns an exec.Cmd for the given command string.

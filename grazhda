@@ -50,16 +50,6 @@ run_cmd() {
     fi
 }
 
-# Extract a top-level scalar YAML value using grep/sed (no external YAML parser needed).
-# Usage: yaml_get <key> <file>
-yaml_get() {
-    local key="$1"
-    local file="$2"
-    grep -E "^${key}:[[:space:]]*" "$file" 2>/dev/null \
-        | sed "s/^${key}:[[:space:]]*//" \
-        | tr -d '"'"'" \
-        | sed 's/^[[:space:]]*//; s/[[:space:]]*$//'
-}
 
 check_binary() {
     local binary="$1"
@@ -110,7 +100,6 @@ usage() {
     echo "  upgrade          Pull latest sources and rebuild all binaries"
     echo "  uninstall        Remove Grazhda files, keep config.yaml (prompts for confirmation)"
     echo "  purge            Remove Grazhda completely including config.yaml (prompts for confirmation)"
-    echo "  config --edit    Open config.yaml in the configured editor"
     echo "  help             Show this help message"
     echo ""
     echo "Environment:"
@@ -317,44 +306,6 @@ cmd_purge() {
     echo ""
 }
 
-# grazhda config --edit — open config.yaml with the configured editor.
-cmd_config() {
-    local subcmd="${1:-}"
-    shift || true
-
-    case "$subcmd" in
-        --edit)
-            if [ ! -f "$CONFIG_FILE" ]; then
-                error "Config file not found: $CONFIG_FILE"
-                warn  "Run the Grazhda installer to create it."
-                exit 1
-            fi
-
-            # Editor resolution: config.yaml `editor:` → $VISUAL → $EDITOR → vi
-            local editor
-            editor=$(yaml_get "editor" "$CONFIG_FILE")
-            editor="${editor:-${VISUAL:-${EDITOR:-vi}}}"
-
-            if ! command -v "$editor" &>/dev/null; then
-                error "Editor not found in PATH: $editor"
-                warn  "Update the 'editor' field in $CONFIG_FILE or set \$EDITOR."
-                exit 1
-            fi
-
-            exec "$editor" "$CONFIG_FILE"
-            ;;
-        "")
-            error "config requires a sub-command."
-            echo "Usage: grazhda config --edit"
-            exit 1
-            ;;
-        *)
-            error "Unknown config option: $subcmd"
-            echo "Usage: grazhda config --edit"
-            exit 1
-            ;;
-    esac
-}
 
 # ---------------------------------------------------------------------------
 # Main router
@@ -385,10 +336,6 @@ main() {
         purge)
             shift
             cmd_purge "$@"
-            ;;
-        config)
-            shift
-            cmd_config "$@"
             ;;
         help|--help|-h)
             usage
