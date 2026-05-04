@@ -52,7 +52,7 @@ func ResolveRepoInfos(ws config.Workspace, opts InspectOptions) []RepoInfo {
 	for _, proj := range projects {
 		projPath := filepath.Join(wsPath, proj.Name)
 		for _, repo := range proj.Repositories {
-			destName := ResolveDestName(projPath, repo.Name, repo.LocalDirName, ws.Structure)
+			destName := ResolveDestName(projPath, repo.Name, repo.LocalDirName, ResolveStructure(ws, proj))
 			localPath := filepath.Join(projPath, destName)
 			_, err := os.Stat(localPath)
 			infos = append(infos, RepoInfo{

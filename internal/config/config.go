@@ -72,8 +72,12 @@ type Workspace struct {
 
 // Project groups repositories under a common branch.
 type Project struct {
-	Name         string       `yaml:"name"`
-	Branch       string       `yaml:"branch"`
+	Name   string `yaml:"name"`
+	Branch string `yaml:"branch"`
+	// Structure overrides the parent workspace's structure for this project only.
+	// Accepted values: "tree" or "list". Empty means use the workspace default.
+	// See StructureTree / StructureList constants for details.
+	Structure    string       `yaml:"structure,omitempty"`
 	Tags         []string     `yaml:"tags,omitempty"`
 	Repositories []Repository `yaml:"repositories"`
 }
@@ -141,6 +145,10 @@ func Validate(cfg *Config) []string {
 			errs = append(errs, fmt.Sprintf("workspace[%d].clone_command_template: invalid template: %s", i, err))
 		}
 
+		if ws.Structure != "" && ws.Structure != StructureTree && ws.Structure != StructureList {
+			errs = append(errs, fmt.Sprintf("workspace[%d].structure: invalid value %q (must be %q or %q)", i, ws.Structure, StructureTree, StructureList))
+		}
+
 		seenProj := make(map[string]bool)
 		for j, proj := range ws.Projects {
 			if proj.Name == "" {
@@ -153,6 +161,10 @@ func Validate(cfg *Config) []string {
 
 			if proj.Branch == "" {
 				errs = append(errs, fmt.Sprintf("workspace[%d].projects[%d].branch: required field missing", i, j))
+			}
+
+			if proj.Structure != "" && proj.Structure != StructureTree && proj.Structure != StructureList {
+				errs = append(errs, fmt.Sprintf("workspace[%d].projects[%d].structure: invalid value %q (must be %q or %q)", i, j, proj.Structure, StructureTree, StructureList))
 			}
 
 			for k, repo := range proj.Repositories {

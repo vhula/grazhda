@@ -171,7 +171,7 @@ func (m *Monitor) scan() {
 			// ResolveDestNamesForProject replicates the init-time allocation
 			// order so we find the correct path for each repo regardless of
 			// whether structure is "tree" or "list".
-			destNames := workspace.ResolveDestNamesForProject(proj.Repositories, ws.Structure)
+			destNames := workspace.ResolveDestNamesForProject(proj.Repositories, workspace.ResolveStructure(ws, proj))
 			for i, repo := range proj.Repositories {
 				repoPath := filepath.Join(projPath, destNames[i])
 				rh := m.checkRepo(repoPath, proj, repo)

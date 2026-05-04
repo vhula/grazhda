@@ -3,6 +3,7 @@ package workspace_test
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -649,6 +650,167 @@ func TestResolveDestNamesForProject_LocalDirName_AndListSegment(t *testing.T) {
 	}
 	if got[1] != "repo1" {
 		t.Errorf("[1] want %q got %q", "repo1", got[1])
+	}
+}
+
+// ---------------------------------------------------------------------------
+// ResolveStructure precedence tests
+// ---------------------------------------------------------------------------
+
+func TestResolveStructure_Precedence(t *testing.T) {
+	tests := []struct {
+		name      string
+		wsStruct  string
+		projStruct string
+		want      string
+	}{
+		{
+			name:       "project overrides workspace tree→list",
+			wsStruct:   config.StructureTree,
+			projStruct: config.StructureList,
+			want:       config.StructureList,
+		},
+		{
+			name:       "project overrides workspace list→tree",
+			wsStruct:   config.StructureList,
+			projStruct: config.StructureTree,
+			want:       config.StructureTree,
+		},
+		{
+			name:       "empty project falls back to workspace list",
+			wsStruct:   config.StructureList,
+			projStruct: "",
+			want:       config.StructureList,
+		},
+		{
+			name:       "empty project falls back to workspace tree",
+			wsStruct:   config.StructureTree,
+			projStruct: "",
+			want:       config.StructureTree,
+		},
+		{
+			name:       "both empty defaults to tree",
+			wsStruct:   "",
+			projStruct: "",
+			want:       config.StructureTree,
+		},
+		{
+			name:       "project set, workspace empty",
+			wsStruct:   "",
+			projStruct: config.StructureList,
+			want:       config.StructureList,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			ws := config.Workspace{Structure: tc.wsStruct}
+			proj := config.Project{Structure: tc.projStruct}
+			got := workspace.ResolveStructure(ws, proj)
+			if got != tc.want {
+				t.Errorf("ResolveStructure = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+// TestInit_ProjectStructureOverridesWorkspace verifies that a project with
+// structure: list clones to flat names even when the workspace uses structure: tree.
+func TestInit_ProjectStructureOverridesWorkspace(t *testing.T) {
+	tmp := t.TempDir()
+	ws := config.Workspace{
+		Name:                 "test-ws",
+		Path:                 tmp,
+		Structure:            config.StructureTree, // workspace default: tree
+		CloneCommandTemplate: "echo clone {{.RepoName}} {{.DestDir}}",
+		Projects: []config.Project{
+			{
+				Name:      "flat-project",
+				Branch:    "main",
+				Structure: config.StructureList, // project override: list
+				Repositories: []config.Repository{
+					{Name: "org/pack/repo1"},
+				},
+			},
+		},
+	}
+
+	exec := &executor.MockExecutor{}
+	rep := reporter.NewReporter(io.Discard, io.Discard)
+	if err := workspace.Init(ws, exec, rep, workspace.RunOptions{}); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+
+	if len(exec.Calls) == 0 {
+		t.Fatal("expected clone command to be executed")
+	}
+	// The clone command is "echo clone <RepoName> <DestDir>". With list structure
+	// DestDir (last token) must be the flat segment "repo1", not "org/pack/repo1".
+	call := exec.Calls[0]
+	fields := strings.Fields(call)
+	destDir := fields[len(fields)-1]
+	if filepath.Base(destDir) != "repo1" || strings.Contains(destDir, "org") {
+		t.Errorf("project list override: expected flat dest dir ending in 'repo1', got %q (full call: %q)", destDir, call)
+	}
+}
+
+// TestInit_MixedStructureProjects verifies that two projects in the same
+// workspace can independently use tree and list structures.
+func TestInit_MixedStructureProjects(t *testing.T) {
+	tmp := t.TempDir()
+	ws := config.Workspace{
+		Name:                 "test-ws",
+		Path:                 tmp,
+		Structure:            "", // no workspace default
+		CloneCommandTemplate: "echo clone {{.RepoName}} {{.DestDir}}",
+		Projects: []config.Project{
+			{
+				Name:      "tree-project",
+				Branch:    "main",
+				Structure: config.StructureTree,
+				Repositories: []config.Repository{
+					{Name: "org/pack/tree-repo"},
+				},
+			},
+			{
+				Name:      "list-project",
+				Branch:    "main",
+				Structure: config.StructureList,
+				Repositories: []config.Repository{
+					{Name: "org/pack/list-repo"},
+				},
+			},
+		},
+	}
+
+	exec := &executor.MockExecutor{}
+	rep := reporter.NewReporter(io.Discard, io.Discard)
+	if err := workspace.Init(ws, exec, rep, workspace.RunOptions{}); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+
+	if len(exec.Calls) != 2 {
+		t.Fatalf("expected 2 clone calls, got %d: %v", len(exec.Calls), exec.Calls)
+	}
+
+	treeCall := exec.Calls[0]
+	listCall := exec.Calls[1]
+
+	// tree-project: DestDir (last token) must preserve the full org/pack/tree-repo path.
+	treeFields := strings.Fields(treeCall)
+	treeDestDir := treeFields[len(treeFields)-1]
+	if !strings.Contains(treeDestDir, "org") {
+		t.Errorf("tree project: expected full path in DestDir, got %q (full call: %q)", treeDestDir, treeCall)
+	}
+
+	// list-project: DestDir must be the flat last segment only.
+	listFields := strings.Fields(listCall)
+	listDestDir := listFields[len(listFields)-1]
+	if strings.Contains(listDestDir, "org") {
+		t.Errorf("list project: expected flat DestDir, got %q (full call: %q)", listDestDir, listCall)
+	}
+	if filepath.Base(listDestDir) != "list-repo" {
+		t.Errorf("list project: expected DestDir to end in 'list-repo', got %q", listDestDir)
 	}
 }
 

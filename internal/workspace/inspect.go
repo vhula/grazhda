@@ -79,7 +79,7 @@ func Search(ws config.Workspace, opts SearchOptions, out io.Writer) error {
 			if !repoMatchesFilters(proj, repo, rOpts) {
 				continue
 			}
-			dest := ResolveDestName(projPath, repo.Name, repo.LocalDirName, ws.Structure)
+			dest := ResolveDestName(projPath, repo.Name, repo.LocalDirName, ResolveStructure(ws, proj))
 			jobs = append(jobs, searchJob{proj, repo, filepath.Join(projPath, dest)})
 		}
 	}
@@ -248,7 +248,7 @@ func Diff(ws config.Workspace, exec executor.Executor, opts InspectOptions, out 
 			if !repoMatchesFilters(proj, repo, rOpts) {
 				continue
 			}
-			dest := ResolveDestName(projPath, repo.Name, repo.LocalDirName, ws.Structure)
+			dest := ResolveDestName(projPath, repo.Name, repo.LocalDirName, ResolveStructure(ws, proj))
 			jobs = append(jobs, diffJob{repo, filepath.Join(projPath, dest)})
 		}
 		if len(jobs) == 0 {
@@ -398,7 +398,7 @@ func Stats(ws config.Workspace, exec executor.Executor, opts InspectOptions, out
 			if !repoMatchesFilters(proj, repo, rOpts) {
 				continue
 			}
-			dest := ResolveDestName(projPath, repo.Name, repo.LocalDirName, ws.Structure)
+			dest := ResolveDestName(projPath, repo.Name, repo.LocalDirName, ResolveStructure(ws, proj))
 			jobs = append(jobs, statsJob{repo, filepath.Join(projPath, dest)})
 		}
 		if len(jobs) == 0 {

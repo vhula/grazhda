@@ -134,7 +134,7 @@ func execRepo(
 	rep *reporter.Reporter,
 	opts RunOptions,
 ) {
-	destName := ResolveDestName(projPath, repo.Name, repo.LocalDirName, ws.Structure)
+	destName := ResolveDestName(projPath, repo.Name, repo.LocalDirName, ResolveStructure(ws, proj))
 	repoPath := filepath.Join(projPath, destName)
 
 	if opts.DryRun {
@@ -190,7 +190,7 @@ func stashRepo(
 	rep *reporter.Reporter,
 	opts RunOptions,
 ) {
-	destName := ResolveDestName(projPath, repo.Name, repo.LocalDirName, ws.Structure)
+	destName := ResolveDestName(projPath, repo.Name, repo.LocalDirName, ResolveStructure(ws, proj))
 	repoPath := filepath.Join(projPath, destName)
 
 	if opts.DryRun {
@@ -245,7 +245,7 @@ func checkoutRepo(
 	rep *reporter.Reporter,
 	opts RunOptions,
 ) {
-	destName := ResolveDestName(projPath, repo.Name, repo.LocalDirName, ws.Structure)
+	destName := ResolveDestName(projPath, repo.Name, repo.LocalDirName, ResolveStructure(ws, proj))
 	repoPath := filepath.Join(projPath, destName)
 
 	if opts.DryRun {

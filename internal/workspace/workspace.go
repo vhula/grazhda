@@ -41,6 +41,18 @@ func lastSegment(name string) string {
 	return name
 }
 
+// ResolveStructure returns the effective structure for a project, implementing
+// the precedence: project.Structure > workspace.Structure > default (tree).
+func ResolveStructure(ws config.Workspace, proj config.Project) string {
+	if proj.Structure != "" {
+		return proj.Structure
+	}
+	if ws.Structure != "" {
+		return ws.Structure
+	}
+	return config.StructureTree
+}
+
 // ResolveDestName returns the local directory name for a repository.
 //
 // If localDirName is non-empty it is always used unchanged.
@@ -190,7 +202,7 @@ func Init(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, o
 }
 
 func cloneRepo(ws config.Workspace, proj config.Project, projPath string, repo config.Repository, exec executor.Executor, rep *reporter.Reporter, opts RunOptions) {
-	destName := ResolveDestName(projPath, repo.Name, repo.LocalDirName, ws.Structure)
+	destName := ResolveDestName(projPath, repo.Name, repo.LocalDirName, ResolveStructure(ws, proj))
 	repoPath := filepath.Join(projPath, destName)
 
 	branch := repo.Branch
@@ -387,7 +399,7 @@ func Pull(ws config.Workspace, exec executor.Executor, rep *reporter.Reporter, o
 }
 
 func pullRepo(ws config.Workspace, proj config.Project, projPath string, repo config.Repository, exec executor.Executor, rep *reporter.Reporter, opts RunOptions) {
-	destName := ResolveDestName(projPath, repo.Name, repo.LocalDirName, ws.Structure)
+	destName := ResolveDestName(projPath, repo.Name, repo.LocalDirName, ResolveStructure(ws, proj))
 	repoPath := filepath.Join(projPath, destName)
 
 	branch := repo.Branch

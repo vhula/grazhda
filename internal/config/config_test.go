@@ -201,6 +201,99 @@ func TestValidate_MissingBranch(t *testing.T) {
 	}
 }
 
+// --- Validate: structure field ---
+
+func TestValidate_InvalidWorkspaceStructure(t *testing.T) {
+	cfg := &config.Config{
+		Workspaces: []config.Workspace{{
+			Name:                 "default",
+			Path:                 "/tmp/ws",
+			CloneCommandTemplate: "git clone {{.RepoName}}",
+			Structure:            "flat", // invalid
+		}},
+	}
+	errs := config.Validate(cfg)
+	found := false
+	for _, e := range errs {
+		if strings.Contains(e, "workspace[0].structure") && strings.Contains(e, "flat") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected workspace structure validation error, got: %v", errs)
+	}
+}
+
+func TestValidate_ValidWorkspaceStructures(t *testing.T) {
+	for _, s := range []string{"", "tree", "list"} {
+		cfg := &config.Config{
+			Workspaces: []config.Workspace{{
+				Name:                 "default",
+				Path:                 "/tmp/ws",
+				CloneCommandTemplate: "git clone {{.RepoName}}",
+				Structure:            s,
+			}},
+		}
+		if errs := config.Validate(cfg); hasStructureError(errs) {
+			t.Errorf("structure %q should be valid, got errors: %v", s, errs)
+		}
+	}
+}
+
+func TestValidate_InvalidProjectStructure(t *testing.T) {
+	cfg := &config.Config{
+		Workspaces: []config.Workspace{{
+			Name:                 "default",
+			Path:                 "/tmp/ws",
+			CloneCommandTemplate: "git clone {{.RepoName}}",
+			Projects: []config.Project{{
+				Name:      "backend",
+				Branch:    "main",
+				Structure: "nested", // invalid
+			}},
+		}},
+	}
+	errs := config.Validate(cfg)
+	found := false
+	for _, e := range errs {
+		if strings.Contains(e, "projects[0].structure") && strings.Contains(e, "nested") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected project structure validation error, got: %v", errs)
+	}
+}
+
+func TestValidate_ValidProjectStructures(t *testing.T) {
+	for _, s := range []string{"", "tree", "list"} {
+		cfg := &config.Config{
+			Workspaces: []config.Workspace{{
+				Name:                 "default",
+				Path:                 "/tmp/ws",
+				CloneCommandTemplate: "git clone {{.RepoName}}",
+				Projects: []config.Project{{
+					Name:      "backend",
+					Branch:    "main",
+					Structure: s,
+				}},
+			}},
+		}
+		if errs := config.Validate(cfg); hasStructureError(errs) {
+			t.Errorf("project structure %q should be valid, got errors: %v", s, errs)
+		}
+	}
+}
+
+func hasStructureError(errs []string) bool {
+	for _, e := range errs {
+		if strings.Contains(e, ".structure") {
+			return true
+		}
+	}
+	return false
+}
+
 // --- RenderCloneCmd ---
 
 func TestRenderCloneCmd_Basic(t *testing.T) {
