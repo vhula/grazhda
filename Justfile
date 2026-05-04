@@ -45,7 +45,7 @@ build-zgard:
 build-dukh:
     echo "Building Dukh..."
     mkdir -p bin
-    cd dukh && go build -o ../bin/dukh ./cmd
+    cd dukh && go build -ldflags "-X main.version=$(git describe --tags --always --dirty 2>/dev/null || echo dev)" -o ../bin/dukh ./cmd
     echo "✓ bin/dukh built"
 
 copy-scripts:

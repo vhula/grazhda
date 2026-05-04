@@ -208,7 +208,8 @@ cmd_upgrade() {
     stop_dukh_if_running
     verbose "Rebuilding binaries..."
     # Ensure protoc Go plugins installed by just generate are reachable
-    export PATH="$(go env GOPATH)/bin:$PATH"
+    PATH="$(go env GOPATH)/bin:$PATH"
+    export PATH
     run_cmd just build
 
     verbose "Installing updated binaries..."

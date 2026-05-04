@@ -10,5 +10,8 @@ case ":$PATH:" in
 esac
 mkdir -p "$GRAZHDA_DIR/pkgs"
 # Source legacy env file (backward compat) then the canonical pkg env file.
-source "$GRAZHDA_DIR/grazhda-env.sh" 2>/dev/null || true
-source "$GRAZHDA_DIR/.grazhda.env" 2>/dev/null || true
+# Only source if readable to avoid shellcheck warnings and runtime errors.
+# shellcheck disable=SC1091
+[ -r "$GRAZHDA_DIR/grazhda-env.sh" ] && . "$GRAZHDA_DIR/grazhda-env.sh"
+# shellcheck disable=SC1091
+[ -r "$GRAZHDA_DIR/.grazhda.env" ] && . "$GRAZHDA_DIR/.grazhda.env"

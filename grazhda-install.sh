@@ -111,7 +111,8 @@ verify_requirements() {
 
 install_from_sources() {
     # Ensure GOPATH/bin is on PATH so protoc plugins installed by just generate are reachable.
-    export PATH="$(go env GOPATH)/bin:$PATH"
+    PATH="$(go env GOPATH)/bin:$PATH"
+    export PATH
 
     echo -e "${BLUE}Building from sources (this may take a minute)...${NC}"
     _log "=== Building from sources ==="
