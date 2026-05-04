@@ -3,6 +3,7 @@
 package cfg
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -29,13 +30,15 @@ The configuration is loaded from **$GRAZHDA_DIR/config.yaml** when
 
 ## Subcommands
 
-| Command    | Description                                               |
-|------------|-----------------------------------------------------------|
-| ` + "`path`" + `     | Print the resolved path of the configuration file         |
-| ` + "`validate`" + ` | Validate the configuration and report any errors          |
-| ` + "`list`" + `     | List all workspaces and their projects from the config    |
-| ` + "`get <key>`" + `| Get a specific value by dotted-path key                   |
-| ` + "`edit`" + `      | Open config.yaml in the configured editor                 |`,
+| Command      | Description                                             |
+|--------------|---------------------------------------------------------|
+| ` + "`path`" + `       | Print the resolved path of the configuration file       |
+| ` + "`validate`" + `   | Validate the configuration and report any errors        |
+| ` + "`list`" + `       | List all workspaces and their projects from the config  |
+| ` + "`get <key>`" + `  | Get a specific value by dotted-path key                 |
+| ` + "`edit`" + `       | Open config.yaml in the configured editor               |
+| ` + "`replace`" + `    | Safely replace config.yaml from a file                  |
+| ` + "`merge`" + `      | Deep-merge a YAML patch file into config.yaml           |`,
 	}
 
 	cmd.AddCommand(newPathCmd())
@@ -43,6 +46,8 @@ The configuration is loaded from **$GRAZHDA_DIR/config.yaml** when
 	cmd.AddCommand(newListCmd())
 	cmd.AddCommand(newGetCmd())
 	cmd.AddCommand(newEditCmd(executor.OsExecutor{}))
+	cmd.AddCommand(newReplaceCmd())
+	cmd.AddCommand(newMergeCmd())
 	return cmd
 }
 
@@ -263,4 +268,121 @@ Editor resolution order:
 			return exec.RunInteractive(cmd.Context(), ".", editorBin+" "+quotedPath)
 		},
 	}
+}
+
+func newReplaceCmd() *cobra.Command {
+	var fromFile string
+	cmd := &cobra.Command{
+		Use:   "replace",
+		Short: "Safely replace config.yaml from a file",
+		Long: `Replace the Grazhda configuration file with the contents of a source file.
+
+**Safety sequence:**
+1. Backup config.yaml → config.yaml.bak (kept even if the operation fails)
+2. Validate the source file as a valid Config
+3. Atomically write the new file into place
+
+If validation fails the original config is untouched and the backup serves
+as a restore point.`,
+		Example: `  # Replace config with a prepared file (backup is created automatically)
+  zgard config replace --from-file ./config.new.yaml
+
+  # Use an env-specific config
+  zgard config replace --from-file ./envs/prod.yaml`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			newData, err := os.ReadFile(fromFile)
+			if err != nil {
+				return fmt.Errorf("reading %s: %w", fromFile, err)
+			}
+
+			cfgPath := resolveConfigPath()
+
+			bakPath, err := config.Backup(cfgPath)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "%s Backup created at %s\n", clr.Blue("ℹ"), bakPath)
+
+			if err := config.Replace(cfgPath, newData); err != nil {
+				return printUpdateErr(err, bakPath)
+			}
+
+			fmt.Fprintf(cmd.OutOrStdout(), "%s Config replaced  (%s)\n   backup → %s\n",
+				clr.Green("✓"), cfgPath, bakPath)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the replacement config file (required)")
+	_ = cmd.MarkFlagRequired("from-file")
+	return cmd
+}
+
+func newMergeCmd() *cobra.Command {
+	var fromFile string
+	cmd := &cobra.Command{
+		Use:   "merge",
+		Short: "Deep-merge a YAML patch file into config.yaml",
+		Long: `Merge a YAML patch file into the Grazhda configuration file.
+
+Maps are merged key-by-key: only keys present in the patch override the base.
+Slices (such as workspace or repository lists) are replaced by the patch value
+when the patch defines them.
+
+**Safety sequence:**
+1. Backup config.yaml → config.yaml.bak (kept even if the operation fails)
+2. Deep-merge the patch into the existing config
+3. Validate the merged result
+4. Atomically write the merged file into place
+
+If validation fails the original config is untouched and the backup serves
+as a restore point.`,
+		Example: `  # Merge a partial patch (only changed keys need to be present)
+  zgard config merge --from-file ./patch.yaml
+
+  # Example patch.yaml to update the editor and dukh port only:
+  #   editor: nano
+  #   dukh:
+  #     port: 9090`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			patchData, err := os.ReadFile(fromFile)
+			if err != nil {
+				return fmt.Errorf("reading %s: %w", fromFile, err)
+			}
+
+			cfgPath := resolveConfigPath()
+
+			bakPath, err := config.Backup(cfgPath)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "%s Backup created at %s\n", clr.Blue("ℹ"), bakPath)
+
+			if err := config.Merge(cfgPath, patchData); err != nil {
+				return printUpdateErr(err, bakPath)
+			}
+
+			fmt.Fprintf(cmd.OutOrStdout(), "%s Config merged  (%s)\n   backup → %s\n",
+				clr.Green("✓"), cfgPath, bakPath)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the YAML patch file (required)")
+	_ = cmd.MarkFlagRequired("from-file")
+	return cmd
+}
+
+// printUpdateErr formats Replace/Merge errors. ValidationErrors are printed
+// one-per-line so the user sees every offending field; other errors are
+// returned as-is for the root handler to display.
+func printUpdateErr(err error, bakPath string) error {
+	var valErr *config.ValidationError
+	if errors.As(err, &valErr) {
+		for _, e := range valErr.Errs {
+			fmt.Fprintln(os.Stderr, clr.Red("  ✗ "+e))
+		}
+		fmt.Fprintf(os.Stderr, "\n%s Validation failed — original config unchanged, backup at %s\n",
+			clr.Red("✗"), bakPath)
+		return reporter.ExitError{Code: 1}
+	}
+	return err
 }

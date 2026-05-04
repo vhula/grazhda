@@ -89,7 +89,10 @@ Use **zgard config** to inspect, validate, and query the configuration file:
 | ` + "`config path`" + `     | Print the resolved configuration file path           |
 | ` + "`config validate`" + ` | Validate the configuration and report errors         |
 | ` + "`config list`" + `     | List all workspaces and projects from the config     |
-| ` + "`config get <key>`" + `| Get a specific value by dotted-path (e.g. dukh.port) |`
+| ` + "`config get <key>`" + `| Get a specific value by dotted-path (e.g. dukh.port) |
+| ` + "`config edit`" + `     | Open config.yaml in the configured editor            |
+| ` + "`config replace`" + `  | Safely replace config.yaml from a file               |
+| ` + "`config merge`" + `    | Deep-merge a YAML patch file into config.yaml        |`
 
 // Execute wires a signal-aware context, runs the root Cobra command, and maps
 // reporter.ExitError values to the appropriate process exit code.

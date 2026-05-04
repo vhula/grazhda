@@ -22,7 +22,7 @@ func TestResolveConfigPath_UsesGrazhdaDir(t *testing.T) {
 
 func TestNewCmd_HasSubcommands(t *testing.T) {
 	cmd := NewCmd()
-	for _, name := range []string{"path", "validate", "list", "get", "edit"} {
+	for _, name := range []string{"path", "validate", "list", "get", "edit", "replace", "merge"} {
 		if _, _, err := cmd.Find([]string{name}); err != nil {
 			t.Fatalf("expected subcommand %q: %v", name, err)
 		}
@@ -187,5 +187,253 @@ func TestEditCmd_FallsBackToEnvEditor(t *testing.T) {
 
 	if len(mock.Calls) != 1 || !strings.HasPrefix(mock.Calls[0], "nano ") {
 		t.Errorf("expected call starting with 'nano', got %v", mock.Calls)
+	}
+}
+
+// ── replace / merge helpers ──────────────────────────────────────────────────
+
+const testValidYAML = `
+workspaces:
+  - name: default
+    path: /tmp/ws
+    clone_command_template: "git clone {{.RepoName}} {{.DestDir}}"
+    projects:
+      - name: backend
+        branch: main
+        repositories:
+          - name: api
+`
+
+const testValidYAML2 = `
+workspaces:
+  - name: default
+    path: /tmp/ws2
+    clone_command_template: "git clone {{.RepoName}} {{.DestDir}}"
+    projects:
+      - name: frontend
+        branch: main
+        repositories:
+          - name: ui
+`
+
+const testInvalidYAML = `
+workspaces:
+  - name: ""
+    path: /tmp/ws
+    clone_command_template: "git clone {{.RepoName}} {{.DestDir}}"
+`
+
+func writeCfg(t *testing.T, dir, content string) string {
+	t.Helper()
+	p := filepath.Join(dir, "config.yaml")
+	if err := os.WriteFile(p, []byte(content), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	return p
+}
+
+func writeFromFile(t *testing.T, dir, name, content string) string {
+	t.Helper()
+	p := filepath.Join(dir, name)
+	if err := os.WriteFile(p, []byte(content), 0o600); err != nil {
+		t.Fatalf("write from-file: %v", err)
+	}
+	return p
+}
+
+// ── replace ──────────────────────────────────────────────────────────────────
+
+func TestReplaceCmd_HasCorrectUse(t *testing.T) {
+	cmd := findSubcommand(t, NewCmd(), "replace")
+	if cmd.Use != "replace" {
+		t.Fatalf("replace Use = %q, want %q", cmd.Use, "replace")
+	}
+}
+
+func TestReplaceCmd_RequiresFromFile(t *testing.T) {
+	cmd := newReplaceCmd()
+	cmd.SetArgs(nil)
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error when --from-file is missing")
+	}
+}
+
+func TestReplaceCmd_SucceedsWithValidFile(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("GRAZHDA_DIR", dir)
+	writeCfg(t, dir, testValidYAML)
+	from := writeFromFile(t, dir, "new.yaml", testValidYAML2)
+
+	cmd := newReplaceCmd()
+	cmd.SetArgs([]string{"--from-file", from})
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("replace: %v (output: %s)", err, out.String())
+	}
+	if !strings.Contains(out.String(), "Config replaced") {
+		t.Errorf("expected success message, got: %s", out.String())
+	}
+}
+
+func TestReplaceCmd_CreatesBackupFile(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("GRAZHDA_DIR", dir)
+	cfgPath := writeCfg(t, dir, testValidYAML)
+	from := writeFromFile(t, dir, "new.yaml", testValidYAML2)
+
+	cmd := newReplaceCmd()
+	cmd.SetArgs([]string{"--from-file", from})
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.Execute() //nolint:errcheck
+
+	if _, err := os.Stat(cfgPath + ".bak"); os.IsNotExist(err) {
+		t.Error(".bak file does not exist after replace")
+	}
+}
+
+func TestReplaceCmd_BackupContainsOriginal(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("GRAZHDA_DIR", dir)
+	cfgPath := writeCfg(t, dir, testValidYAML)
+	orig, _ := os.ReadFile(cfgPath)
+	from := writeFromFile(t, dir, "new.yaml", testValidYAML2)
+
+	cmd := newReplaceCmd()
+	cmd.SetArgs([]string{"--from-file", from})
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.Execute() //nolint:errcheck
+
+	bak, _ := os.ReadFile(cfgPath + ".bak")
+	if string(orig) != string(bak) {
+		t.Error(".bak content differs from original")
+	}
+}
+
+func TestReplaceCmd_OriginalPreservedOnValidationFailure(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("GRAZHDA_DIR", dir)
+	cfgPath := writeCfg(t, dir, testValidYAML)
+	orig, _ := os.ReadFile(cfgPath)
+	from := writeFromFile(t, dir, "bad.yaml", testInvalidYAML)
+
+	cmd := newReplaceCmd()
+	cmd.SetArgs([]string{"--from-file", from})
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.Execute() //nolint:errcheck
+
+	got, _ := os.ReadFile(cfgPath)
+	if string(orig) != string(got) {
+		t.Error("original config was modified despite validation failure")
+	}
+}
+
+// ── merge ────────────────────────────────────────────────────────────────────
+
+func TestMergeCmd_HasCorrectUse(t *testing.T) {
+	cmd := findSubcommand(t, NewCmd(), "merge")
+	if cmd.Use != "merge" {
+		t.Fatalf("merge Use = %q, want %q", cmd.Use, "merge")
+	}
+}
+
+func TestMergeCmd_RequiresFromFile(t *testing.T) {
+	cmd := newMergeCmd()
+	cmd.SetArgs(nil)
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error when --from-file is missing")
+	}
+}
+
+func TestMergeCmd_SucceedsWithValidPatch(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("GRAZHDA_DIR", dir)
+	writeCfg(t, dir, testValidYAML)
+	from := writeFromFile(t, dir, "patch.yaml", "editor: nano\n")
+
+	cmd := newMergeCmd()
+	cmd.SetArgs([]string{"--from-file", from})
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("merge: %v (output: %s)", err, out.String())
+	}
+	if !strings.Contains(out.String(), "Config merged") {
+		t.Errorf("expected success message, got: %s", out.String())
+	}
+}
+
+func TestMergeCmd_CreatesBackupFile(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("GRAZHDA_DIR", dir)
+	cfgPath := writeCfg(t, dir, testValidYAML)
+	from := writeFromFile(t, dir, "patch.yaml", "editor: nano\n")
+
+	cmd := newMergeCmd()
+	cmd.SetArgs([]string{"--from-file", from})
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.Execute() //nolint:errcheck
+
+	if _, err := os.Stat(cfgPath + ".bak"); os.IsNotExist(err) {
+		t.Error(".bak file does not exist after merge")
+	}
+}
+
+func TestMergeCmd_AppliesPatch(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("GRAZHDA_DIR", dir)
+	cfgPath := writeCfg(t, dir, testValidYAML)
+	from := writeFromFile(t, dir, "patch.yaml", "editor: nano\n")
+
+	cmd := newMergeCmd()
+	cmd.SetArgs([]string{"--from-file", from})
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("merge: %v", err)
+	}
+
+	data, _ := os.ReadFile(cfgPath)
+	if !strings.Contains(string(data), "nano") {
+		t.Errorf("expected 'nano' in merged config, got:\n%s", data)
+	}
+}
+
+func TestMergeCmd_OriginalPreservedOnValidationFailure(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("GRAZHDA_DIR", dir)
+	cfgPath := writeCfg(t, dir, testValidYAML)
+	orig, _ := os.ReadFile(cfgPath)
+	from := writeFromFile(t, dir, "bad.yaml", testInvalidYAML)
+
+	cmd := newMergeCmd()
+	cmd.SetArgs([]string{"--from-file", from})
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.Execute() //nolint:errcheck
+
+	got, _ := os.ReadFile(cfgPath)
+	if string(orig) != string(got) {
+		t.Error("original config was modified despite validation failure")
 	}
 }
