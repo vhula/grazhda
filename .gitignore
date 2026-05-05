@@ -1,5 +1,6 @@
 .claude/
 .idea
+*.iml
 bin/
 internal/proto/
 # Compiled class file

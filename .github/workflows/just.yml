@@ -5,7 +5,7 @@ name: Grazhda Tests
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "rewrite-from-scratch" ]
   pull_request:
     branches: [ "main" ]
 
