@@ -2,6 +2,7 @@
 .idea
 *.iml
 bin/
+build/
 internal/proto/
 # Compiled class file
 *.class
